@@ -27,7 +27,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -392,7 +392,7 @@ fun WordLibraryRow(
 
             // Quick Audio TTS
             IconButton(onClick = onPlayAudio) {
-                Icon(Icons.Default.VolumeUp, contentDescription = "Pronounce", tint = LilacPrimary)
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Pronounce", tint = LilacPrimary)
             }
 
             IconButton(onClick = onDelete) {
@@ -432,7 +432,7 @@ fun WordDetailDialog(
                     color = TextLight
                 )
                 IconButton(onClick = onPlayAudio) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = null, tint = LilacPrimary)
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = LilacPrimary)
                 }
             }
         },
@@ -476,7 +476,7 @@ fun WordDetailDialog(
                         ) {
                             Text("Context Sentence:", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TextMuted)
                             IconButton(onClick = onPlaySentence, modifier = Modifier.size(24.dp)) {
-                                Icon(Icons.Default.VolumeUp, contentDescription = null, tint = LilacPrimary, modifier = Modifier.size(16.dp))
+                                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = LilacPrimary, modifier = Modifier.size(16.dp))
                             }
                         }
                         Text(wordWithSrs.word.exampleCn, fontSize = 14.sp, fontWeight = FontWeight.Normal, color = TextLight)

@@ -32,7 +32,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.School
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -524,7 +524,7 @@ private fun RecentWordCard(
                     onClick = onPlayAudio,
                     modifier = Modifier.size(24.dp)
                 ) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = "Listen", tint = LilacPrimary, modifier = Modifier.size(16.dp))
+                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Listen", tint = LilacPrimary, modifier = Modifier.size(16.dp))
                 }
             }
 

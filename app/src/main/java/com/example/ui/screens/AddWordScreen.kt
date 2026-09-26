@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -43,6 +43,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -256,6 +257,17 @@ fun AddWordScreen(
                             color = MaterialTheme.colorScheme.error,
                             fontSize = 12.sp
                         )
+                        // Offline sample data is now an explicit choice rather than a
+                        // silent substitution. The result is labelled as local data.
+                        TextButton(
+                            onClick = { viewModel.useOfflineSampleFor(searchInput) },
+                            enabled = searchInput.isNotBlank()
+                        ) {
+                            Text(
+                                text = "Use offline sample data instead",
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
 
@@ -377,7 +389,7 @@ fun WordReviewAndApprovalView(
                 ) {
                     Text("Character Details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = TextLight)
                     IconButton(onClick = { onPlayAudio(hanzi) }) {
-                        Icon(Icons.Default.VolumeUp, contentDescription = "Listen", tint = LilacPrimary)
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Listen", tint = LilacPrimary)
                     }
                 }
 
@@ -473,7 +485,7 @@ fun WordReviewAndApprovalView(
                 ) {
                     Text("Contextual Example Sentence", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextLight)
                     IconButton(onClick = { onPlaySentence(exampleCn) }) {
-                        Icon(Icons.Default.VolumeUp, contentDescription = "Listen sentence", tint = LilacPrimary)
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Listen sentence", tint = LilacPrimary)
                     }
                 }
 

@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.GeminiAiService
@@ -17,6 +18,7 @@ import com.example.data.repository.WordRepository
 import com.example.data.srs.SrsRating
 import com.example.util.NotificationHelper
 import com.example.util.TextToSpeechHelper
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +36,10 @@ sealed class AiGenerationState {
     data class Error(val message: String) : AiGenerationState()
 }
 
+// flatMapLatest is used below to re-scope the word queries to the signed-in learner.
+// It is still marked experimental in coroutines, so opt in explicitly rather than
+// leaving the compiler warning in place.
+@OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     val userRepository = UserRepository(database.userDao())
@@ -98,6 +104,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isSavingWord = MutableStateFlow(false)
     val isSavingWord: StateFlow<Boolean> = _isSavingWord.asStateFlow()
+
+    // Review write failures, surfaced by the swipe deck.
+    private val _reviewError = MutableStateFlow<String?>(null)
+    val reviewError: StateFlow<String?> = _reviewError.asStateFlow()
+
+    fun clearReviewError() {
+        _reviewError.value = null
+    }
 
     // Settings
     private val _isSlowTts = MutableStateFlow(false)
@@ -197,19 +211,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // AI Generation Operations
     fun generateWord(query: String) {
-        if (query.isBlank()) return
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            _aiState.value = AiGenerationState.Error("Enter a Chinese character or pinyin first.")
+            return
+        }
         viewModelScope.launch {
             _wordSaveError.value = null
             _aiState.value = AiGenerationState.Loading
-            val result = geminiService.generateChineseWordData(query)
+            val result = geminiService.generateChineseWordData(trimmed)
             result.fold(
                 onSuccess = { data ->
                     _aiState.value = AiGenerationState.ReadyForReview(data)
                 },
                 onFailure = { error ->
-                    _aiState.value = AiGenerationState.Error(error.message ?: "Failed to generate word data")
+                    // Real, actionable failures now reach the UI instead of being
+                    // silently replaced with placeholder data.
+                    _aiState.value = AiGenerationState.Error(
+                        error.message ?: "Failed to generate word data"
+                    )
                 }
             )
+        }
+    }
+
+    /**
+     * Opt-in path for the built-in offline sample dictionary. Only ever called from an
+     * explicit user action, and the result is tagged LOCAL_FALLBACK so the UI labels it.
+     */
+    fun useOfflineSampleFor(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) {
+            _aiState.value = AiGenerationState.Error("Enter a Chinese character or pinyin first.")
+            return
+        }
+        viewModelScope.launch {
+            _aiState.value = AiGenerationState.ReadyForReview(geminiService.offlineSampleFor(trimmed))
         }
     }
 
@@ -276,10 +313,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun submitRating(wordWithSrs: WordWithSrs, rating: SrsRating) {
         val user = currentUser.value ?: return
         viewModelScope.launch {
-            srsRepository.processReview(wordWithSrs.word.id, user.id, rating)
-            _reviewedSessionCount.value = _reviewedSessionCount.value + 1
-            _isCardFlipped.value = false
-            _currentDeckIndex.value = _currentDeckIndex.value + 1
+            // A failed write must not advance the deck or crash the app: surface it
+            // and leave the card in place so the learner can retry.
+            try {
+                srsRepository.processReview(wordWithSrs.word.id, user.id, rating)
+                _reviewError.value = null
+                _reviewedSessionCount.value = _reviewedSessionCount.value + 1
+                _isCardFlipped.value = false
+                _currentDeckIndex.value = _currentDeckIndex.value + 1
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to record review for word ${wordWithSrs.word.id}", e)
+                _reviewError.value = "Couldn't save your review. Please try again."
+            }
         }
     }
 

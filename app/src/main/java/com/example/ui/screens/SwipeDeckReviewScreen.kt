@@ -31,7 +31,7 @@ import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -45,6 +45,8 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -122,6 +124,15 @@ fun SwipeDeckReviewScreen(
     val isFlipped by viewModel.isCardFlipped.collectAsState()
     val isSlowTts by viewModel.isSlowTts.collectAsState()
     val reviewedCount by viewModel.reviewedSessionCount.collectAsState()
+    val reviewError by viewModel.reviewError.collectAsState()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(reviewError) {
+        reviewError?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearReviewError()
+        }
+    }
 
     val coroutineScope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
@@ -167,6 +178,7 @@ fun SwipeDeckReviewScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = DarkBg
     ) { padding ->
         if (reviewSessionWordIds == null && allWords.isNotEmpty()) {
@@ -304,7 +316,7 @@ fun SwipeDeckReviewScreen(
                                     modifier = Modifier.size(42.dp),
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
                                 ) {
-                                    Icon(Icons.Default.VolumeUp, contentDescription = "Hear Pronunciation", tint = LilacPrimaryDark)
+                                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Hear Pronunciation", tint = LilacPrimaryDark)
                                 }
                             }
 
@@ -496,7 +508,7 @@ fun SwipeDeckReviewScreen(
                                             onClick = { viewModel.playSentenceAudio(currentWordWithSrs.word.exampleCn) },
                                             modifier = Modifier.size(32.dp)
                                         ) {
-                                            Icon(Icons.Default.VolumeUp, contentDescription = "Play sentence", tint = LilacPrimary, modifier = Modifier.size(20.dp))
+                                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Play sentence", tint = LilacPrimary, modifier = Modifier.size(20.dp))
                                         }
                                     }
 

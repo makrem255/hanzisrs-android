@@ -5,12 +5,17 @@
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!--
+   Excludes the Room database (hanzi_srs_database), which stores users.passwordHash
+   and users.token, from automatic Google Drive backup. An empty <cloud-backup>
+   element means "include everything".
+-->
+        <exclude domain="database" path="hanzi_srs_database" />
     </cloud-backup>
     <!--
+    Device-to-device transfer is deliberately left unrestricted: it is an explicit
+    user action to the learner's own new hardware, so review history survives a
+    phone upgrade.
     <device-transfer>
         <include .../>
         <exclude .../>

@@ -7,6 +7,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
@@ -28,6 +29,32 @@ data class GeneratedWordData(
 
 enum class WordDataOrigin { GEMINI, LOCAL_FALLBACK }
 
+/**
+ * Why a word could not be produced by Gemini. Callers can tell these apart so the
+ * learner sees an actionable message instead of silently receiving fallback data.
+ */
+sealed class AiFailure(message: String) : Exception(message) {
+    /** No usable API key was compiled into the build. */
+    object MissingApiKey : AiFailure(
+        "AI word generation is unavailable: no Gemini API key is configured in this build."
+    )
+
+    /** The request never reached Google (offline, DNS, timeout, TLS). */
+    class Network(cause: Throwable) : AiFailure(
+        "Couldn't reach the AI service. Check your connection and try again."
+    ) { init { initCause(cause) } }
+
+    /** Google answered, but rejected the request (bad key, quota, unsupported model). */
+    class Api(val code: Int, val detail: String) : AiFailure(
+        "The AI service rejected the request (HTTP $code). $detail"
+    )
+
+    /** The response arrived but did not contain the JSON we asked for. */
+    class MalformedResponse(cause: Throwable?) : AiFailure(
+        "The AI service returned an unexpected response. Please try again."
+    ) { init { if (cause != null) initCause(cause) } }
+}
+
 class GeminiAiService {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -35,101 +62,148 @@ class GeminiAiService {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    suspend fun generateChineseWordData(query: String): Result<GeneratedWordData> = withContext(Dispatchers.IO) {
-        val apiKey = try {
-            BuildConfig.GEMINI_API_KEY
-        } catch (e: Exception) {
-            ""
+    /**
+     * SECURITY NOTE: the API key is compiled into the APK via BuildConfig and is
+     * therefore extractable by anyone who downloads the app. This is a known,
+     * accepted trade-off for this build (see project README). App Check is not
+     * enforced on this endpoint because the call goes directly to
+     * generativelanguage.googleapis.com rather than through the Firebase AI proxy.
+     * A production release should move this behind a backend proxy or the
+     * Firebase AI SDK with App Check.
+     */
+    suspend fun generateChineseWordData(query: String): Result<GeneratedWordData> =
+        withContext(Dispatchers.IO) {
+            val apiKey = runCatching { BuildConfig.GEMINI_API_KEY }.getOrDefault("")
+
+            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
+                Log.w("GeminiAiService", "No Gemini key configured in this build.")
+                return@withContext Result.failure(AiFailure.MissingApiKey)
+            }
+
+            try {
+                val request = Request.Builder()
+                    .url("$BASE_URL/models/$MODEL_ID:generateContent")
+                    .header("x-goog-api-key", apiKey)
+                    .post(buildRequestBody(query))
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    val body = response.body?.string().orEmpty()
+                    if (!response.isSuccessful) {
+                        Log.w("GeminiAiService", "Gemini API returned HTTP ${response.code}.")
+                        return@withContext Result.failure(
+                            AiFailure.Api(response.code, summarise(body))
+                        )
+                    }
+                    Result.success(parseWordData(body, query))
+                }
+            } catch (e: AiFailure) {
+                Result.failure(e)
+            } catch (e: java.io.IOException) {
+                // Connection reset, timeout, DNS failure, no network.
+                Log.w("GeminiAiService", "Network failure calling Gemini: ${e.message}")
+                Result.failure(AiFailure.Network(e))
+            } catch (e: org.json.JSONException) {
+                Log.e("GeminiAiService", "Malformed Gemini response: ${e.message}", e)
+                Result.failure(AiFailure.MalformedResponse(e))
+            } catch (e: Exception) {
+                Log.e("GeminiAiService", "Unexpected Gemini failure: ${e.message}", e)
+                Result.failure(AiFailure.MalformedResponse(e))
+            }
         }
 
-        if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-            Log.d("GeminiAiService", "No Gemini key configured; using the local word-data fallback.")
-            return@withContext Result.success(generateLocalFallback(query))
-        }
+    private fun buildRequestBody(query: String): RequestBody {
+        val systemPrompt = """
+            You are an expert Chinese linguist and educator. Analyze the provided Chinese character (Hanzi) or Pinyin input.
+            Return ONLY a valid, single JSON object with the following fields:
+            - hanzi: Chinese character(s) in Simplified Chinese.
+            - pinyin: Pinyin with correct tone marks (e.g. "xuéxí", "hǎo").
+            - meaning: Concise English translation and grammatical function.
+            - hskLevel: Integer from 1 to 6 (default 1).
+            - radical: Radical with meaning (e.g. "子 (child)").
+            - exampleCn: Natural, contextual example sentence in Simplified Chinese.
+            - examplePy: Pinyin for the example sentence.
+            - exampleEn: English translation for the example sentence.
+            - strokeCount: Integer number of strokes for the primary character.
+            - strokeBreakdown: Comma-separated list of stroke names with tone/direction (e.g. "点 (Diǎn), 横折 (Héng Zhé), 竖 (Shù)").
+            Do NOT wrap the JSON in Markdown code fences if possible, or provide standard raw JSON.
+        """.trimIndent()
 
-        try {
-            val systemPrompt = """
-                You are an expert Chinese linguist and educator. Analyze the provided Chinese character (Hanzi) or Pinyin input.
-                Return ONLY a valid, single JSON object with the following fields:
-                - hanzi: Chinese character(s) in Simplified Chinese.
-                - pinyin: Pinyin with correct tone marks (e.g. "xuéxí", "hǎo").
-                - meaning: Concise English translation and grammatical function.
-                - hskLevel: Integer from 1 to 6 (default 1).
-                - radical: Radical with meaning (e.g. "子 (child)").
-                - exampleCn: Natural, contextual example sentence in Simplified Chinese.
-                - examplePy: Pinyin for the example sentence.
-                - exampleEn: English translation for the example sentence.
-                - strokeCount: Integer number of strokes for the primary character.
-                - strokeBreakdown: Comma-separated list of stroke names with tone/direction (e.g. "点 (Diǎn), 横折 (Héng Zhé), 竖 (Shù)").
-                Do NOT wrap the JSON in Markdown code fences if possible, or provide standard raw JSON.
-            """.trimIndent()
-
-            val userPrompt = "Generate complete Chinese SRS learning data for the input: $query"
-
-            val jsonPayload = JSONObject().apply {
-                put("contents", JSONArray().apply {
-                    put(JSONObject().apply {
-                        put("role", "user")
-                        put("parts", JSONArray().apply {
-                            put(JSONObject().put("text", "$systemPrompt\n\nUser Input: $userPrompt"))
-                        })
+        val jsonPayload = JSONObject().apply {
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().put("text", "$systemPrompt\n\nUser Input: $query"))
                     })
                 })
-                put("generationConfig", JSONObject().apply {
-                    put("temperature", 0.3)
-                    put("responseMimeType", "application/json")
-                })
-            }
-
-            val requestBody = jsonPayload.toString().toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent")
-                .header("x-goog-api-key", apiKey)
-                .post(requestBody)
-                .build()
-
-            val responseBody = client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    Log.w("GeminiAiService", "Gemini API returned ${response.code}; using the local fallback.")
-                    return@withContext Result.success(generateLocalFallback(query))
-                }
-                response.body?.string().orEmpty()
-            }
-            val jsonResponse = JSONObject(responseBody)
-            val candidates = jsonResponse.optJSONArray("candidates")
-            val content = candidates?.optJSONObject(0)?.optJSONObject("content")
-            val parts = content?.optJSONArray("parts")
-            val text = parts?.optJSONObject(0)?.optString("text") ?: ""
-
-            val cleanedJson = text.trim()
-                .removePrefix("```json")
-                .removePrefix("```")
-                .removeSuffix("```")
-                .trim()
-
-            val wordJson = JSONObject(cleanedJson)
-            val generated = GeneratedWordData(
-                hanzi = wordJson.optString("hanzi", query),
-                pinyin = wordJson.optString("pinyin", "pīnyīn"),
-                meaning = wordJson.optString("meaning", "Meaning"),
-                hskLevel = wordJson.optInt("hskLevel", 1).coerceIn(1, 6),
-                radical = wordJson.optString("radical", "部首"),
-                exampleCn = wordJson.optString("exampleCn", "这是一个例句。"),
-                examplePy = wordJson.optString("examplePy", "Zhè shì yí gè lìjù."),
-                exampleEn = wordJson.optString("exampleEn", "This is an example sentence."),
-                strokeBreakdown = wordJson.optString("strokeBreakdown", "横 (Héng), 竖 (Shù), 撇 (Piě), 捺 (Nà)"),
-                strokeCount = wordJson.optInt("strokeCount", 4),
-                origin = WordDataOrigin.GEMINI
-            )
-
-            Result.success(generated)
-        } catch (e: Exception) {
-            Log.e("GeminiAiService", "Failed to parse Gemini response: ${e.message}", e)
-            Result.success(generateLocalFallback(query))
+            })
+            put("generationConfig", JSONObject().apply {
+                put("temperature", 0.3)
+                put("responseMimeType", "application/json")
+            })
         }
+        return jsonPayload.toString().toRequestBody("application/json".toMediaType())
     }
 
-    private fun generateLocalFallback(query: String): GeneratedWordData {
+    private fun parseWordData(responseBody: String, query: String): GeneratedWordData {
+        val jsonResponse = JSONObject(responseBody)
+        val text = jsonResponse.optJSONArray("candidates")
+            ?.optJSONObject(0)
+            ?.optJSONObject("content")
+            ?.optJSONArray("parts")
+            ?.optJSONObject(0)
+            ?.optString("text")
+            .orEmpty()
+
+        if (text.isBlank()) throw org.json.JSONException("empty candidates payload")
+
+        val cleanedJson = text.trim()
+            .removePrefix("```json")
+            .removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+
+        val wordJson = JSONObject(cleanedJson)
+        return GeneratedWordData(
+            hanzi = wordJson.optString("hanzi", query),
+            pinyin = wordJson.optString("pinyin", "pīnyīn"),
+            meaning = wordJson.optString("meaning", "Meaning"),
+            hskLevel = wordJson.optInt("hskLevel", 1).coerceIn(1, 6),
+            radical = wordJson.optString("radical", "部首"),
+            exampleCn = wordJson.optString("exampleCn", "这是一个例句。"),
+            examplePy = wordJson.optString("examplePy", "Zhè shì yí gè lìjù."),
+            exampleEn = wordJson.optString("exampleEn", "This is an example sentence."),
+            strokeBreakdown = wordJson.optString("strokeBreakdown", "横 (Héng), 竖 (Shù), 撇 (Piě), 捺 (Nà)"),
+            strokeCount = wordJson.optInt("strokeCount", 4),
+            origin = WordDataOrigin.GEMINI
+        )
+    }
+
+    /** Pulls a short, safe message out of a Google error body for display. */
+    private fun summarise(errorBody: String): String {
+        val message = runCatching {
+            JSONObject(errorBody).optJSONObject("error")?.optString("message")
+        }.getOrNull()
+        return message?.takeIf { it.isNotBlank() }?.take(200) ?: "No further detail available."
+    }
+
+    companion object {
+        private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
+        private const val MODEL_ID = "gemini-3.5-flash"
+    }
+
+    /**
+     * Offline sample data for a small built-in dictionary, plus a generic placeholder
+     * for anything unknown.
+     *
+     * This is deliberately NOT used as an automatic fallback: previously any network
+     * or API error was silently replaced with this data, so the learner was shown
+     * placeholder content while the UI implied the AI had answered. Callers must now
+     * invoke this explicitly (the result is tagged [WordDataOrigin.LOCAL_FALLBACK] so
+     * the UI can label it) after the learner opts into offline sample data.
+     */
+    fun offlineSampleFor(query: String): GeneratedWordData {
         val trimmed = query.trim()
         val predefined = getPredefinedDictionary()
 
@@ -138,12 +212,10 @@ class GeminiAiService {
 
         // Character level lookup
         if (trimmed.length == 1) {
-            val char = trimmed[0]
-            val fallback = createHeuristicForChar(char)
-            return fallback
+            return createHeuristicForChar(trimmed[0])
         }
 
-        // Generic fallback for any user input
+        // Generic sample for any user input
         return GeneratedWordData(
             hanzi = if (isAllChinese(trimmed)) trimmed else "字",
             pinyin = if (!isAllChinese(trimmed)) trimmed else "zì",

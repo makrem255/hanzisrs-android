@@ -72,23 +72,26 @@ class UserRepository(private val userDao: UserDao) {
         val user = userDao.findByIdentifier(trimmedId)
             ?: return AuthResult.Error("No account found with this identifier")
 
-        // One-time migration path for the preloaded profile created by earlier app builds.
-        val isLegacyDemoProfile = user.identifier == "learner@hanzisrs.com" &&
-            user.passwordHash == "demo_hash_123" && passwordPlain == "learnhanzi"
-        val validPassword = isLegacyDemoProfile || PasswordHasher.verify(passwordPlain, user.passwordHash) ||
+        // Passwords are verified against the stored PBKDF2 hash. The only tolerated
+        // legacy format is a bare SHA-256 digest from an older build, which is
+        // transparently upgraded to PBKDF2 on successful login.
+        //
+        // There is deliberately no hard-coded demo credential bypass here: a
+        // magic-string password check is an authentication backdoor, and the seeded
+        // demo profile already stores a real PBKDF2 hash.
+        val validPassword = PasswordHasher.verify(passwordPlain, user.passwordHash) ||
             (PasswordHasher.isLegacySha256(user.passwordHash) &&
-                PasswordHasher.legacySha256(passwordPlain) == user.passwordHash)
+                PasswordHasher.legacySha256Matches(passwordPlain, user.passwordHash))
         if (!validPassword) {
             return AuthResult.Error("Incorrect password")
         }
 
         val newToken = "local_profile_${UUID.randomUUID()}"
+        val upgradedHash =
+            if (PasswordHasher.isLegacySha256(user.passwordHash)) PasswordHasher.createHash(passwordPlain)
+            else user.passwordHash
         val updatedUser = user.copy(
-            passwordHash = if (isLegacyDemoProfile || PasswordHasher.isLegacySha256(user.passwordHash)) {
-                PasswordHasher.createHash(passwordPlain)
-            } else {
-                user.passwordHash
-            },
+            passwordHash = upgradedHash,
             token = newToken
         )
         userDao.updateUser(updatedUser)

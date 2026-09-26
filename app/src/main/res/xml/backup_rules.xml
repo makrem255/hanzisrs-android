@@ -7,7 +7,10 @@
 -->
 <full-backup-content>
     <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
+   The Room database holds users.passwordHash and users.token. An empty
+   <full-backup-content> means "back up everything", so the database must be
+   excluded explicitly or credential hashes are uploaded to Google Drive.
+   Applies to Android 11 (API 30) and below; API 31+ uses data_extraction_rules.xml.
 -->
+    <exclude domain="database" path="hanzi_srs_database" />
 </full-backup-content>

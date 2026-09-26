@@ -49,6 +49,32 @@ object PasswordHasher {
             .digest(password.toByteArray())
             .joinToString("") { "%02x".format(it) }
 
+    /**
+     * Compares a candidate password against a legacy SHA-256 digest in constant time.
+     * Plain String equality would short-circuit on the first differing character and
+     * leak timing information about the expected digest.
+     */
+    fun legacySha256Matches(password: String, expectedHex: String): Boolean {
+        val expected = hexToBytes(expectedHex) ?: return false
+        return MessageDigest.isEqual(legacySha256Bytes(password), expected)
+    }
+
+    private fun legacySha256Bytes(password: String): ByteArray =
+        MessageDigest.getInstance("SHA-256").digest(password.toByteArray(Charsets.UTF_8))
+
+    /** Decodes a lowercase hex string. The legacy format is hex, not Base64. */
+    private fun hexToBytes(hex: String): ByteArray? {
+        if (hex.isEmpty() || hex.length % 2 != 0) return null
+        val out = ByteArray(hex.length / 2)
+        for (i in out.indices) {
+            val hi = Character.digit(hex[i * 2], 16)
+            val lo = Character.digit(hex[i * 2 + 1], 16)
+            if (hi < 0 || lo < 0) return null
+            out[i] = ((hi shl 4) or lo).toByte()
+        }
+        return out
+    }
+
     private fun deriveKey(password: String, salt: ByteArray, iterations: Int): ByteArray {
         val keySpec = PBEKeySpec(password.toCharArray(), salt, iterations, KEY_LENGTH_BITS)
         return try {

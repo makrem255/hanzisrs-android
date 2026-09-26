@@ -1,0 +1,42 @@
+*.iml
+.gradle
+.kotlin
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+.env
+debug.keystore
+
+# --- Added: build caches (not covered by the defaults above) ---
+# Local Gradle build cache (~1.5 GB, 12k+ files). Must never be committed.
+.gradle-build-cache/
+.cxx/
+
+# --- Added: secrets and signing material (rule: never commit credentials) ---
+# Firebase config contains project IDs and API keys.
+google-services.json
+# Release/upload keystores and their properties.
+*.jks
+*.keystore
+keystore.properties
+
+# --- Added: IDE noise ---
+.idea/
+app/.idea/
+*.hprof
+
+# --- Added: vestigial nested git repo ---
+# chinese-learning-app/ is an abandoned Flutter/FastAPI scaffold (initial commit
+# only, no source files). It is its own git repository, so including it would
+# nest a repo inside this one. Retained on disk, excluded from this repo.
+/chinese-learning-app/

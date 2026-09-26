@@ -1,0 +1,7 @@
+{
+  "name": "HanziSRS",
+  "description": "AI-powered Chinese language learning app featuring Spaced Repetition (SRS), animated stroke order tracing, Mandarin TTS audio, and AI word enrichment.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

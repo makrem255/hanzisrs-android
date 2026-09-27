@@ -119,6 +119,18 @@ interface UserAchievementDao {
     fun observeUnlockedCount(userId: Long): Flow<Int>
 
     /**
+     * Badge ids already earned, for the award pass to exclude from "newly unlocked".
+     *
+     * Suspending rather than observed because the pass needs to read this *inside* the same
+     * transaction that writes the new awards. Read outside, two answers recorded in quick
+     * succession could each read an empty set, each decide the same badge was newly earned, and
+     * each report it - so the learner would be congratulated twice for one thing. The write is
+     * idempotent either way, but an announcement that can repeat is worse than a duplicate row.
+     */
+    @Query("SELECT achievementId FROM user_achievements WHERE userId = :userId AND unlockedAt IS NOT NULL")
+    suspend fun unlockedIdsForUser(userId: Long): List<Long>
+
+    /**
      * Records progress, unlocking on the same statement when the threshold is met.
      *
      * Guarded by `unlockedAt IS NULL` so re-running the award pass cannot move an unlock's

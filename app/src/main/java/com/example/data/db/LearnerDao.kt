@@ -159,4 +159,26 @@ interface ReviewLogDao {
 
     @Query("SELECT COUNT(*) FROM review_log WHERE userId = :userId")
     suspend fun countForUser(userId: Long): Int
+
+    /**
+     * How many answers of each rating this learner has ever given.
+     *
+     * Grouped in SQL rather than by loading the log and counting in Kotlin: this is a lifetime
+     * total, and the only column XP needs is the rating. A `GROUP BY rating` is served by the
+     * `userId` index and returns at most four rows, where the log itself grows without bound.
+     */
+    @Query("SELECT rating, COUNT(*) AS tally FROM review_log WHERE userId = :userId GROUP BY rating")
+    fun observeRatingTallies(userId: Long): Flow<List<RatingTallyRow>>
 }
+
+/**
+ * One row of [ReviewLogDao.observeRatingTallies].
+ *
+ * [rating] is the 1-4 integer `review_log` stores, resolved back to `SrsRating` by the caller.
+ * The second column is named `tally` rather than `count` because `count` is a SQL aggregate's own
+ * name and a projection column called `count` is a trap for anyone extending the query later.
+ */
+data class RatingTallyRow(
+    val rating: Int,
+    val tally: Int
+)

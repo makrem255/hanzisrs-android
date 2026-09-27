@@ -68,6 +68,29 @@ class SrsRepository(private val database: AppDatabase) {
         srsDao.getByEnrollment(userVocabularyId)
 
     /**
+     * What [rating] would do to [state], without writing anything.
+     *
+     * The four rating buttons each show the interval they will produce, which is a promise about
+     * the scheduler rather than a label. The screen used to get that by calling
+     * [SrsAlgorithm.calculateNextReview] itself, which put the concrete algorithm in the UI: a
+     * second scheduling strategy could be introduced anywhere else in the app and this one screen
+     * would keep showing the old one's numbers. Delegating here means the screen asks the
+     * repository, and the repository is the one place that knows the rule.
+     *
+     * A null [state] - an unscheduled card, which is what a word is between being added and being
+     * enrolled - is priced as a first review, so the buttons still show a real interval rather
+     * than an empty one.
+     *
+     * @param now the instant the answer would be made at. Passed rather than read from the clock
+     *   so the preview and the write that follows it cannot disagree across a day boundary.
+     */
+    fun previewNext(
+        state: SrsStateEntity?,
+        rating: SrsRating,
+        now: Long = System.currentTimeMillis()
+    ): SrsCalculationResult = SrsAlgorithm.calculateNextReview(state, rating, now = now)
+
+    /**
      * Records one answer.
      *
      * @param userVocabularyId the enrolment, not the shared content: a learner can only ever

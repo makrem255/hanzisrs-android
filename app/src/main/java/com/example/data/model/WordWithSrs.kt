@@ -46,8 +46,41 @@ data class WordView(
     val tags: String,
     val exampleSentenceId: Long?,
     val addedAt: Long,
-    val isStarred: Boolean
-)
+    val isStarred: Boolean,
+    /**
+     * Tone as an integer 1-4, or 5 for neutral, kept alongside [pinyin] rather than inside it.
+     *
+     * The tone-marked form is lossy: "ma" carries no mark for tone 5, and a screen cannot
+     * draw a contour or label a syllable "tone 2" without a number. Defaulted to 0 so every
+     * existing construction site and test fixture still compiles; 0 means "not recorded",
+     * which is different from tone 5, and callers are expected to say so rather than render
+     * a mark they do not have.
+     */
+    val toneNumber: Int = 0,
+    /** Five-level contour from `pinyin_syllables.toneContour`, stored verbatim. */
+    val toneContour: String = "",
+    /** Grammatical category as recorded on the vocabulary row. Blank when unknown. */
+    val partOfSpeech: String = "",
+    /** Radical structure (左右, 上下, …) from `characters.structure`. Blank until known. */
+    val structure: String = "",
+    /** A [StorageValues.ContentProvenance] storage value, verbatim — not parsed here. */
+    val provenance: String = StorageValues.ContentProvenance.UNKNOWN.storageValue,
+    /** Whether a human has checked this entry's content. False is the honest default. */
+    val isVerified: Boolean = false
+) {
+    /**
+     * Where this entry came from, or null if the stored value is not one this build knows.
+     *
+     * Returns null rather than a fallback so a caller cannot accidentally render an
+     * unrecognised provenance as though it were a known one — the whole point of the field
+     * is that the app admits what it does not know.
+     */
+    val contentProvenance: StorageValues.ContentProvenance?
+        get() = StorageValues.ContentProvenance.fromStorage(provenance)
+
+    /** True when a stored tone is actually usable, i.e. one of the five real tones. */
+    val hasTone: Boolean get() = toneNumber in 1..5
+}
 
 /**
  * Flat projection of the library query, one row per enrolled word.
@@ -63,11 +96,17 @@ data class WordWithSrsRow(
     val vocabularyId: Long,
     val hanzi: String,
     val pinyin: String,
+    val toneNumber: Int,
+    val toneContour: String,
     val meaning: String,
+    val partOfSpeech: String,
     val hskLevel: Int,
     val radical: String,
+    val structure: String,
     val strokeJson: String,
     val tags: String,
+    val provenance: String,
+    val isVerified: Boolean,
     val addedAt: Long,
     val isStarred: Boolean,
     val exampleSentenceId: Long?,
@@ -96,14 +135,20 @@ data class WordWithSrsRow(
             vocabularyId = vocabularyId,
             hanzi = hanzi,
             pinyin = pinyin,
+            toneNumber = toneNumber,
+            toneContour = toneContour,
             meaning = meaning,
+            partOfSpeech = partOfSpeech,
             hskLevel = hskLevel,
             radical = radical,
+            structure = structure,
             exampleCn = exampleCn,
             examplePy = examplePy,
             exampleEn = exampleEn,
             strokeJson = strokeJson,
             tags = tags,
+            provenance = provenance,
+            isVerified = isVerified,
             exampleSentenceId = exampleSentenceId,
             addedAt = addedAt,
             isStarred = isStarred

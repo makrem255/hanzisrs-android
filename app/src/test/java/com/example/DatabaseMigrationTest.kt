@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.example.data.db.AppDatabase
 import com.example.data.db.migrations.MIGRATION_1_2
+import com.example.data.db.migrations.MIGRATION_2_3
 import com.example.data.model.StorageValues
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -336,17 +337,24 @@ class DatabaseMigrationTest {
         }
 
     @Test
-    fun `a migrated database is readable by the v2 DAOs, not just by raw SQL`() {
+    fun `a migrated database is readable through Room, not just by raw SQL`() {
         helper.createDatabase(databaseName, 1).use { seedV1(it) }
-        // Release the helper's handle before opening the same file through Room.
-        helper.runMigrationsAndValidate(databaseName, 2, true, MIGRATION_1_2).close()
+        // Release the helper's handle before opening the same file through Room. `AppDatabase` is
+        // now v3, so the walk has to run all the way to v3 - stopping at v2 would leave Room
+        // comparing the file against a schema it does not expect.
+        helper.runMigrationsAndValidate(
+            databaseName,
+            AppDatabase.VERSION,
+            true,
+            *AppDatabase.MIGRATIONS
+        ).close()
 
-        // Opening through Room with the migration registered proves the schema, the identity
+        // Opening through Room with the migrations registered proves the schema, the identity
         // hash and the queries all agree, which raw SQL alone would not catch.
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val dbFile = context.getDatabasePath(databaseName)
         val room = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_1_2)
+            .addMigrations(*AppDatabase.MIGRATIONS)
             .allowMainThreadQueries()
             .build()
 
@@ -361,5 +369,243 @@ class DatabaseMigrationTest {
         } finally {
             room.close()
         }
+    }
+
+    // ---- v2 to v3: strokes get a row of their own ------------------------------------------------------------------------
+
+    /**
+     * Builds a v2 database, fills it, migrates it to v3, and hands the result to [block].
+     *
+     * A separate helper from [withMigrated] because it starts from the committed `2.json` rather
+     * than replaying v1. The 1-to-2 step has its own tests above; a fixture that had to survive
+     * both to reach the thing under test would be testing the composition, and would report a
+     * 1-to-2 regression as a 2-to-3 one.
+     */
+    private fun <T> withMigratedV3(block: (SupportSQLiteDatabase) -> T): T {
+        helper.createDatabase(v3DatabaseName, 2).use { v2 ->
+            seedV2(v2)
+        }
+        val migrated = helper.runMigrationsAndValidate(v3DatabaseName, 3, true, MIGRATION_2_3)
+        return try {
+            block(migrated)
+        } finally {
+            migrated.close()
+        }
+    }
+
+    /**
+     * A v2 install whose characters carry the stroke breakdown the old schema kept per reading.
+     *
+     * The interesting shapes are all here on purpose. 水 has a full seven-stroke blob with a
+     * reading. 长 is reached by *two* vocabulary rows with *different* blobs, which is the case
+     * that decides whether the migration merges them, picks one, or duplicates. 明 has an empty
+     * blob, which is the case that would catch a migration inventing a stroke count.
+     */
+    private fun seedV2(db: SupportSQLiteDatabase) {
+        // The reference data a v2 row can point at. `runMigrationsAndValidate` only checks the
+        // schema, so these are the minimum rows that make the content tier coherent.
+        db.execSQL(
+            "INSERT INTO learning_levels (id, code, ordinal, title, description, targetWordCount) " +
+                "VALUES (1, 'HSK1', 1, 'Beginner', 'Everyday words', 150)"
+        )
+        insertSyllable(db, 1, "shui", 3, "shuǐ", "35")
+        insertSyllable(db, 2, "chang", 2, "cháng", "35")
+        insertSyllable(db, 3, "zhang", 3, "zhǎng", "214")
+        insertSyllable(db, 4, "ming", 2, "míng", "35")
+
+        // 水, one reading, a full breakdown.
+        insertCharacter(db, 1, "水", 0, 1000)
+        insertVocabulary(db, 1, 1, 1, 1, "water", SEVEN_STROKES)
+
+        // 长, two readings. The written form is identical either way, which is the whole reason
+        // the blob is being moved up to the character.
+        insertCharacter(db, 2, "长", 0, 1001)
+        insertVocabulary(db, 2, 2, 1, 1, "long", FOUR_STROKES_FIRST)
+        insertVocabulary(db, 3, 2, 3, 1, "to grow", FOUR_STROKES_SECOND)
+
+        // 明, with nothing known about its strokes. `strokeCount` stays 0 and the blob is blank.
+        insertCharacter(db, 3, "明", 0, 1002)
+        insertVocabulary(db, 4, 3, 4, 1, "bright", "")
+    }
+
+    private fun insertSyllable(
+        db: SupportSQLiteDatabase,
+        id: Int,
+        syllable: String,
+        tone: Int,
+        marked: String,
+        contour: String
+    ) {
+        db.execSQL(
+            "INSERT INTO pinyin_syllables (id, syllable, toneNumber, toneMarked, initial, final, " +
+                "toneContour, createdAt) VALUES ($id, '$syllable', $tone, '$marked', '', '', " +
+                "'$contour', 1)"
+        )
+    }
+
+    private fun insertCharacter(
+        db: SupportSQLiteDatabase,
+        id: Int,
+        character: String,
+        strokeCount: Int,
+        createdAt: Int
+    ) {
+        db.execSQL(
+            "INSERT INTO characters (id, character, codePoint, strokeCount, radical, createdAt) " +
+                "VALUES ($id, '${q(character)}', ${character.codePointAt(0)}, $strokeCount, 'rad', $createdAt)"
+        )
+    }
+
+    private fun insertVocabulary(
+        db: SupportSQLiteDatabase,
+        id: Int,
+        characterId: Int,
+        pinyinId: Int,
+        levelId: Int,
+        meaning: String,
+        strokeJson: String
+    ) {
+        db.execSQL(
+            "INSERT INTO vocabulary (id, characterId, pinyinId, levelId, meaning, partOfSpeech, " +
+                "strokeJson, tags, frequencyRank, provenance, isVerified, createdAt) VALUES " +
+                "($id, $characterId, $pinyinId, $levelId, '${q(meaning)}', '', " +
+                "'${q(strokeJson)}', '', 0, 'UNKNOWN', 0, 1)"
+        )
+    }
+
+    /** Reads every stroke of one character back, in the order the table stores them. */
+    private fun strokesOf(db: SupportSQLiteDatabase, character: String): List<Triple<Int, String, String>> =
+        buildList {
+            db.query(
+                "SELECT s.position, s.nameCn, s.namePinyin FROM character_strokes s " +
+                    "JOIN characters c ON c.id = s.characterId " +
+                    "WHERE c.character = '${q(character)}' ORDER BY s.position ASC"
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    add(Triple(cursor.getInt(0), cursor.getString(1), cursor.getString(2)))
+                }
+            }
+        }
+
+    @Test
+    fun `a stroke breakdown becomes one row per stroke, in the order it was written`() =
+        withMigratedV3 { migrated ->
+            val strokes = strokesOf(migrated, "水")
+
+            assertEquals("every stroke in the blob should have a row", 7, strokes.size)
+            // Positions are 1-based and dense, so `ORDER BY position` is the writing order and a
+            // gap in it would silently reorder the sequence.
+            assertEquals((1..7).toList(), strokes.map { it.first })
+            assertEquals("丶", strokes[0].second)
+            assertEquals("Diǎn", strokes[0].third)
+            assertEquals("一", strokes[6].second)
+            assertEquals("Héng", strokes[6].third)
+        }
+
+    @Test
+    fun `a character with no stroke data gets no strokes rather than a guess`() =
+        withMigratedV3 { migrated ->
+            // 明's blob was blank. Storing rows anyway would claim strokes exist; storing a count
+            // would claim how many. Both are statements nobody made.
+            assertEquals(emptyList<Triple<Int, String, String>>(), strokesOf(migrated, "明"))
+            assertCount(
+                0,
+                scalarLong(
+                    migrated,
+                    "SELECT strokeCount FROM characters WHERE character = '明'"
+                )
+            )
+        }
+
+    @Test
+    fun `a character reached by two readings gets one stroke sequence, not two`() =
+        withMigratedV3 { migrated ->
+            // 长 is cháng and zhǎng. v2 let each reading carry its own blob; v3 has one sequence
+            // for the written form. Duplicating them would leave two answers to "how is this
+            // character written", and merging them would mean inventing a stroke list.
+            val strokes = strokesOf(migrated, "长")
+
+            assertCount(
+                1,
+                scalarLong(
+                    migrated,
+                    "SELECT COUNT(DISTINCT s.characterId) FROM character_strokes s " +
+                        "JOIN characters c ON c.id = s.characterId WHERE c.character = '长'"
+                )
+            )
+            assertEquals(FOUR_STROKES_FIRST_NAMES, strokes.map { it.second })
+        }
+
+    @Test
+    fun `the vocabulary blob is left in place rather than being consumed by the move`() =
+        withMigratedV3 { migrated ->
+            // Not deleted: the seed and the library screen still read it, and dropping a column's
+            // contents in a migration is the kind of irreversible step that has to be a separate,
+            // deliberate decision rather than a side effect of moving a table.
+            assertEquals(
+                SEVEN_STROKES,
+                scalarString(
+                    migrated,
+                    "SELECT strokeJson FROM vocabulary v JOIN characters c ON c.id = v.characterId " +
+                        "WHERE c.character = '水'"
+                )
+            )
+        }
+
+    @Test
+    fun `structure exists and is empty rather than null or a placeholder`() =
+        withMigratedV3 { migrated ->
+            val structures = buildList {
+                migrated.query("SELECT structure FROM characters ORDER BY id ASC").use { c ->
+                    while (c.moveToNext()) add(c.getString(0))
+                }
+            }
+
+            assertEquals(3, structures.size)
+            assertTrue(
+                "an empty string is the honest unknown; a placeholder would be a false claim",
+                structures.all { it.isEmpty() }
+            )
+        }
+
+    @Test
+    fun `the whole chain from v1 to v3 runs and validates`() {
+        helper.createDatabase(chainDatabaseName, 1).use { seedV1(it) }
+        val migrated = helper.runMigrationsAndValidate(
+            chainDatabaseName,
+            3,
+            true,
+            MIGRATION_1_2,
+            MIGRATION_2_3
+        )
+        try {
+            // The v1 fixture's single-stroke `横` blob has to have reached the new table, which
+            // is the only thing that proves the two steps compose.
+            assertCount(3, scalarLong(migrated, "SELECT COUNT(*) FROM character_strokes"))
+            assertCount(3, scalarLong(migrated, "SELECT COUNT(*) FROM characters"))
+        } finally {
+            migrated.close()
+        }
+    }
+
+    private fun scalarString(db: SupportSQLiteDatabase, sql: String): String {
+        db.query(sql).use { c ->
+            c.moveToFirst()
+            return c.getString(0)
+        }
+    }
+
+    private companion object {
+        // Real stroke sequences, so the parser is exercised on the shape production data
+        // actually has rather than on a shape invented for the test.
+        private const val SEVEN_STROKES =
+            "丶 (Diǎn), 丶 (Diǎn), 丿 (Piǎo), 丶 (Diǎn), 亅 (Héng Gōu), ㇏ (Wàn Gōu), 一 (Héng)"
+        private const val FOUR_STROKES_FIRST = "一 (Héng), 丿 (Piǎo), 丨 (Shù), ㇏ (Wàn Gōu)"
+        private const val FOUR_STROKES_SECOND = "一 (Héng), 丿 (Piǎo), 丨 (Shù), 乀 (Wàn Gōu)"
+        private val FOUR_STROKES_FIRST_NAMES = listOf("一", "丿", "丨", "㇏")
+
+        /** A separate file per start version, so the tests cannot tread on each other's handles. */
+        private const val v3DatabaseName = "migration-test-v3"
+        private const val chainDatabaseName = "migration-test-chain"
     }
 }

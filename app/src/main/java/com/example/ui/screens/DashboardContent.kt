@@ -136,7 +136,12 @@ internal fun columnsFor(maxWidth: androidx.compose.ui.unit.Dp): Int = when {
  */
 @Composable
 internal fun AdaptiveGrid(columns: Int, children: List<@Composable () -> Unit>) {
-    val safeColumns = columns.coerceAtLeast(1)
+    // Never more columns than there are children. A 3-wide grid holding 2 cards reserves
+    // a third of the width for an empty slot, so the two cards are sized as though a third
+    // existed — which is exactly the wrong outcome on the wide screens where the extra
+    // column was supposed to help. The breakpoint says how many *could* fit; this says how
+    // many are actually needed.
+    val safeColumns = columns.coerceIn(1, children.size.coerceAtLeast(1))
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         children.chunked(safeColumns).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -240,10 +245,26 @@ private fun TodayCard(snapshot: DashboardSnapshot) {
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-            MiniStat("Accuracy", accuracyLabel(today))
-            MiniStat("New words", "${today?.newWordsIntroduced ?: 0}/${workload.limits.newWords}")
-            MiniStat("Mastered", "${today?.newWordsMastered ?: 0}")
+        // Weighted, and the gaps shrink with the card.
+        //
+        // Three `MiniStat`s with 18dp gaps need about 230dp. `columnsFor` returns 2 from
+        // 400dp, so on a 411dp phone each card is ~(411-32-12)/2 = 183dp wide and 151dp of
+        // usable inner width — which meant "Accuracy" and "New words" wrapped to two lines
+        // in a card whose neighbour stayed one line, so the two cards in the row ended at
+        // different heights. Weighting the stats divides the real width rather than
+        // assuming it, and the gap is small enough to survive a narrow card.
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MiniStat("Accuracy", accuracyLabel(today), modifier = Modifier.weight(1f))
+            MiniStat(
+                label = "New words",
+                value = "${today?.newWordsIntroduced ?: 0}/${workload.limits.newWords}",
+                modifier = Modifier.weight(1f)
+            )
+            MiniStat(
+                label = "Mastered",
+                value = "${today?.newWordsMastered ?: 0}",
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -445,7 +466,10 @@ private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                         if (count > 0) {
                             Text(
                                 text = "$count",
-                                fontSize = 10.sp,
+                                // 11sp, the floor. The count on a bar is the number the
+                                // whole chart exists to communicate, so it is the last
+                                // thing that should have been rendered at 10sp.
+                                fontSize = 11.sp,
                                 color = TextMuted
                             )
                             Spacer(modifier = Modifier.height(2.dp))
@@ -467,7 +491,12 @@ private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = weekdayLabel(epochDay),
-                            fontSize = 10.sp,
+                            // 11sp, and the first thing to overflow if a week ever grew
+                            // past seven: `maxLines = 1` plus a single letter is what
+                            // keeps a three-letter weekday abbreviation from becoming a
+                            // three-line column under its own bar.
+                            fontSize = 11.sp,
+                            maxLines = 1,
                             color = TextSubtle
                         )
                     }
@@ -529,7 +558,7 @@ private fun DifficultCardList(
 // ---- shared pieces --------------------------------------------------------------------------------
 
 @Composable
-private fun DashboardCard(
+internal fun DashboardCard(
     modifier: Modifier = Modifier,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
 ) {
@@ -544,21 +573,33 @@ private fun DashboardCard(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+internal fun SectionHeader(text: String) {
     Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
 }
 
-/** A labelled number. */
+/**
+ * A labelled number.
+ *
+ * Takes a modifier so a caller that is laying these out in a shared row can weight them
+ * against the width actually available, rather than each one wrapping to however many lines
+ * its label happens to need at whatever width the card turned out to be.
+ */
 @Composable
-private fun MiniStat(label: String, value: String) {
-    Column {
+internal fun MiniStat(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
         Text(
             text = value,
             fontSize = 17.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextLight
         )
-        Text(text = label, fontSize = 11.sp, color = TextMuted)
+        // Wraps rather than clips. A truncated "Accuracy" reads as a different word; a
+        // two-line label inside a card that has already been sized to fit is fine.
+        Text(text = label, fontSize = 11.sp, color = TextMuted, maxLines = 2)
     }
 }
 

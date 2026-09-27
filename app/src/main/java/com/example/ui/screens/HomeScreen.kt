@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -45,10 +46,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,11 +57,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.R
 import com.example.data.model.WordWithSrs
+import com.example.ui.components.IconTarget
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
@@ -79,6 +84,7 @@ import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.MainViewModel
+import com.example.ui.viewmodel.ProgressUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,9 +95,10 @@ fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
-    val currentUser by viewModel.currentUser.collectAsState()
-    val allWords by viewModel.userWords.collectAsState()
-    val dashboardState by viewModel.dashboardState.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val allWords by viewModel.userWords.collectAsStateWithLifecycle()
+    val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
+    val progressState by viewModel.progressState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -110,13 +117,14 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "HanziFlow",
+                                text = stringResource(R.string.app_title),
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextLight
                             )
                             Text(
-                                text = currentUser?.displayName ?: "Learner",
+                                text = currentUser?.displayName?.takeIf { it.isNotBlank() }
+                                    ?: "Learner",
                                 fontSize = 12.sp,
                                 color = TextMuted
                             )
@@ -193,6 +201,26 @@ fun HomeScreen(
                 }
             }
 
+            // Level, totals and badges. After the dashboard rather than inside it, because
+            // this is history and the dashboard is "what next" - putting badges above the queue
+            // would lead with something already earned instead of something to do.
+            item(key = "progress") {
+                when (val state = progressState) {
+                    is ProgressUiState.Loading -> DashboardLoading(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                    )
+
+                    is ProgressUiState.Failed -> DashboardError(
+                        message = state.message,
+                        onRetry = { viewModel.refreshProgress() }
+                    )
+
+                    is ProgressUiState.Ready -> ProgressContent(progress = state.progress)
+                }
+            }
+
             // Recent vocabulary. Real rows from the learner's own collection, unchanged.
             item(key = "recent") {
                 Column {
@@ -207,15 +235,28 @@ fun HomeScreen(
                             fontWeight = FontWeight.SemiBold,
                             color = TextLight
                         )
-                        Text(
-                            text = "View all (${allWords.size})",
-                            color = LilacPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .clickable { onNavigateToLibrary() }
-                                .testTag("home_view_all_library")
-                        )
+                        // A `TextButton`, not a `clickable` `Text`.
+                        //
+                        // The clickable text was ~18dp tall — about a third of the way to the
+                        // smallest thing a fingertip can reliably land on — and it announced
+                        // itself to a screen reader as plain text with no indication it was
+                        // a control. The label now says what it does, and the target is a
+                        // real one.
+                        TextButton(
+                            onClick = onNavigateToLibrary,
+                            modifier = Modifier.testTag("home_view_all_library"),
+                            colors = ButtonDefaults.textButtonColors(contentColor = LilacPrimary),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 12.dp,
+                                vertical = 8.dp
+                            )
+                        ) {
+                            Text(
+                                text = "View all (${allWords.size})",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -297,40 +338,56 @@ fun HomeScreen(
                         color = TextLight
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        PillarItem(
-                            icon = "笔",
-                            title = "Writing",
-                            subtitle = "Stroke order",
-                            modifier = Modifier.weight(1f)
-                        )
-                        PillarItem(
-                            icon = "音",
-                            title = "Audio",
-                            subtitle = "Mandarin",
-                            modifier = Modifier.weight(1f)
-                        )
-                        PillarItem(
-                            icon = "义",
-                            title = "Meaning",
-                            subtitle = "In context",
-                            modifier = Modifier.weight(1f)
-                        )
-                        PillarItem(
-                            icon = "忆",
-                            title = "Recall",
-                            subtitle = "SM-2 spaced",
-                            modifier = Modifier.weight(1f)
-                        )
+                    // Two columns on a phone, four when there is room.
+                    //
+                    // Four columns across a 360dp phone gives each card ~(360-32-24)/4 =
+                    // 76dp. "Stroke order" at 11sp is about 68dp, so the subtitle was
+                    // ellipsised to "Stroke…" in a card whose whole job is to say what the
+                    // stroke view contains — and the truncation is silent, because
+                    // `maxLines = 1` clips rather than wraps. Two columns gives ~156dp per
+                    // card, which fits every label here with room to spare, and the four
+                    // still sit on one row on a tablet where the width is real.
+                    val pillarItems = listOf(
+                        Triple("笔", "Writing", "Stroke order"),
+                        Triple("音", "Audio", "Mandarin"),
+                        Triple("义", "Meaning", "In context"),
+                        Triple("忆", "Recall", "SM-2 spaced")
+                    )
+                    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                        val perRow = if (maxWidth >= 400.dp) 4 else 2
+                        pillarItems.chunked(perRow).forEach { row ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                row.forEach { (glyph, title, subtitle) ->
+                                    PillarItem(
+                                        icon = glyph,
+                                        title = title,
+                                        subtitle = subtitle,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                                // Keeps the last row's items the same width as a full row's,
+                                // so a half-empty final row does not produce one wide card
+                                // next to two narrow ones.
+                                repeat(perRow - row.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
                 }
             }
 
             item(key = "tail") {
-                Spacer(modifier = Modifier.height(40.dp))
+                // Clears the floating action button: 56dp of button plus 16dp of margin. It
+                // was 40dp, so on a phone the FAB sat over the bottom of the list and the
+                // last card's meaning was partly behind it — the one control that adds
+                // something, covering the content.
+                Spacer(modifier = Modifier.height(72.dp))
             }
         }
     }
@@ -358,8 +415,11 @@ private fun PillarItem(
         ) {
             Text(icon, fontSize = 20.sp)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
-            Text(subtitle, fontSize = 9.sp, color = TextMuted, maxLines = 1)
+            Text(title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
+            // 11sp, the floor this app uses for body-adjacent text. It was 9sp, which is
+            // below the point where the glyphs are reliably distinguishable on a 6.1" screen
+            // held at arm's length.
+            Text(subtitle, fontSize = 11.sp, color = TextMuted, maxLines = 1)
         }
     }
 }
@@ -391,18 +451,31 @@ private fun RecentWordCard(
                 ) {
                     Text(
                         text = "HSK ${wordWithSrs.word.hskLevel}",
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = LilacPrimary,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                     )
                 }
 
-                IconButton(
+                // 48dp, where it was 24.
+                //
+                // `IconButton(Modifier.size(24.dp))` does not make the button smaller — it
+                // sets the component's max constraints, and the 48dp minimum it would
+                // otherwise apply is then coerced straight back down to 24. The result is a
+                // quarter of the touch guideline, produced by a line of code that reads like
+                // a styling decision. The icon is sized here instead, inside a target that
+                // stays at the floor.
+                IconTarget(
                     onClick = onPlayAudio,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.testTag("home_recent_audio")
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = "Listen", tint = LilacPrimary, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
+                        tint = LilacPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 

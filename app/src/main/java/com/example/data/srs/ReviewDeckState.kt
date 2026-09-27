@@ -167,21 +167,25 @@ data class ReviewDeckState(
     /**
      * Steps forward without answering, for re-reading.
      *
+     * Refused while a write is in flight, for the same reason [reveal] is: the answer being
+     * written belongs to the card that is on screen, and [completeRating] advances from wherever
+     * the index happens to be when the write lands. Stepping away first would make that
+     * transition skip whichever card the learner had stepped to.
+     *
      * Clamped at the end. The target card is revealed if it was already answered, so stepping
      * back into a card shows its answer rather than posing it again.
      */
-    fun next(): ReviewDeckState = moveTo(index + 1)
+    fun next(): ReviewDeckState = if (isRating) this else moveTo(index + 1)
 
     /** Steps back to the previous card without altering any recorded answer. */
-    fun previous(): ReviewDeckState = moveTo(index - 1)
+    fun previous(): ReviewDeckState = if (isRating) this else moveTo(index - 1)
 
     private fun moveTo(target: Int): ReviewDeckState {
         val clamped = target.coerceIn(0, wordIds.size)
         if (clamped == index) return this
         return copy(
             index = clamped,
-            revealed = wordIds.getOrNull(clamped)?.let { answers.containsKey(it) } ?: false,
-            isRating = false
+            revealed = wordIds.getOrNull(clamped)?.let { answers.containsKey(it) } ?: false
         )
     }
 

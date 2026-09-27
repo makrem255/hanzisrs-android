@@ -31,7 +31,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -46,6 +45,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.screens.AddWordScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.HomeScreen
@@ -107,8 +107,8 @@ fun MainAppContainer(
     onInitialTargetHandled: () -> Unit = {}
 ) {
     val navController = rememberNavController()
-    val currentUser by viewModel.currentUser.collectAsState()
-    val dueCount by viewModel.dueCount.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val dueCount by viewModel.dueCount.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
@@ -162,9 +162,23 @@ fun MainAppContainer(
                                 if (screen == Screen.Home && dueCount > 0) {
                                     BadgedBox(
                                         badge = {
+                                            // The count of work outstanding, in the accent
+                                            // colour, not the failure colour.
+                                            //
+                                            // This was `SrsAgainDark` — the same red the app
+                                            // uses for "you rated this Again" — on the tab
+                                            // for the dashboard rather than the tab for the
+                                            // review it counts toward. A learner who had
+                                            // simply not studied yet, at any hour of any day,
+                                            // saw a red number about work they had not
+                                            // failed at. The count is legitimate
+                                            // information; presenting it as a penalty is
+                                            // not, and this app's gamification layer is
+                                            // built on the rule that nothing is measured
+                                            // as a threat.
                                             Badge(
-                                                containerColor = SrsAgainDark,
-                                                contentColor = SrsAgainContainer
+                                                containerColor = LilacPrimary,
+                                                contentColor = LilacPrimaryDark
                                             ) {
                                                 Text("$dueCount")
                                             }

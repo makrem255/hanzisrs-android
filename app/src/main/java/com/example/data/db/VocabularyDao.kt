@@ -27,11 +27,28 @@ private const val LIBRARY_PROJECTION = """
             uv.vocabularyId      AS vocabularyId,
             c.character          AS hanzi,
             ps.toneMarked        AS pinyin,
+            -- Split out from `pinyin` because the tone-marked form alone is lossy: a
+            -- screen cannot render a tone contour, show a neutral-tone flat mark, or
+            -- offer a "tone N" label without a separate number, and none of that can be
+            -- recovered from the accented string without re-parsing it.
+            ps.toneNumber        AS toneNumber,
+            -- A five-level contour in high/mid/low notation, straight from the syllable
+            -- table. Kept as the stored string rather than a derived shape so the display
+            -- never disagrees with the data.
+            ps.toneContour       AS toneContour,
             v.meaning            AS meaning,
+            v.partOfSpeech       AS partOfSpeech,
             lv.ordinal           AS hskLevel,
             c.radical            AS radical,
+            c.structure          AS structure,
             v.strokeJson         AS strokeJson,
             v.tags               AS tags,
+            -- How this entry came to exist, and whether anybody has checked it. Both were
+            -- being written (`AddWordScreen` records one, the migrations stamp another) and
+            -- neither was readable, so the app could not tell the learner whether a stroke
+            -- breakdown or an example sentence was curated, imported, or model-generated.
+            v.provenance         AS provenance,
+            v.isVerified         AS isVerified,
             uv.addedAt           AS addedAt,
             uv.isStarred         AS isStarred,
             ex.id                AS exampleSentenceId,
@@ -126,6 +143,28 @@ interface VocabularyDao {
         """
     )
     fun observeDueForUser(userId: Long, now: Long): Flow<List<WordWithSrsRow>>
+
+    /**
+     * The same due set as [observeDueForUser], evaluated once.
+     *
+     * `now` is passed in rather than read with `strftime('now')` so the instant is the
+     * caller's — testable, and identical to the one the reactive path would have used. The
+     * predicate is otherwise deliberately the same three clauses: active enrolment, a
+     * scheduling row present, and due. A word with no `srs_state` row is not "due", it is
+     * un-scheduled, and `observeDueForUser` excludes it for the same reason this does.
+     */
+    @Transaction
+    @Query(
+        """
+        $LIBRARY_PROJECTION
+        WHERE uv.userId = :userId
+          AND uv.status = 'ACTIVE'
+          AND s.vocabularyId IS NOT NULL
+          AND s.dueDateMillis <= :now
+        ORDER BY s.dueDateMillis ASC
+        """
+    )
+    suspend fun dueForUserNow(userId: Long, now: Long): List<WordWithSrsRow>
 
     @Transaction
     @Query("$LIBRARY_PROJECTION WHERE uv.id = :userVocabularyId LIMIT 1")

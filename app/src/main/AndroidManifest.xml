@@ -31,7 +31,18 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.MyApplication">
+            android:theme="@style/Theme.MyApplication"
+            android:windowSoftInputMode="adjustResize">
+            <!--
+                adjustResize, with imePadding() on the screens that need it.
+
+                The app calls enableEdgeToEdge(), which sets decorFitsSystemWindows = false,
+                so from API 30 the window does not resize for the keyboard and no content is
+                inset above it. Those screens handle the IME themselves. Below API 30 the
+                system still resizes the window for us, and this is what makes that happen -
+                without it the keyboard covers the bottom third of Add Word and the "Approve &
+                Add to SRS Deck" button is unreachable while typing.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

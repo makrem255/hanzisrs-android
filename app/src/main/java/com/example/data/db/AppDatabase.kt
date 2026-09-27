@@ -8,10 +8,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.migration.Migration
 import androidx.room.withTransaction
 import com.example.data.db.migrations.MIGRATION_1_2
+import com.example.data.db.migrations.MIGRATION_2_3
 import com.example.data.db.seed.ReferenceData
 import com.example.data.db.seed.StarterContent
 import com.example.data.model.AchievementEntity
 import com.example.data.model.CharacterEntity
+import com.example.data.model.CharacterStrokeEntity
 import com.example.data.model.DailyStatEntity
 import com.example.data.model.ExampleSentenceEntity
 import com.example.data.model.LearningItemEntity
@@ -74,12 +76,13 @@ import kotlinx.coroutines.launch
         SessionCardEntity::class,
         DailyStatEntity::class,
         StreakEntity::class,
-        UserAchievementEntity::class
+        UserAchievementEntity::class,
+        CharacterStrokeEntity::class
     ],
     // Spelled out rather than as `AppDatabase.VERSION`: an annotation argument must be a
     // compile-time constant, and a constant read off the class it annotates is a forward
     // reference. `SchemaRelationshipTest` asserts the two never drift apart.
-    version = 2,
+    version = 3,
     exportSchema = true,
     autoMigrations = []
 )
@@ -110,15 +113,20 @@ abstract class AppDatabase : RoomDatabase() {
     // Reporting. Reads that answer "how am I doing?" and own no scheduling state.
     abstract fun dashboardDao(): DashboardDao
 
+    // The badge catalogue joined to the learner's progress toward each badge.
+    abstract fun progressDao(): ProgressDao
+
     companion object {
-        const val VERSION = 2
+        const val VERSION = 3
         const val DATABASE_NAME = "hanzi_srs_database"
 
         /**
          * The v1 to v2 step. The `words` and `srs_reviews` tables are decomposed into the
          * content and learner tiers; no learner row is discarded.
+         *
+         * The v2 to v3 step gives strokes a row of their own and adds `characters.structure`.
          */
-        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+        val MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 
         @Volatile
         private var INSTANCE: AppDatabase? = null

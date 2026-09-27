@@ -71,6 +71,22 @@ class WordRepository(private val database: AppDatabase) {
             vocabularyDao.observeDueForUser(userId, now).map { rows -> rows.map { it.toWordWithSrs() } }
         }
 
+    /**
+     * Cards that are due at the moment of the call, as a single answer.
+     *
+     * The reactive [getDueWordsForUser] is the right thing for anything on screen, but it
+     * cannot answer "what is due *right now*": it is a `flatMapLatest` over a minute clock
+     * and it only emits when a collector is subscribed and an emission is due. A caller
+     * acting on a button — "review what is still due", at the end of a sitting — needs the
+     * value the database holds now, because the reviews it just wrote may not have reached
+     * the flow yet. Reading a flow's last emission in that situation returns the deck the
+     * learner has just finished, which is the opposite of what was asked for.
+     *
+     * One query, no clock, no caching. This is a one-shot decision, not a subscription.
+     */
+    suspend fun getDueWordsForUserOnce(userId: Long): List<WordWithSrs> =
+        vocabularyDao.dueForUserNow(userId, System.currentTimeMillis()).map { it.toWordWithSrs() }
+
     suspend fun findWordByHanzi(userId: Long, hanzi: String): WordWithSrs? =
         vocabularyDao.getRowByHanzi(userId, hanzi)?.toWordWithSrs()
 

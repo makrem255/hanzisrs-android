@@ -220,6 +220,37 @@ class ReviewDeckStateTest {
     }
 
     @Test
+    fun `the deck cannot be stepped while a write is in flight`() {
+        val writing = deck(tea, water, fire).reveal().beginRating()!!
+
+        val steppedForward = writing.next()
+        val steppedBack = writing.previous()
+
+        // Both attempts are refused, so the deck is left exactly where the write was claimed.
+        // The index is 0 because that is where the learner was - not because 0 is a clamp: the
+        // point is that neither call moved it, in either direction.
+        assertEquals(
+            "stepping ahead mid-write would skip a card",
+            writing.index,
+            steppedForward.index
+        )
+        assertEquals(
+            "stepping back mid-write would re-ask an answered card",
+            writing.index,
+            steppedBack.index
+        )
+        assertEquals("and the card under the learner is unchanged", tea, steppedForward.currentWordId)
+        assertTrue("navigation must not release the write claim", steppedBack.isRating)
+
+        // And the consequence that made this matter: because the index never moved, the write
+        // lands on the card it was actually made for. Had the step been allowed, `completeRating`
+        // would have advanced from `water` and recorded the answer to the wrong card.
+        val landed = steppedForward.completeRating(SrsRating.GOOD)
+        assertEquals(water, landed.currentWordId)
+        assertEquals(SrsRating.GOOD, landed.answerFor(tea))
+    }
+
+    @Test
     fun `navigating to an unanswered card leaves it hidden`() {
         val state = deck(tea, water).reveal().beginRating()!!.completeRating(SrsRating.GOOD)
 

@@ -1,5 +1,6 @@
 package com.example.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -54,6 +55,20 @@ data class CharacterEntity(
     val codePoint: Int,
     val strokeCount: Int = 0,
     val radical: String = "",
+    /**
+     * Compositional structure, e.g. `左右结构` (left-right).
+     *
+     * A property of the written form, not of a reading: the same character is structured the same
+     * way whichever way it is read. Empty means unknown, and no screen may substitute a
+     * placeholder for it - "structure unknown" is information, "structure: ?" is noise.
+     *
+     * The default is declared rather than left implicit because `MIGRATION_2_3` has to add this
+     * column to a populated table, and SQLite only permits that for a NOT NULL column with a
+     * DEFAULT. Room validates the migrated schema against this declaration, so the two have to
+     * say the same thing or the upgrade is rejected at open time.
+     */
+    @ColumnInfo(defaultValue = "''")
+    val structure: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
 

@@ -8,7 +8,19 @@ enum class SrsRating(val value: Int, val label: String, val description: String)
     AGAIN(1, "Again", "Forgot completely (<1 day)"),
     HARD(2, "Hard", "Difficult recall (~1.2x)"),
     GOOD(3, "Good", "Normal recall (~2.5x)"),
-    EASY(4, "Easy", "Mastered effortlessly (>3.5x)")
+    EASY(4, "Easy", "Mastered effortlessly (>3.5x)");
+
+    companion object {
+        /**
+         * The rating a stored `value` names, or null for anything else.
+         *
+         * `review_log.rating` and `srs_state.lastRating` both store this 1-4 integer, so
+         * anything that reads them back needs the inverse mapping. Null rather than a default
+         * because a rating outside the four has no XP and no accuracy contribution, and
+         * substituting a guess would put a number on a summary that was never earned.
+         */
+        fun fromValue(value: Int): SrsRating? = entries.firstOrNull { it.value == value }
+    }
 }
 
 data class SrsCalculationResult(

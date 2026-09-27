@@ -1,4 +1,15 @@
 <resources>
+    <!--
+        One product name, in one place.
+
+        The launcher said HanziSRS and the app's own title said HanziFlow, on the same screen,
+        at the same time. A learner who installs from the store sees a name and then does not
+        see it again, and a reviewer does not know which one is the project. Everything that
+        names the app reads this.
+    -->
     <string name="app_name">HanziSRS</string>
+
+    <!-- The name shown inside the app, alongside the learner's name. -->
+    <string name="app_title">HanziSRS</string>
 </resources>
 

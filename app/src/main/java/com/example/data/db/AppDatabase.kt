@@ -107,6 +107,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun streakDao(): StreakDao
     abstract fun userAchievementDao(): UserAchievementDao
 
+    // Reporting. Reads that answer "how am I doing?" and own no scheduling state.
+    abstract fun dashboardDao(): DashboardDao
+
     companion object {
         const val VERSION = 2
         const val DATABASE_NAME = "hanzi_srs_database"

@@ -17,6 +17,20 @@ interface DailyStatDao {
     @Query("SELECT * FROM daily_stats WHERE userId = :userId AND dateEpochDay = :epochDay LIMIT 1")
     suspend fun get(userId: Long, epochDay: Int): DailyStatEntity?
 
+    /**
+     * The same row, observed.
+     *
+     * The dashboard needs today's totals as a flow, and `observeSince(today)` would be a way to
+     * get them without a new query - at the cost of fetching every future row to find one
+     * present day. This is served directly by the unique `(userId, dateEpochDay)` index.
+     *
+     * Emits null rather than an empty list when the day has no row, so "no activity yet today"
+     * and "activity today" are distinguishable downstream instead of both looking like a
+     * missing day.
+     */
+    @Query("SELECT * FROM daily_stats WHERE userId = :userId AND dateEpochDay = :epochDay LIMIT 1")
+    fun observeDay(userId: Long, epochDay: Int): Flow<DailyStatEntity?>
+
     @Query("SELECT * FROM daily_stats WHERE userId = :userId ORDER BY dateEpochDay DESC LIMIT :limit")
     fun observeRecent(userId: Long, limit: Int): Flow<List<DailyStatEntity>>
 

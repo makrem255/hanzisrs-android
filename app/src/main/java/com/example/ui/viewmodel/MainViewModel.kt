@@ -6,12 +6,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.GeminiAiService
 import com.example.data.ai.GeneratedWordData
+import com.example.data.dashboard.DashboardSnapshot
 import com.example.data.db.AppDatabase
 import com.example.data.model.NewWordDraft
 import com.example.data.model.StorageValues
 import com.example.data.model.UserEntity
 import com.example.data.model.WordWithSrs
 import com.example.data.repository.AuthResult
+import com.example.data.repository.DashboardRepository
 import com.example.data.repository.ReviewFailure
 import com.example.data.repository.ReviewOutcome
 import com.example.data.repository.SaveWordResult
@@ -26,11 +28,28 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/**
+ * What the dashboard can be showing.
+ *
+ * A sealed set rather than a nullable snapshot plus a boolean, so the screen cannot be handed
+ * `null` with `isLoading = true` and decide for itself what to draw. [Failed] exists because a
+ * dashboard that silently shows the last value it managed to read is worse than one that admits
+ * it could not read: an error drawn as a row of zeroes is a number the learner never earned.
+ */
+sealed class DashboardUiState {
+    object Loading : DashboardUiState()
+    data class Ready(val snapshot: DashboardSnapshot) : DashboardUiState()
+    data class Failed(val message: String) : DashboardUiState()
+}
+
 
 sealed class AiGenerationState {
     object Idle : AiGenerationState()
@@ -48,6 +67,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val userRepository = UserRepository(database.userDao(), database)
     val wordRepository = WordRepository(database)
     val srsRepository = SrsRepository(database)
+    private val dashboardRepository = DashboardRepository(database)
     private val geminiService = GeminiAiService()
     val ttsHelper = TextToSpeechHelper(application)
 
@@ -111,6 +131,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Review write failures, surfaced by the swipe deck.
     private val _reviewError = MutableStateFlow<String?>(null)
     val reviewError: StateFlow<String?> = _reviewError.asStateFlow()
+
+    // ---- dashboard ---------------------------------------------------------------------------------
+    // The dashboard is one value rather than a set of independent flows. Separate flows would
+    // let the screen draw a streak from yesterday beside a queue count from this instant, and
+    // the learner would be looking at two truths at once.
+    private val _dashboardRefresh = MutableStateFlow(0)
+
+    /** Re-reads the dashboard. Emitting a new value restarts the inner flow, so this is a real retry. */
+    fun refreshDashboard() {
+        _dashboardRefresh.value += 1
+    }
+
+    val dashboardState: StateFlow<DashboardUiState> =
+        combine(currentUser, _dashboardRefresh) { user, _ -> user }
+        .flatMapLatest { user ->
+            if (user == null) {
+                // No learner signed in. Reported as loading rather than as an empty dashboard,
+                // because "signed out" is not the same as "no progress to show".
+                flowOf(DashboardUiState.Loading)
+            } else {
+                dashboardRepository.observeDashboard(user.id)
+                    .map<DashboardSnapshot, DashboardUiState> { DashboardUiState.Ready(it) }
+                    // A Room flow throws if the database is unreadable. Left unhandled it
+                    // cancels the collector and the screen keeps showing the last good value
+                    // forever, which reads as "your progress is 0" rather than as a failure.
+                    .catch { throwable ->
+                        emit(DashboardUiState.Failed(throwable.message ?: "Unknown error"))
+                    }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
     fun clearReviewError() {
         _reviewError.value = null

@@ -77,6 +77,7 @@ import com.example.ui.theme.SrsHardDark
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
+import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -89,16 +90,8 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val currentUser by viewModel.currentUser.collectAsState()
-    val dueWords by viewModel.dueWords.collectAsState()
     val allWords by viewModel.userWords.collectAsState()
-    val dueCount by viewModel.dueCount.collectAsState()
-    val reviewedSessionCount by viewModel.reviewedSessionCount.collectAsState()
-
-    // Calculate SRS stats
-    val learningCount = allWords.count { it.srs?.state == "LEARNING" }
-    val newCount = allWords.count { it.srs?.state == "NEW" || it.srs == null }
-    val reviewCount = allWords.count { it.srs?.state == "REVIEW" }
-    val masteredCount = allWords.count { it.srs?.state == "MASTERED" }
+    val dashboardState by viewModel.dashboardState.collectAsState()
 
     Scaffold(
         topBar = {
@@ -163,204 +156,97 @@ fun HomeScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. HERO DUE WORDS & START REVIEW BANNER
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
+            // The dashboard answers the four questions - what to study, how much is due, how
+            // am I doing, what next - from real rows. Loading, empty and failure are all
+            // explicit: a dashboard that quietly draws zeroes when it cannot read its data is
+            // indistinguishable from a learner who has done nothing, and the two deserve
+            // opposite advice.
+            item(key = "dashboard") {
+                when (val state = dashboardState) {
+                    is DashboardUiState.Loading -> DashboardLoading(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(20.dp)
+                            .height(220.dp)
+                    )
+
+                    is DashboardUiState.Failed -> DashboardError(
+                        message = state.message,
+                        onRetry = { viewModel.refreshDashboard() }
+                    )
+
+                    is DashboardUiState.Ready -> DashboardContent(
+                        snapshot = state.snapshot,
+                        onStartReview = {
+                            viewModel.resetDeckSession()
+                            onStartReview()
+                        },
+                        onNavigateToAddWord = onNavigateToAddWord,
+                        onNavigateToLibrary = onNavigateToLibrary,
+                        // Tapping a difficult word has nowhere to go yet: there is no
+                        // single-word screen. Rather than navigate somewhere arbitrary, this
+                        // starts a review, which is the action the word is being surfaced for.
+                        onOpenWord = {
+                            viewModel.resetDeckSession()
+                            onStartReview()
+                        }
+                    )
+                }
+            }
+
+            // Recent vocabulary. Real rows from the learner's own collection, unchanged.
+            item(key = "recent") {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Surface(
-                                color = DarkSurfaceElevated,
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                ) {
-                                    Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = LilacPrimary, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Daily SRS Routine", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = LilacPrimary)
-                                }
-                            }
-
-                            Surface(
-                                color = DarkSurfaceContainer,
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder.copy(alpha = 0.5f))
-                            ) {
-                                Text(
-                                    text = "${allWords.size} words in deck",
-                                    color = TextMuted,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
                         Text(
-                            text = if (dueCount > 0) "$dueCount Words Due Today" else "All Caught Up Today!",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = TextLight,
-                            letterSpacing = (-0.5).sp
+                            text = "Recent vocabulary",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextLight
                         )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
                         Text(
-                            text = if (dueCount > 0) {
-                                "Practice Writing, Mandarin TTS, Context Sentences & SRS SM-2 recall difficulty scoring."
-                            } else {
-                                "Excellent! You have completed all scheduled SRS reviews for today."
-                            },
+                            text = "View all (${allWords.size})",
+                            color = LilacPrimary,
                             fontSize = 13.sp,
-                            color = TextMuted,
-                            lineHeight = 18.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
-
-                        Button(
-                            onClick = {
-                                viewModel.resetDeckSession()
-                                onStartReview()
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = LilacPrimary,
-                                contentColor = LilacPrimaryDark
-                            ),
-                            shape = RoundedCornerShape(24.dp),
+                            fontWeight = FontWeight.Medium,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .testTag("start_review_button")
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = LilacPrimaryDark)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (dueCount > 0) "Start 4-Pillars Review ($dueCount Due)" else "Practice Full Deck (${allWords.size})",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                                .clickable { onNavigateToLibrary() }
+                                .testTag("home_view_all_library")
+                        )
                     }
-                }
-            }
 
-            // 2. THE 4 PILLARS OF CHINESE LEARNING (Features Overview)
-            item {
-                Text(
-                    text = "The 4-Pillar Daily System",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextLight
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    PillarItem(
-                        icon = "✍️",
-                        title = "Writing",
-                        subtitle = "Animated strokes",
-                        modifier = Modifier.weight(1f)
-                    )
-                    PillarItem(
-                        icon = "🔊",
-                        title = "Audio",
-                        subtitle = "Mandarin TTS",
-                        modifier = Modifier.weight(1f)
-                    )
-                    PillarItem(
-                        icon = "📖",
-                        title = "Meaning",
-                        subtitle = "Context sentences",
-                        modifier = Modifier.weight(1f)
-                    )
-                    PillarItem(
-                        icon = "🧠",
-                        title = "SRS Engine",
-                        subtitle = "SM-2 intervals",
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-
-            // 3. SRS MASTERY LEVEL DISTRIBUTION
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "SRS Mastery Distribution",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextLight
-                            )
-                            Surface(
-                                color = SrsGoodContainer,
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "$masteredCount Mastered",
-                                    color = SrsGoodDark,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    if (allWords.isEmpty()) {
+                        // An empty list with no explanation looks like a failure to load.
+                        Text(
+                            text = "Nothing in your collection yet. Add a word to get started.",
+                            fontSize = 13.sp,
+                            color = TextMuted
+                        )
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            items(allWords.take(6)) { wordWithSrs ->
+                                RecentWordCard(
+                                    wordWithSrs = wordWithSrs,
+                                    onPlayAudio = { viewModel.playWordAudio(wordWithSrs.word.hanzi) }
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            StatBox(count = newCount, label = "New", color = SrsAgainDark)
-                            StatBox(count = learningCount, label = "Learning", color = SrsHardDark)
-                            StatBox(count = reviewCount, label = "Review", color = SrsGoodDark)
-                            StatBox(count = masteredCount, label = "Mastered", color = SrsEasyDark)
-                        }
                     }
                 }
             }
 
-            // 4. QUICK ADD & AI GENERATE HIGHLIGHT
-            item {
+            // Quick add.
+            item(key = "add") {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onNavigateToAddWord() },
+                        .clickable { onNavigateToAddWord() }
+                        .testTag("home_add_word"),
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
                     border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
@@ -382,50 +268,68 @@ fun HomeScreen(
                         }
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Add Word with AI Auto-Fill", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = TextLight)
-                            Text("Type Hanzi or Pinyin → AI generates Pinyin, sentences & stroke order → Review & Approve", fontSize = 12.sp, color = TextMuted)
+                            Text(
+                                text = "Add a word",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                color = TextLight
+                            )
+                            Text(
+                                text = "Type hanzi or pinyin. Fill in pinyin, meaning and examples yourself or with AI.",
+                                fontSize = 12.sp,
+                                color = TextMuted
+                            )
                         }
                     }
                 }
             }
 
-            // 5. RECENT WORDS IN YOUR DECK
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            // What a review actually covers. Kept, but last: it describes the app rather than
+            // the learner's progress, and it was previously the second thing on the screen.
+            // The subtitles state what really happens - the stroke view shows a named stroke
+            // sequence to trace, it does not animate stroke order.
+            item(key = "pillars") {
+                Column {
                     Text(
-                        text = "Recent Vocabulary",
+                        text = "What a review covers",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextLight
                     )
-                    Text(
-                        text = "View All (${allWords.size})",
-                        color = LilacPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable { onNavigateToLibrary() }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(allWords.take(6)) { wordWithSrs ->
-                        RecentWordCard(
-                            wordWithSrs = wordWithSrs,
-                            onPlayAudio = { viewModel.playWordAudio(wordWithSrs.word.hanzi) }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        PillarItem(
+                            icon = "笔",
+                            title = "Writing",
+                            subtitle = "Stroke order",
+                            modifier = Modifier.weight(1f)
+                        )
+                        PillarItem(
+                            icon = "音",
+                            title = "Audio",
+                            subtitle = "Mandarin",
+                            modifier = Modifier.weight(1f)
+                        )
+                        PillarItem(
+                            icon = "义",
+                            title = "Meaning",
+                            subtitle = "In context",
+                            modifier = Modifier.weight(1f)
+                        )
+                        PillarItem(
+                            icon = "忆",
+                            title = "Recall",
+                            subtitle = "SM-2 spaced",
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
 
-            item {
+            item(key = "tail") {
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }
@@ -457,32 +361,6 @@ private fun PillarItem(
             Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
             Text(subtitle, fontSize = 9.sp, color = TextMuted, maxLines = 1)
         }
-    }
-}
-
-@Composable
-private fun StatBox(
-    count: Int,
-    label: String,
-    color: Color
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(
-            color = color.copy(alpha = 0.15f),
-            shape = CircleShape,
-            modifier = Modifier.size(46.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "$count",
-                    color = color,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = label, fontSize = 11.sp, color = TextLight, fontWeight = FontWeight.Medium)
     }
 }
 

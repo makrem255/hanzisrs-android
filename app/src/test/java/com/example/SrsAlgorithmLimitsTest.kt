@@ -1,6 +1,6 @@
 package com.example
 
-import com.example.data.model.SrsReviewEntity
+import com.example.data.model.SrsStateEntity
 import com.example.data.srs.SrsAlgorithm
 import com.example.data.srs.SrsRating
 import org.junit.Assert.assertEquals
@@ -15,7 +15,7 @@ class SrsAlgorithmLimitsTest {
 
     @Test
     fun `ease factor does not grow without bound when every answer is easy`() {
-        var review = SrsReviewEntity(wordId = 1, userId = 1)
+        var review = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1)
 
         repeat(10) {
             val result = SrsAlgorithm.calculateNextReview(review, SrsRating.EASY, now = 0L)
@@ -23,9 +23,7 @@ class SrsAlgorithmLimitsTest {
                 "ease factor escaped its upper bound: ${result.easeFactor}",
                 result.easeFactor <= 2.5
             )
-            review = SrsReviewEntity(
-                wordId = 1,
-                userId = 1,
+            review = review.copy(
                 intervalDays = result.intervalDays,
                 repetitions = result.repetitions,
                 easeFactor = result.easeFactor
@@ -35,7 +33,7 @@ class SrsAlgorithmLimitsTest {
 
     @Test
     fun `ease factor never drops below the floor`() {
-        var review = SrsReviewEntity(wordId = 1, userId = 1, intervalDays = 10, repetitions = 5, easeFactor = 1.3)
+        var review = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1, intervalDays = 10, repetitions = 5, easeFactor = 1.3)
 
         repeat(5) {
             val result = SrsAlgorithm.calculateNextReview(review, SrsRating.AGAIN, now = 0L)
@@ -46,7 +44,7 @@ class SrsAlgorithmLimitsTest {
 
     @Test
     fun `scheduled interval is capped so cards cannot drift years into the future`() {
-        var review = SrsReviewEntity(wordId = 1, userId = 1)
+        var review = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1)
 
         repeat(12) {
             val result = SrsAlgorithm.calculateNextReview(review, SrsRating.EASY, now = 0L)
@@ -54,9 +52,7 @@ class SrsAlgorithmLimitsTest {
                 "interval escaped its cap: ${result.intervalDays} days",
                 result.intervalDays <= 1825
             )
-            review = SrsReviewEntity(
-                wordId = 1,
-                userId = 1,
+            review = review.copy(
                 intervalDays = result.intervalDays,
                 repetitions = result.repetitions,
                 easeFactor = result.easeFactor
@@ -70,7 +66,7 @@ class SrsAlgorithmLimitsTest {
     @Test
     fun `interval label uses the singular for exactly one month`() {
         val result = SrsAlgorithm.calculateNextReview(
-            currentReview = SrsReviewEntity(wordId = 1, userId = 1, intervalDays = 25, repetitions = 3, easeFactor = 2.5),
+            currentReview = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1, intervalDays = 25, repetitions = 3, easeFactor = 2.5),
             rating = SrsRating.HARD,
             now = 0L
         )
@@ -83,7 +79,7 @@ class SrsAlgorithmLimitsTest {
     @Test
     fun `interval label uses the singular for exactly one year`() {
         val result = SrsAlgorithm.calculateNextReview(
-            currentReview = SrsReviewEntity(wordId = 1, userId = 1, intervalDays = 300, repetitions = 8, easeFactor = 2.5),
+            currentReview = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1, intervalDays = 300, repetitions = 8, easeFactor = 2.5),
             rating = SrsRating.GOOD,
             now = 0L
         )
@@ -96,7 +92,7 @@ class SrsAlgorithmLimitsTest {
     @Test
     fun `interval label reports fractional months rather than truncating`() {
         val result = SrsAlgorithm.calculateNextReview(
-            currentReview = SrsReviewEntity(wordId = 1, userId = 1, intervalDays = 40, repetitions = 3, easeFactor = 2.5),
+            currentReview = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1, intervalDays = 40, repetitions = 3, easeFactor = 2.5),
             rating = SrsRating.HARD,
             now = 0L
         )

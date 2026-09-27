@@ -1,6 +1,6 @@
 package com.example
 
-import com.example.data.model.SrsReviewEntity
+import com.example.data.model.SrsStateEntity
 import com.example.data.srs.SrsAlgorithm
 import com.example.data.srs.SrsRating
 import org.junit.Assert.assertEquals
@@ -13,7 +13,7 @@ class SrsAlgorithmTest {
     val now = 1_000_000L
 
     val result = SrsAlgorithm.calculateNextReview(
-      currentReview = SrsReviewEntity(wordId = 1, userId = 1, intervalDays = 3, repetitions = 2),
+      currentReview = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1, intervalDays = 3, repetitions = 2),
       rating = SrsRating.AGAIN,
       now = now,
     )
@@ -27,7 +27,7 @@ class SrsAlgorithmTest {
   @Test
   fun `good answers grow review intervals predictably`() {
     val result = SrsAlgorithm.calculateNextReview(
-      currentReview = SrsReviewEntity(wordId = 1, userId = 1, intervalDays = 3, repetitions = 2, easeFactor = 2.5),
+      currentReview = SrsStateEntity(userVocabularyId = 1, vocabularyId = 1, userId = 1, intervalDays = 3, repetitions = 2, easeFactor = 2.5),
       rating = SrsRating.GOOD,
       now = 0L,
     )

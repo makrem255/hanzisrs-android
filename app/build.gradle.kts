@@ -9,6 +9,13 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
+// Room writes each schema version to app/schemas as JSON. MigrationTestHelper replays those
+// files to build a real pre-migration database, so this is what makes "the migration preserves
+// the data" a testable claim rather than an assertion in a comment. The location is passed to
+// KSP directly because the `room { }` extension needs the Room Gradle plugin, which this
+// project does not apply.
+val roomSchemaDir = "$projectDir/schemas"
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -50,10 +57,41 @@ android {
     compose = true
     buildConfig = true
   }
-  testOptions { unitTests { isIncludeAndroidResources = true } }
+  testOptions {
+    unitTests {
+      isIncludeAndroidResources = true
+      all {
+        // A failing assertion is reported as `expected:<x> but was:<y>` on one line. Without
+        // this, Gradle prints only the exception type and the line number, which is enough to
+        // find the assertion but not to tell what actually went wrong.
+        it.testLogging {
+          events("failed")
+          exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+          showStackTraces = true
+        }
+      }
+    }
+  }
   dependenciesInfo {
     includeInApk = false
     includeInBundle = true
+  }
+  // MigrationTestHelper reads the schema JSON from assets, not from the filesystem. The Room
+  // Gradle plugin normally publishes roomSchemaDir there, but this project only runs the Room
+  // compiler through KSP and does not apply that plugin, so it has to be wired by hand.
+  //
+  // The source set is `debug`, not `test`, and that is not a stylistic choice. A Robolectric
+  // unit test has no assets of its own: AGP writes the paths Robolectric uses into
+  // intermediates/unit_test_config_directory/.../test_config.properties, and
+  // `android_merged_assets` there points at the *main variant's* mergeDebugAssets. Adding the
+  // directory to the `test` source set therefore has no effect at all — the JSON never reaches
+  // the directory Robolectric reads, and the migration test fails with FileNotFoundException
+  // before it asserts anything. `debug` is a build type, and build-type assets are merged into
+  // mergeDebugAssets, which is exactly the directory that needs filling. Debug rather than main
+  // so 69 KB of schema JSON never ships to users in the release APK.
+  sourceSets {
+    getByName("debug") { assets.srcDir(roomSchemaDir) }
+    getByName("androidTest") { assets.srcDir(roomSchemaDir) }
   }
 }
 
@@ -115,6 +153,7 @@ dependencies {
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
+  testImplementation(libs.androidx.room.testing)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
@@ -130,4 +169,13 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+}
+
+// Arguments for the Room annotation processor itself. `room.schemaLocation` is what makes
+// `exportSchema = true` write app/schemas/<version>.json, which MigrationTestHelper replays to
+// build a real pre-migration database. Without it "the migration preserves the data" would be
+// an assertion in a comment rather than a test.
+ksp {
+  arg("room.schemaLocation", roomSchemaDir)
+  arg("room.incremental", "true")
 }

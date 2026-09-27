@@ -7,10 +7,13 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.ai.GeminiAiService
 import com.example.data.ai.GeneratedWordData
 import com.example.data.db.AppDatabase
+import com.example.data.model.NewWordDraft
+import com.example.data.model.StorageValues
 import com.example.data.model.UserEntity
-import com.example.data.model.WordEntity
 import com.example.data.model.WordWithSrs
 import com.example.data.repository.AuthResult
+import com.example.data.repository.ReviewFailure
+import com.example.data.repository.ReviewOutcome
 import com.example.data.repository.SaveWordResult
 import com.example.data.repository.SrsRepository
 import com.example.data.repository.UserRepository
@@ -42,9 +45,9 @@ sealed class AiGenerationState {
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
-    val userRepository = UserRepository(database.userDao())
+    val userRepository = UserRepository(database.userDao(), database)
     val wordRepository = WordRepository(database)
-    val srsRepository = SrsRepository(database.srsReviewDao())
+    val srsRepository = SrsRepository(database)
     private val geminiService = GeminiAiService()
     val ttsHelper = TextToSpeechHelper(application)
 
@@ -182,26 +185,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun seedUserData(userId: Long) {
-        val existing = database.wordDao().findWordByHanzi(userId, "学")
+        val existing = wordRepository.findWordByHanzi(userId, "学")
         if (existing == null) {
             val starterWords = listOf(
-                Pair("学", "xué" to "to study; to learn"),
-                Pair("好", "hǎo" to "good; fine"),
-                Pair("你", "nǐ" to "you")
+                Triple("学", "xué", "to study; to learn"),
+                Triple("好", "hǎo", "good; fine"),
+                Triple("你", "nǐ", "you")
             )
-            starterWords.forEach { (hanzi, data) ->
+            starterWords.forEach { (hanzi, pinyin, meaning) ->
                 wordRepository.saveNewWordWithInitialSrs(
-                    WordEntity(
+                    NewWordDraft(
                         userId = userId,
                         hanzi = hanzi,
-                        pinyin = data.first,
-                        meaning = data.second,
+                        pinyin = pinyin,
+                        meaning = meaning,
                         hskLevel = 1,
                         radical = "部首",
                         exampleCn = "你好，我在学习中文。",
                         examplePy = "Nǐ hǎo, wǒ zài xuéxí zhōngwén.",
                         exampleEn = "Hello, I am learning Chinese.",
-                        strokeJson = "横, 竖, 撇, 捺"
+                        strokeJson = "横, 竖, 撇, 捺",
+                        source = StorageValues.VocabularySource.STARTER.storageValue,
+                        provenance = StorageValues.ContentProvenance.CURATED.storageValue
                     ),
                     initialDueImmediate = true
                 )
@@ -279,7 +284,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isSavingWord.value = true
             _wordSaveError.value = null
-            val word = WordEntity(
+            val word = NewWordDraft(
                 userId = user.id,
                 hanzi = cleanHanzi,
                 pinyin = cleanPinyin,
@@ -290,15 +295,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 examplePy = examplePy,
                 exampleEn = exampleEn,
                 strokeJson = strokeBreakdown,
-                tags = "HSK$hskLevel,Custom"
+                tags = "HSK$hskLevel,Custom",
+                source = StorageValues.VocabularySource.AI_GENERATED.storageValue,
+                provenance = StorageValues.ContentProvenance.AI_GENERATED.storageValue
             )
-            when (wordRepository.saveNewWordWithInitialSrs(word, initialDueImmediate = true)) {
+            when (val result = wordRepository.saveNewWordWithInitialSrs(word, initialDueImmediate = true)) {
                 is SaveWordResult.Saved -> {
                     _aiState.value = AiGenerationState.Idle
                     onComplete()
                 }
                 SaveWordResult.Duplicate -> {
                     _wordSaveError.value = "$cleanHanzi is already in your deck. Open it in the Library to review it."
+                }
+                is SaveWordResult.Invalid -> {
+                    _wordSaveError.value = result.error.message
                 }
             }
             _isSavingWord.value = false
@@ -315,15 +325,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             // A failed write must not advance the deck or crash the app: surface it
             // and leave the card in place so the learner can retry.
-            try {
-                srsRepository.processReview(wordWithSrs.word.id, user.id, rating)
-                _reviewError.value = null
-                _reviewedSessionCount.value = _reviewedSessionCount.value + 1
-                _isCardFlipped.value = false
-                _currentDeckIndex.value = _currentDeckIndex.value + 1
-            } catch (e: Exception) {
-                Log.e("MainViewModel", "Failed to record review for word ${wordWithSrs.word.id}", e)
-                _reviewError.value = "Couldn't save your review. Please try again."
+            when (val outcome = srsRepository.processReview(wordWithSrs.word.id, user.id, rating)) {
+                is ReviewOutcome.Recorded -> {
+                    _reviewError.value = null
+                    _reviewedSessionCount.value = _reviewedSessionCount.value + 1
+                    _isCardFlipped.value = false
+                    _currentDeckIndex.value = _currentDeckIndex.value + 1
+                }
+                is ReviewOutcome.Rejected -> {
+                    Log.w("MainViewModel", "Review rejected for ${wordWithSrs.word.id}: ${outcome.failure}")
+                    _reviewError.value = when (val failure = outcome.failure) {
+                        is ReviewFailure.NotEnrolled -> failure.message
+                        is ReviewFailure.InvalidResult -> failure.error.message
+                    }
+                }
             }
         }
     }
@@ -366,9 +381,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Delete Word
-    fun deleteWord(wordId: Long) {
+    fun deleteWord(userVocabularyId: Long) {
+        val user = currentUser.value ?: return
         viewModelScope.launch {
-            wordRepository.deleteWord(wordId)
+            wordRepository.deleteWord(userVocabularyId, user.id)
         }
     }
 

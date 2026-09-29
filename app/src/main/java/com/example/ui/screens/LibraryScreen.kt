@@ -40,6 +40,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -72,6 +73,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.audio.PronunciationButton
+import com.example.audio.PronunciationRequest
+import com.example.audio.PronunciationService
 import com.example.data.model.StorageValues
 import com.example.data.model.WordWithSrs
 import com.example.ui.components.IconTarget
@@ -101,6 +105,12 @@ fun LibraryScreen(
     onWordSelected: (WordWithSrs) -> Unit = {}
 ) {
     val allWords by viewModel.userWords.collectAsStateWithLifecycle()
+    // Without this the screen cannot tell "you have no words" from "the query has not come back
+    // yet", and `stateIn` starts the flow off empty - so every time a learner with forty words
+    // opened this tab they were shown the title "Vocabulary Library (0)" and told their library
+    // "is ready for its first word", for as long as the query took. The deck already reads this
+    // flag for exactly this reason.
+    val wordsLoaded by viewModel.wordsLoaded.collectAsStateWithLifecycle()
     // Saveable so a rotation does not throw away the search the learner was in the middle
     // of, and so returning to this tab from a review shows the same filtered list.
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -143,7 +153,14 @@ fun LibraryScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Vocabulary Library (${allWords.size})",
+                        // The count is a claim about the learner's collection, so it is withheld
+                        // until there is an answer. "(0)" during the query is a statement that
+                        // they have no words, which is both wrong and alarming.
+                        text = if (wordsLoaded) {
+                            "Vocabulary Library (${allWords.size})"
+                        } else {
+                            "Vocabulary Library"
+                        },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextLight
@@ -259,11 +276,11 @@ fun LibraryScreen(
                 items(filteredWords, key = { it.word.id }) { item ->
                     WordLibraryRow(
                         wordWithSrs = item,
+                        pronunciationService = viewModel.pronunciationService,
                         onClick = {
                             selectedWordForModal = item
                             onWordSelected(item)
                         },
-                        onPlayAudio = { viewModel.playWordAudio(item.word.hanzi) },
                         onDelete = { wordPendingDeletion = item }
                     )
                 }
@@ -282,15 +299,39 @@ fun LibraryScreen(
                                 modifier = Modifier.padding(24.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+                                // A loading state should look like one. A card that says
+                                // "Loading your library..." and nothing else reads as a
+                                // half-rendered screen, and the second line has to be blank to
+                                // avoid saying something it does not know yet.
+                                if (!wordsLoaded) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .padding(bottom = 14.dp),
+                                        color = TextMuted,
+                                        strokeWidth = 2.5.dp
+                                    )
+                                }
                                 Text(
-                                    text = if (allWords.isEmpty()) "Your vocabulary library is ready for its first word." else "No words match these filters.",
+                                    // Three distinct situations, not two. The first was
+                                    // previously shown to anyone whose query was still in flight,
+                                    // which told a learner with a full library that it was empty.
+                                    text = when {
+                                        !wordsLoaded -> "Loading your library..."
+                                        allWords.isEmpty() -> "Your vocabulary library is ready for its first word."
+                                        else -> "No words match these filters."
+                                    },
                                     color = TextLight,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 15.sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (allWords.isEmpty()) "Add a Hanzi from the Routine tab to begin your review deck." else "Try another search term or clear a filter.",
+                                    text = when {
+                                        !wordsLoaded -> ""
+                                        allWords.isEmpty() -> "Add a Hanzi from the Routine tab to begin your review deck."
+                                        else -> "Try another search term or clear a filter."
+                                    },
                                     color = TextMuted,
                                     fontSize = 12.sp
                                 )
@@ -311,9 +352,8 @@ fun LibraryScreen(
     selectedWordForModal?.let { wordWithSrs ->
         WordDetailSheet(
             wordWithSrs = wordWithSrs,
-            onDismiss = { selectedWordForModal = null },
-            onPlayAudio = { viewModel.playWordAudio(wordWithSrs.word.hanzi) },
-            onPlaySentence = { viewModel.playSentenceAudio(wordWithSrs.word.exampleCn) }
+            pronunciationService = viewModel.pronunciationService,
+            onDismiss = { selectedWordForModal = null }
         )
     }
 
@@ -349,8 +389,8 @@ fun LibraryScreen(
 @Composable
 fun WordLibraryRow(
     wordWithSrs: WordWithSrs,
+    pronunciationService: PronunciationService,
     onClick: () -> Unit,
-    onPlayAudio: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -451,20 +491,24 @@ fun WordLibraryRow(
                 }
             }
 
-            // Quick audio. `IconTarget` rather than `IconButton(Modifier.size(n.dp))`:
-            // sizing an IconButton directly sets its max constraints, which coerces away
-            // the 48dp minimum the component would otherwise apply, and the hit area
-            // silently shrinks with the icon.
-            IconTarget(
-                onClick = onPlayAudio,
-                modifier = Modifier.testTag("library_row_audio")
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
-                    tint = LilacPrimary
-                )
-            }
+            // Quick audio. Takes the service rather than an `onPlayAudio: () -> Unit`, because
+            // the button needs the resulting *state* to know whether it is loading, playing, or
+            // broken — and a bare callback carries none of that. Which is the whole defect:
+            // the old signature could not have shown a spinner, so the first tap after launch
+            // looked exactly like the tap after it.
+            PronunciationButton(
+                service = pronunciationService,
+                request = remember(wordWithSrs.word.id) {
+                    PronunciationRequest.forWord(
+                        sourceId = wordWithSrs.word.id,
+                        hanzi = wordWithSrs.word.hanzi,
+                        pinyin = wordWithSrs.word.pinyin,
+                        toneNumber = wordWithSrs.word.toneNumber
+                    )
+                },
+                contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
+                testTag = "library_row_audio"
+            )
 
             IconTarget(
                 onClick = onDelete,
@@ -504,9 +548,8 @@ fun WordLibraryRow(
 @Composable
 fun WordDetailSheet(
     wordWithSrs: WordWithSrs,
-    onDismiss: () -> Unit,
-    onPlayAudio: () -> Unit,
-    onPlaySentence: () -> Unit
+    pronunciationService: PronunciationService,
+    onDismiss: () -> Unit
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -543,13 +586,19 @@ fun WordDetailSheet(
                         color = LilacPrimary
                     )
                 }
-                IconTarget(onClick = onPlayAudio, modifier = Modifier.testTag("detail_audio")) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
-                        tint = LilacPrimary
-                    )
-                }
+                PronunciationButton(
+                    service = pronunciationService,
+                    request = remember(wordWithSrs.word.id) {
+                        PronunciationRequest.forWord(
+                            sourceId = wordWithSrs.word.id,
+                            hanzi = wordWithSrs.word.hanzi,
+                            pinyin = wordWithSrs.word.pinyin,
+                            toneNumber = wordWithSrs.word.toneNumber
+                        )
+                    },
+                    contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
+                    testTag = "detail_audio"
+                )
                 Spacer(modifier = Modifier.width(4.dp))
                 IconTarget(onClick = onDismiss, modifier = Modifier.testTag("detail_close")) {
                     Icon(
@@ -660,20 +709,19 @@ fun WordDetailSheet(
                             fontSize = 12.sp,
                             color = TextMuted
                         )
-                        // Was `IconButton(Modifier.size(24.dp))` with a 16dp icon and a
-                        // null contentDescription: a 24dp hit target, invisible to
-                        // TalkBack. A quarter of the guideline is below the width of the
-                        // contact patch a fingertip makes.
-                        IconTarget(
-                            onClick = onPlaySentence,
-                            modifier = Modifier.testTag("detail_sentence_audio")
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.VolumeUp,
-                                contentDescription = "Hear the example sentence",
-                                tint = LilacPrimary
-                            )
-                        }
+                        // `forSentenceOfWord` so this control and the header's control — both
+                        // enabled, both on this word — cannot both claim to be playing.
+                        PronunciationButton(
+                            service = pronunciationService,
+                            request = remember(wordWithSrs.word.id) {
+                                PronunciationRequest.forSentenceOfWord(
+                                    sourceId = wordWithSrs.word.id,
+                                    sentence = wordWithSrs.word.exampleCn
+                                )
+                            },
+                            contentDescription = "Hear the example sentence",
+                            testTag = "detail_sentence_audio"
+                        )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(wordWithSrs.word.exampleCn, fontSize = 15.sp, fontWeight = FontWeight.Normal, color = TextLight)

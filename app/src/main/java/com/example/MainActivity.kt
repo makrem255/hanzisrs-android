@@ -108,12 +108,17 @@ fun MainAppContainer(
 ) {
     val navController = rememberNavController()
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val sessionRestored by viewModel.sessionRestored.collectAsStateWithLifecycle()
     val dueCount by viewModel.dueCount.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    LaunchedEffect(currentUser) {
-        if (currentUser == null) {
+    // Signed out means "we checked and there is no session", not "we have not looked yet".
+    // Keying this on `sessionRestored` is what stops a launch from flashing the sign-in form at
+    // a learner who is still signed in, and what stops the `popUpTo(0)` below from destroying
+    // the back stack before restoration has had a chance to answer.
+    LaunchedEffect(sessionRestored, currentUser) {
+        if (sessionRestored && currentUser == null) {
             navController.navigate(Screen.Auth.route) {
                 popUpTo(0) { inclusive = true }
             }
@@ -212,6 +217,16 @@ fun MainAppContainer(
         },
         containerColor = DarkBg
     ) { innerPadding ->
+        // Nothing is drawn until the session check has answered. Rendering the graph in the
+        // meantime would show the home screen - a summary, a streak and an empty library - to a
+        // learner who is not signed in, and for a learner who is, it would show the loading
+        // states of queries that are about to succeed. A blank surface for the few milliseconds
+        // a local SQLite lookup takes is the honest one.
+        if (!sessionRestored) {
+            Box(Modifier.fillMaxSize().background(DarkBg))
+            return@Scaffold
+        }
+
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
@@ -266,11 +281,12 @@ fun MainAppContainer(
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     viewModel = viewModel,
-                    onLogout = {
-                        navController.navigate(Screen.Auth.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
+                    // No navigation here on purpose. `SettingsScreen` calls `viewModel.logout()`
+                    // and then this callback, and `logout()` clears `currentUser` - which is the
+                    // same signal the gate above watches, so navigating from both places issued two
+                    // `popUpTo(0)` navigations for one sign-out, racing each other over the back
+                    // stack. One decision, one place: the gate.
+                    onLogout = {}
                 )
             }
         }

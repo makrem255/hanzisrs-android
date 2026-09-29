@@ -31,8 +31,15 @@ data class UserEntity(
     val passwordHash: String,
     val displayName: String,
     /**
-     * Opaque local session marker. Not a bearer token for any server: profiles live on this
-     * device only, and a real credential must come from a backend.
+     * The SHA-256 digest of this device's session token, or empty when there is no session.
+     *
+     * A digest and not the token itself: the raw token lives only in
+     * [com.example.data.auth.SessionStore], in app-private preferences, so a database file
+     * lifted off a device cannot be replayed as a credential. Resolved by
+     * `UserDao.findByToken` at launch.
+     *
+     * This is a local, device-bound credential and cannot be anything else - there is no server
+     * in this app, and the password check that guards it is equally local.
      */
     val token: String,
     val isGuest: Boolean = false,

@@ -90,6 +90,16 @@ class PronunciationService(private val provider: PronunciationProvider) {
     private val isSlow = MutableStateFlow(false)
 
     /**
+     * Whether the learner has asked for slow delivery.
+     *
+     * A flow rather than the [isSlowTts] snapshot so a settings switch binds to the engine's
+     * actual state. Two copies of one preference is how the old `setSpeed`/per-call-rate
+     * disagreement happened in the first place: nothing in the type system said the two were
+     * supposed to agree, and they did not.
+     */
+    val isSlowTtsFlow: StateFlow<Boolean> = isSlow.asStateFlow()
+
+    /**
      * Speaks [request], superseding anything already playing.
      *
      * Returns immediately; the state flow reports what happened. Synchronous by design so a tap

@@ -528,6 +528,11 @@ fun AuthScreen(
                     onClick = {
                         viewModel.loginAsGuest(onSuccess = onAuthSuccess)
                     },
+                    // The submit button above gates on `authLoading`; this one did not, so a
+                    // rapid double-tap started two `loginAsGuest` calls at once. Each one derives
+                    // a PBKDF2 hash of the guest secret - 210_000 iterations - and each one races
+                    // the others to create the single guest row.
+                    enabled = !authLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)

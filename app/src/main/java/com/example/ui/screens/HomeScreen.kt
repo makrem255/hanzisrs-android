@@ -51,6 +51,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,6 +65,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.audio.PronunciationButton
+import com.example.audio.PronunciationRequest
+import com.example.audio.PronunciationService
 import com.example.data.model.WordWithSrs
 import com.example.ui.components.IconTarget
 import com.example.ui.theme.DarkBg
@@ -273,7 +277,7 @@ fun HomeScreen(
                             items(allWords.take(6)) { wordWithSrs ->
                                 RecentWordCard(
                                     wordWithSrs = wordWithSrs,
-                                    onPlayAudio = { viewModel.playWordAudio(wordWithSrs.word.hanzi) }
+                                    pronunciationService = viewModel.pronunciationService
                                 )
                             }
                         }
@@ -427,7 +431,7 @@ private fun PillarItem(
 @Composable
 private fun RecentWordCard(
     wordWithSrs: WordWithSrs,
-    onPlayAudio: () -> Unit
+    pronunciationService: PronunciationService
 ) {
     Card(
         modifier = Modifier.width(135.dp),
@@ -458,25 +462,28 @@ private fun RecentWordCard(
                     )
                 }
 
-                // 48dp, where it was 24.
+                // 48dp, where it was 24dp. The size is no longer this file's business —
+                // `PronunciationButton` owns the floor, and owns the spinner, the replay and
+                // the failure caption that the bare `IconTarget` had no way to show.
                 //
-                // `IconButton(Modifier.size(24.dp))` does not make the button smaller — it
-                // sets the component's max constraints, and the 48dp minimum it would
-                // otherwise apply is then coerced straight back down to 24. The result is a
-                // quarter of the touch guideline, produced by a line of code that reads like
-                // a styling decision. The icon is sized here instead, inside a target that
-                // stays at the floor.
-                IconTarget(
-                    onClick = onPlayAudio,
-                    modifier = Modifier.testTag("home_recent_audio")
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
-                        tint = LilacPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                // Only one of these six cards can be playing, and which one is decided by the
+                // `sourceId` each request carries. That is why the button is handed the service
+                // rather than an `onPlayAudio` callback: a callback cannot be told what the
+                // engine is doing, so a row that had finished playing looked identical to one
+                // that was still going.
+                PronunciationButton(
+                    service = pronunciationService,
+                    request = remember(wordWithSrs.word.id) {
+                        PronunciationRequest.forWord(
+                            sourceId = wordWithSrs.word.id,
+                            hanzi = wordWithSrs.word.hanzi,
+                            pinyin = wordWithSrs.word.pinyin,
+                            toneNumber = wordWithSrs.word.toneNumber
+                        )
+                    },
+                    contentDescription = "Hear ${wordWithSrs.word.hanzi} pronounced",
+                    testTag = "home_recent_audio"
+                )
             }
 
             Spacer(modifier = Modifier.height(6.dp))

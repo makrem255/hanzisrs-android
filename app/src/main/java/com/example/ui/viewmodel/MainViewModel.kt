@@ -1,4 +1,4 @@
-package com.example.ui.viewmodel
+﻿package com.example.ui.viewmodel
 
 import android.app.Application
 import android.util.Log
@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.ai.GeminiAiService
 import com.example.data.ai.GeneratedWordData
+import com.example.data.auth.SessionStore
 import com.example.data.dashboard.DashboardSnapshot
 import com.example.data.db.AppDatabase
 import com.example.data.model.NewWordDraft
@@ -29,7 +30,8 @@ import com.example.data.progress.UnlockedAward
 import com.example.data.srs.ReviewDeckState
 import com.example.data.srs.SrsRating
 import com.example.util.NotificationHelper
-import com.example.util.TextToSpeechHelper
+import com.example.audio.AndroidTtsPronunciationProvider
+import com.example.audio.PronunciationService
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -89,21 +91,55 @@ sealed class AiGenerationState {
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
-    val userRepository = UserRepository(database.userDao(), database)
+    // The session store is what lets the learner stay signed in across launches. It is passed
+    // in here rather than built inside the repository because only the ViewModel has a Context,
+    // and a repository that reached for one could not be unit-tested against an in-memory
+    // database.
+    val userRepository = UserRepository(
+        userDao = database.userDao(),
+        database = database,
+        sessionStore = SessionStore(application)
+    )
     val wordRepository = WordRepository(database)
     val srsRepository = SrsRepository(database)
     private val dashboardRepository = DashboardRepository(database)
     private val gamificationRepository = GamificationRepository(database)
     private val sessionRepository = StudySessionRepository(database)
     private val geminiService = GeminiAiService()
-    val ttsHelper = TextToSpeechHelper(application)
+
+    /**
+     * The app's one audio engine.
+     *
+     * Held here because the ViewModel is the only object with a lifecycle that spans every
+     * screen, and a TTS engine is expensive to create and is wanted by the deck, the library,
+     * the home screen and the add-word preview at the same time. Two engines would also mean
+     * two voices talking over each other, and the [PronunciationService] state machine — which
+     * is what associates a playing indicator with a specific word — assumes a single speaker.
+     *
+     * Public because a [com.example.audio.PronunciationButton] binds to it. Exposed as the
+     * service rather than as a `speak(text)` method so the state, the replay and the failure
+     * reasons reach the screen; the old `playWordAudio(hanzi)` signature could carry none of
+     * them, which is why it reported success by not failing.
+     */
+    val pronunciationService = PronunciationService(AndroidTtsPronunciationProvider(application))
 
     val currentUser: StateFlow<UserEntity?> = userRepository.currentUser
 
     // Observe all words for current user
+    //
+    // The `.catch` on all three collection flows below is not defensive noise. Room throws out of
+    // a flow when the database becomes unreadable - a full disk, a corrupt file, a revoked
+    // permission - and an exception escaping a `stateIn` sharing coroutine is uncaught, because
+    // `viewModelScope` is not supervised for it. The app dies. There is no error variant on a
+    // `List` flow to render into, so the honest degradation is an empty collection; the log
+    // carries the reason, since a learner cannot act on a SQLITE_ code.
     val userWords: StateFlow<List<WordWithSrs>> = currentUser.flatMapLatest { user ->
         if (user != null) {
             wordRepository.getWordsForUser(user.id)
+                .catch { throwable ->
+                    Log.w("MainViewModel", "collection read failed", throwable)
+                    emit(emptyList())
+                }
         } else {
             flowOf(emptyList())
         }
@@ -126,15 +162,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val dueWords: StateFlow<List<WordWithSrs>> = currentUser.flatMapLatest { user ->
         if (user != null) {
             wordRepository.getDueWordsForUser(user.id)
+                .catch { throwable ->
+                    Log.w("MainViewModel", "due-words read failed", throwable)
+                    emit(emptyList())
+                }
         } else {
             flowOf(emptyList())
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Observe due count for badge and notification payload
-    val dueCount: StateFlow<Int> = dueWords
-        .map { it.size }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    //
+    // Deliberately NOT `dueWords.map { it.size }`. That asked the most expensive query in the
+    // codebase to answer the only question the badge draws, and the badge is subscribed at the
+    // app container, so the cost was being paid on every screen and on every review write. The
+    // count is an index range count whose cost is independent of library size, and it still
+    // re-evaluates on the minute clock so a card falling due reaches the badge.
+    val dueCount: StateFlow<Int> = currentUser.flatMapLatest { user ->
+        if (user != null) {
+            wordRepository.observeDueCount(user.id)
+                .catch { throwable ->
+                    Log.w("MainViewModel", "due-count read failed", throwable)
+                    emit(0)
+                }
+        } else {
+            flowOf(0)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     // Add Word / AI State
     private val _aiState = MutableStateFlow<AiGenerationState>(AiGenerationState.Idle)
@@ -336,21 +390,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     // A Room flow throws if the database is unreadable. Left unhandled it
                     // cancels the collector and the screen keeps showing the last good value
                     // forever, which reads as "your progress is 0" rather than as a failure.
+                    //
+                    // The detail is logged, never displayed. `throwable.message` for a Room
+                    // failure is either a bare SQLITE_ code or a full file path, and the UI
+                    // prints this string verbatim under its "Try again" button. The progress
+                    // surface on the same screen already did the right thing here; the two
+                    // were inconsistent.
                     .catch { throwable ->
-                        emit(DashboardUiState.Failed(throwable.message ?: "Unknown error"))
+                        Log.w("MainViewModel", "dashboard read failed", throwable)
+                        emit(DashboardUiState.Failed("Your dashboard could not be read."))
                     }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState.Loading)
 
     // Settings
-    private val _isSlowTts = MutableStateFlow(false)
-    val isSlowTts: StateFlow<Boolean> = _isSlowTts.asStateFlow()
+    // `isSlowTts` is declared with the rest of the audio API near the bottom, because it is
+    // the service's state rather than this class's.
+
+    private val _sessionRestored = MutableStateFlow(false)
+
+    /**
+     * Whether the launch-time session check has finished, either way.
+     *
+     * False means "not known yet", which is different from both "signed in" and "signed out" and
+     * must not be rendered as either. True means [currentUser] is now a trustworthy answer.
+     */
+    val sessionRestored: StateFlow<Boolean> = _sessionRestored.asStateFlow()
 
     init {
         viewModelScope.launch {
-            // Auto login or seed database
-            userRepository.autoLogin()
+            // Restore the session this device held at the last sign-in.
+            //
+            // `sessionRestored` is what makes doing this asynchronously safe. The UI decides
+            // between the sign-in screen and the app by whether `currentUser` is null, and
+            // `currentUser` starts null - so without the flag the gate sees "signed out" during
+            // the window before the query returns, wipes the back stack, and shows the sign-in
+            // form to a learner who is in fact signed in. And because only `onAuthSuccess` ever
+            // navigates away from that screen, nothing would take them back out.
+            //
+            // Set in a `finally` so a database failure here lands on the sign-in screen, which
+            // is recoverable, rather than on a spinner that never resolves.
+            try {
+                userRepository.autoLogin()
+            } catch (failure: Exception) {
+                Log.w("MainViewModel", "session restore failed; falling back to sign-in", failure)
+                userRepository.logout()
+            } finally {
+                _sessionRestored.value = true
+            }
         }
     }
 
@@ -423,47 +511,132 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         userRepository.logout()
     }
 
+    /**
+     * Gives a brand new account its three starter characters, exactly once.
+     *
+     * ### Why the check is "has this account any words at all"
+     *
+     * It used to be `findWordByHanzi(userId, "学")` — that a *single* character is present. That
+     * asks the wrong question: it treats "this learner still owns 学" as proof that seeding
+     * already happened, so a learner who removed 学 got the whole starter pack handed back on
+     * their next sign-in, with no way to keep it out. The account's enrolment count answers the
+     * question actually being asked, needs no schema change, and has the defensible edge
+     * behaviour that someone who deliberately empties their library is a beginner again.
+     */
     private suspend fun seedUserData(userId: Long) {
-        val existing = wordRepository.findWordByHanzi(userId, "学")
-        if (existing == null) {
-            val starterWords = listOf(
-                Triple("学", "xué", "to study; to learn"),
-                Triple("好", "hǎo", "good; fine"),
-                Triple("你", "nǐ", "you")
+        // The first-run seed writes the `learning_levels` catalogue asynchronously, and
+        // `vocabulary.levelId` is a RESTRICT foreign key onto it. Writing a starter word before
+        // that row exists is refused, not stored, so a learner who registered in that window
+        // silently got an empty collection. Waiting is bounded - see
+        // `AppDatabase.awaitReferenceCatalogue` -
+        // so a seed that never signals costs a delay rather than a hang.
+        AppDatabase.awaitReferenceCatalogue()
+
+        if (database.userVocabularyDao().countForUser(userId) > 0) return
+
+        // Real stroke orders, in the `name (reading)` form StrokeNameParser reads, in standard
+        // writing order: 学 has eight strokes, 好 six, 你 seven. The previous value here was the
+        // literal "横, 竖, 撇, 捺" for all three, which asserted a four-stroke character for
+        // every one of them and, being in neither the name nor the `name (reading)` form, parsed
+        // to nothing anyway. A wrong stroke count is worse than an absent one: the app would
+        // animate someone else's writing as though it were correct.
+        val starterWords = listOf(
+            StarterWord(
+                hanzi = "学",
+                pinyin = "xué",
+                meaning = "to study; to learn",
+                strokes = "点 (Diǎn), 点 (Diǎn), 撇 (Piě), 点 (Diǎn), 横钩 (Héng Gōu), " +
+                    "横撇 (Héng Piě), 弯钩 (Wān Gōu), 横 (Héng)"
+            ),
+            StarterWord(
+                hanzi = "好",
+                pinyin = "hǎo",
+                meaning = "good; fine",
+                strokes = "撇点 (Piě Diǎn), 撇 (Piě), 横 (Héng), 横撇 (Héng Piě), " +
+                    "弯钩 (Wān Gōu), 横 (Héng)"
+            ),
+            StarterWord(
+                hanzi = "你",
+                pinyin = "nǐ",
+                meaning = "you",
+                strokes = "撇 (Piě), 竖 (Shù), 撇 (Piě), 横钩 (Héng Gōu), " +
+                    "竖钩 (Shù Gōu), 撇 (Piě), 点 (Diǎn)"
             )
-            starterWords.forEach { (hanzi, pinyin, meaning) ->
-                wordRepository.saveNewWordWithInitialSrs(
-                    NewWordDraft(
-                        userId = userId,
-                        hanzi = hanzi,
-                        pinyin = pinyin,
-                        meaning = meaning,
-                        hskLevel = 1,
-                        radical = "部首",
-                        exampleCn = "你好，我在学习中文。",
-                        examplePy = "Nǐ hǎo, wǒ zài xuéxí zhōngwén.",
-                        exampleEn = "Hello, I am learning Chinese.",
-                        strokeJson = "横, 竖, 撇, 捺",
-                        source = StorageValues.VocabularySource.STARTER.storageValue,
-                        provenance = StorageValues.ContentProvenance.CURATED.storageValue
-                    ),
-                    initialDueImmediate = true
-                )
+        )
+
+        // One real sentence, shared: 你好，我在学习中文。 is a natural sentence that happens to
+        // contain all three starter characters, which is why it was chosen, and reusing it keeps
+        // the example honest rather than inventing three.
+        starterWords.forEach { starter ->
+            val result = wordRepository.saveNewWordWithInitialSrs(
+                NewWordDraft(
+                    userId = userId,
+                    hanzi = starter.hanzi,
+                    pinyin = starter.pinyin,
+                    meaning = starter.meaning,
+                    hskLevel = 1,
+                    // Left empty rather than filled with a placeholder. It used to hold the
+                    // literal string "部首" - the Chinese *word* for "radical" - which the
+                    // library screen rendered as if it were this character's radical. An absent
+                    // radical is a blank cell; a fabricated one is a false statement.
+                    radical = "",
+                    exampleCn = "你好，我在学习中文。",
+                    examplePy = "Nǐ hǎo, wǒ zài xuéxí zhōngwén.",
+                    exampleEn = "Hello, I am learning Chinese.",
+                    strokeJson = starter.strokes,
+                    source = StorageValues.VocabularySource.STARTER.storageValue,
+                    provenance = StorageValues.ContentProvenance.CURATED.storageValue
+                ),
+                initialDueImmediate = true
+            )
+            // A refused save is silent otherwise, and the learner sees a missing starter
+            // character with nothing to explain it.
+            if (result is SaveWordResult.Invalid) {
+                Log.w("MainViewModel", "starter word ${starter.hanzi} was refused: ${result.error}")
             }
         }
     }
 
+    private data class StarterWord(
+        val hanzi: String,
+        val pinyin: String,
+        val meaning: String,
+        val strokes: String
+    )
+
     // AI Generation Operations
+
+    /**
+     * Identifies the most recent generation request, so a slow reply cannot overwrite a newer one.
+     *
+     * The service has a 30 second connect, read and write timeout, so the window in which two
+     * requests overlap is wide. Press Search for 学, edit the field to 猫, press Search again: both
+     * are in flight, and whichever returns *last* used to win regardless of which was asked for
+     * second. The learner would then be looking at 学 while believing they had asked for 猫, and
+     * would approve and save the wrong word.
+     */
+    private var latestAiRequest: Long = 0
+
     fun generateWord(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
             _aiState.value = AiGenerationState.Error("Enter a Chinese character or pinyin first.")
             return
         }
+        // Claimed before the launch, on the calling thread, so two taps in the same frame cannot
+        // both believe they are the newest.
+        val requestId = ++latestAiRequest
         viewModelScope.launch {
             _wordSaveError.value = null
             _aiState.value = AiGenerationState.Loading
             val result = geminiService.generateChineseWordData(trimmed)
+            // A superseded request is dropped silently. Reporting its outcome would replace the
+            // learner's newer question with an error about a character they are no longer asking
+            // about.
+            if (requestId != latestAiRequest) {
+                Log.i("MainViewModel", "dropping superseded AI request $requestId for '$trimmed'")
+                return@launch
+            }
             result.fold(
                 onSuccess = { data ->
                     _aiState.value = AiGenerationState.ReadyForReview(data)
@@ -482,6 +655,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Opt-in path for the built-in offline sample dictionary. Only ever called from an
      * explicit user action, and the result is tagged LOCAL_FALLBACK so the UI labels it.
+     *
+     * A miss is reported, not filled in. This used to return a plausible `GeneratedWordData` for
+     * any query at all - a fixed reading, a fixed radical, a fixed five-stroke breakdown that
+     * described no character in particular - and the caller saved it as model output.
      */
     fun useOfflineSampleFor(query: String) {
         val trimmed = query.trim()
@@ -489,8 +666,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _aiState.value = AiGenerationState.Error("Enter a Chinese character or pinyin first.")
             return
         }
-        viewModelScope.launch {
-            _aiState.value = AiGenerationState.ReadyForReview(geminiService.offlineSampleFor(trimmed))
+        // Any generation in flight is now moot; this is the answer the learner asked for.
+        latestAiRequest++
+        val sample = geminiService.offlineSampleFor(trimmed)
+        _aiState.value = if (sample != null) {
+            AiGenerationState.ReadyForReview(sample)
+        } else {
+            AiGenerationState.Error(
+                "No offline sample for \"$trimmed\". Try another character, or add it by hand."
+            )
         }
     }
 
@@ -587,12 +771,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // The refused taps are no-ops, not errors: a learner double-tapping should not be told
         // they did something wrong, they should just see the deck behave as if the second tap
         // had not happened.
-        // One atomic claim. `beginRating` returns null for a card that is not eligible - not
-        // revealed, exhausted, or already being written - and falling back to the unchanged state
-        // in that case leaves `isRating` false, so the check below refuses it. A separate
-        // `canRate` test before the write would be a second, racy answer to the same question.
+        //
+        // One atomic claim, and the refusal is decided by comparing before and after rather than
+        // by reading `isRating` once. `beginRating` returns null for three different reasons -
+        // not revealed, no card, and a write already in flight - and only the first two leave
+        // `isRating` false. The third returns the state unchanged with `isRating` *still true*,
+        // so the old "fall back to the unchanged state and check `isRating`" guard read `true`
+        // and let the double tap straight through: two `processReview` calls, two `review_log`
+        // rows, two index advances, and the next card skipped unasked. The state machine's own
+        // test proves it refuses; the caller was throwing that answer away.
+        val before = _reviewDeckState.value
         val claimed = _reviewDeckState.updateAndGet { it.beginRating() ?: it }
-        if (!claimed.isRating) return
+        if (!claimed.isRating || before.isRating) return
 
         val currentId = deck.currentWordId
         if (currentId != null && wordWithSrs.word.id != currentId) {
@@ -604,62 +794,81 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
-            // Awaited, not read: a learner can rate the first card before the opening write has
-            // returned, and an answer logged with no session id belongs to no sitting and can
-            // never be counted towards `SESSIONS_COMPLETED`.
-            val sessionId = activeSession?.await()
+            // `processReview` runs inside `withTransaction`, which is exactly where a
+            // `SQLiteConstraintException` or a `SQLiteDiskIOException` surfaces. Unhandled, that
+            // exception both crashes the app and leaves the in-flight claim set, and with it
+            // `canRate` false for good - `reveal`, `next` and `previous` all no-op while
+            // `isRating` - so the deck is permanently unusable and a restart is the only escape.
+            // The comment below used to promise the first half of that was handled; it was not.
+            try {
+                // Awaited, not read: a learner can rate the first card before the opening write has
+                // returned, and an answer logged with no session id belongs to no sitting and can
+                // never be counted towards `SESSIONS_COMPLETED`.
+                val sessionId = activeSession?.await()
 
-            // A failed write must not advance the deck or crash the app: surface it
-            // and leave the card in place so the learner can retry.
-            // The session id goes into the log entry itself, not only onto the session card.
-            when (
-                val outcome = srsRepository.processReview(
-                    userVocabularyId = wordWithSrs.word.id,
-                    userId = user.id,
-                    rating = rating,
-                    sessionId = sessionId
-                )
-            ) {
-                is ReviewOutcome.Recorded -> {
-                    _reviewError.value = null
-                    // The session card is written from the schedule the write actually produced,
-                    // not from a prediction made before it, so the summary at the end of the
-                    // sitting reports the real next interval.
-                    if (sessionId != null) {
-                        val schedule = srsRepository.getReviewForWord(wordWithSrs.word.id)
-                        if (schedule != null) {
-                            sessionRepository.recordAnswer(
-                                sessionId = sessionId,
-                                userId = user.id,
-                                // The shared content id, which is what `session_cards` keys on.
-                                // The enrolment is what `srs_state` and the answer above are keyed
-                                // on, and the two are different rows with different keys.
-                                vocabularyId = wordWithSrs.word.vocabularyId,
-                                rating = rating,
-                                answeredAt = System.currentTimeMillis(),
-                                responseTimeMillis = 0,
-                                schedule = schedule
-                            )
+                // A failed write must not advance the deck or crash the app: surface it
+                // and leave the card in place so the learner can retry.
+                // The session id goes into the log entry itself, not only onto the session card.
+                when (
+                    val outcome = srsRepository.processReview(
+                        userVocabularyId = wordWithSrs.word.id,
+                        userId = user.id,
+                        rating = rating,
+                        sessionId = sessionId
+                    )
+                ) {
+                    is ReviewOutcome.Recorded -> {
+                        _reviewError.value = null
+                        // The session card is written from the schedule the write actually produced,
+                        // not from a prediction made before it, so the summary at the end of the
+                        // sitting reports the real next interval.
+                        if (sessionId != null) {
+                            val schedule = srsRepository.getReviewForWord(wordWithSrs.word.id)
+                            if (schedule != null) {
+                                sessionRepository.recordAnswer(
+                                    sessionId = sessionId,
+                                    userId = user.id,
+                                    // The shared content id, which is what `session_cards` keys on.
+                                    // The enrolment is what `srs_state` and the answer above are
+                                    // keyed on, and the two are different rows with different keys.
+                                    vocabularyId = wordWithSrs.word.vocabularyId,
+                                    rating = rating,
+                                    answeredAt = System.currentTimeMillis(),
+                                    responseTimeMillis = 0,
+                                    schedule = schedule
+                                )
+                            }
+                        }
+                        // One transition moves the index, records the answer and releases the
+                        // in-flight claim together. Incrementing the index by hand alongside a
+                        // separate `isRating` flag is how the two came to disagree.
+                        val advanced = _reviewDeckState.updateAndGet { it.completeRating(rating) }
+                        _currentDeckIndex.value = advanced.index
+                        _isCardFlipped.value = advanced.revealed
+                        _reviewedSessionCount.value = advanced.answersGiven
+                    }
+                    is ReviewOutcome.Rejected -> {
+                        Log.w(
+                            "MainViewModel",
+                            "Review rejected for ${wordWithSrs.word.id}: ${outcome.failure}"
+                        )
+                        // The claim is released and the index is left alone, so the learner stays
+                        // on the card and the answer they gave is still theirs to submit.
+                        _reviewDeckState.update { it.failRating() }
+                        _reviewError.value = when (val failure = outcome.failure) {
+                            is ReviewFailure.NotEnrolled -> failure.message
+                            is ReviewFailure.InvalidResult -> failure.error.message
                         }
                     }
-                    // One transition moves the index, records the answer and releases the
-                    // in-flight claim together. Incrementing the index by hand alongside a
-                    // separate `isRating` flag is how the two came to disagree.
-                    val advanced = _reviewDeckState.updateAndGet { it.completeRating(rating) }
-                    _currentDeckIndex.value = advanced.index
-                    _isCardFlipped.value = advanced.revealed
-                    _reviewedSessionCount.value = advanced.answersGiven
                 }
-                is ReviewOutcome.Rejected -> {
-                    Log.w("MainViewModel", "Review rejected for ${wordWithSrs.word.id}: ${outcome.failure}")
-                    // The claim is released and the index is left alone, so the learner stays on
-                    // the card and the answer they gave is still theirs to submit.
-                    _reviewDeckState.update { it.failRating() }
-                    _reviewError.value = when (val failure = outcome.failure) {
-                        is ReviewFailure.NotEnrolled -> failure.message
-                        is ReviewFailure.InvalidResult -> failure.error.message
-                    }
-                }
+            } catch (failure: Exception) {
+                // Release the claim so the deck is still usable, and leave the index alone so the
+                // learner's answer is still theirs to submit. Deliberately not the exception's
+                // own message: this is a Room failure and its text is either a raw SQLITE_ code
+                // or a file path, neither of which means anything to the person reading it.
+                Log.w("MainViewModel", "review write failed for ${wordWithSrs.word.id}", failure)
+                _reviewDeckState.update { it.failRating() }
+                _reviewError.value = "That answer could not be saved. Please try again."
             }
         }
     }
@@ -762,6 +971,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun startReviewSession(words: List<WordWithSrs>) {
         val snapshot = words.toList()
+        // A new sitting has no results yet. Without this, the previous one's summary and awards
+        // survive: leave the deck from the top bar, tap Start Learning again, and if the new
+        // deck turns out to be empty the completion screen renders the *last* sitting's badges
+        // and its hard-coded "Session complete" above "No cards were answered in this session" -
+        // congratulating a learner for a session that did not happen. `restartReviewSession`
+        // already cleared it; this is the other entry point and it did not.
+        clearSessionSummary()
         _reviewDeck.value = snapshot
         _reviewSessionWordIds.value = snapshot.map { it.word.id }
         _reviewDeckState.value = ReviewDeckState(snapshot.map { it.word.id })
@@ -822,18 +1038,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Audio TTS
-    fun playWordAudio(hanzi: String) {
-        ttsHelper.speak(hanzi, if (_isSlowTts.value) 0.65f else 0.90f)
-    }
+    // Audio
+    //
+    // The rate lives in PronunciationService and is applied to each request at the moment it is
+    // issued. It used to be a field here *and* an argument to every `speak(...)` call, with the
+    // two disagreeing: `toggleSlowTts` set 0.65/0.90 and the very next `playWordAudio` overwrote
+    // it with a value chosen at that call site. The slow toggle worked only when one happened
+    // to run last, which is not a property anyone can rely on.
+    //
+    // `isSlowTts` reads through to the service rather than holding a second copy, so the
+    // settings switch and the engine cannot disagree about the current rate.
 
-    fun playSentenceAudio(sentence: String) {
-        ttsHelper.speak(sentence, if (_isSlowTts.value) 0.70f else 0.95f)
-    }
+    val isSlowTts: StateFlow<Boolean> get() = pronunciationService.isSlowTtsFlow
 
     fun toggleSlowTts() {
-        _isSlowTts.value = !_isSlowTts.value
-        ttsHelper.setSpeed(_isSlowTts.value)
+        pronunciationService.setSlow(!pronunciationService.isSlowTts)
     }
 
     // Notification Trigger
@@ -852,6 +1071,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
-        ttsHelper.shutdown()
+        pronunciationService.shutdown()
     }
 }

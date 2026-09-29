@@ -86,6 +86,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.WordWithSrs
+import com.example.audio.PronunciationButton
+import com.example.audio.PronunciationRequest
 import com.example.data.progress.SessionSummary
 import com.example.data.progress.UnlockedAward
 import com.example.data.srs.SrsRating
@@ -475,30 +477,31 @@ fun SwipeDeckReviewScreen(
                                     )
                                 }
 
-                                // Audio. 48dp, where it was 42 — a 42dp circle is a thumb's
-                                // width minus a hair and this is the control the card is
-                                // built around. `Modifier.size` on a `Button` sets its max
-                                // constraints, so this does grow the target rather than the
-                                // icon, and the icon is sized inside instead.
-                                FilledTonalButton(
-                                    onClick = { viewModel.playWordAudio(currentWordWithSrs.word.hanzi) },
-                                    colors = ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = LilacPrimary,
-                                        contentColor = LilacPrimaryDark
-                                    ),
-                                    shape = CircleShape,
-                                    modifier = Modifier
-                                        .size(MinTouchTarget)
-                                        .testTag("deck_audio_button"),
-                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = "Hear ${currentWordWithSrs.word.hanzi} pronounced",
-                                        tint = LilacPrimaryDark,
-                                        modifier = Modifier.size(22.dp)
+                                // Audio. The control, its loading spinner, its replay and its
+                                // failure caption all come from PronunciationButton, because all
+                                // four were previously absent: this used to be a bare
+                                // `speak(hanzi)` that reported success by not failing, so the
+                                // first tap after launch was discarded in silence and a device
+                                // with no Mandarin voice produced nothing at all.
+                                //
+                                // The request is remembered against the *word*, not the tap. The
+                                // card is swipable, and a learner who swipes mid-utterance must
+                                // not be left with a spinner on a card they have already left.
+                                val audioRequest = remember(currentWordWithSrs.word.id) {
+                                    PronunciationRequest.forWord(
+                                        sourceId = currentWordWithSrs.word.id,
+                                        hanzi = currentWordWithSrs.word.hanzi,
+                                        pinyin = currentWordWithSrs.word.pinyin,
+                                        toneNumber = currentWordWithSrs.word.toneNumber
                                     )
                                 }
+                                PronunciationButton(
+                                    service = viewModel.pronunciationService,
+                                    request = audioRequest,
+                                    contentDescription =
+                                    "Hear ${currentWordWithSrs.word.hanzi} pronounced",
+                                    testTag = "deck_audio_button"
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(10.dp))
@@ -675,26 +678,21 @@ fun SwipeDeckReviewScreen(
                                             color = LilacPrimary,
                                             fontWeight = FontWeight.SemiBold
                                         )
-                                        // Was `IconButton(Modifier.size(32.dp))`. That sets
-                                        // the component's max constraints, which coerces
-                                        // away the 48dp minimum it would otherwise apply —
-                                        // so the target was two-thirds of the floor, and
-                                        // silently so.
-                                        IconTarget(
-                                            onClick = {
-                                                viewModel.playSentenceAudio(
-                                                    currentWordWithSrs.word.exampleCn
+                                        // `forSentenceOfWord` rather than `forSentence`: the
+                                        // card's other audio button is this word's own
+                                        // pronunciation, and a shared sourceId would make both
+                                        // controls light up for one tap.
+                                        PronunciationButton(
+                                            service = viewModel.pronunciationService,
+                                            request = remember(currentWordWithSrs.word.id) {
+                                                PronunciationRequest.forSentenceOfWord(
+                                                    sourceId = currentWordWithSrs.word.id,
+                                                    sentence = currentWordWithSrs.word.exampleCn
                                                 )
                                             },
-                                            modifier = Modifier.testTag("deck_sentence_audio")
-                                        ) {
-                                            Icon(
-                                                Icons.AutoMirrored.Filled.VolumeUp,
-                                                contentDescription = "Hear the example sentence",
-                                                tint = LilacPrimary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
+                                            contentDescription = "Hear the example sentence",
+                                            testTag = "deck_sentence_audio"
+                                        )
                                     }
 
                                     Spacer(modifier = Modifier.height(6.dp))

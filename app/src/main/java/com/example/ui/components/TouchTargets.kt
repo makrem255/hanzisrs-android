@@ -84,11 +84,18 @@ fun SegmentedOption(
  * `contentDescription` goes on the [Icon] the caller passes in, not here — Compose has no
  * semantic slot on a bare `Box`, and attaching a description to the wrong node is how the
  * two library buttons ended up invisible to TalkBack in the first place.
+ *
+ * [enabled] exists because "this cannot be done right now" and "this can be done but will do
+ * nothing" are different states, and only the second is a defect. A disabled control still
+ * occupies its 48dp, still carries its label, and is still focusable in the sense that a
+ * screen reader will describe it as disabled — so it stays legible as a thing that exists
+ * rather than vanishing from the layout.
  */
 @Composable
 fun IconTarget(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
@@ -99,7 +106,7 @@ fun IconTarget(
             // something, and the icon's own `contentDescription` — "Hear 学 pronounced" —
             // then reads as a label on a static element rather than as the name of a
             // control. The role is what makes it a control to a screen reader.
-            .clickable(onClick = onClick, role = Role.Button),
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button),
         contentAlignment = Alignment.Center,
         content = content
     )

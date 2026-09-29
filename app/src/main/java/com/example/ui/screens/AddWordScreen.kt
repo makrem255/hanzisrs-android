@@ -74,6 +74,10 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.audio.PronunciationButton
+import com.example.audio.PronunciationButtonVariant
+import com.example.audio.PronunciationRequest
+import com.example.audio.PronunciationService
 import com.example.data.ai.GeneratedWordData
 import com.example.data.ai.WordDataOrigin
 import com.example.ui.components.InteractiveStrokeSection
@@ -203,7 +207,14 @@ fun AddWordScreen(
                             Spacer(modifier = Modifier.height(6.dp))
 
                             Text(
-                                text = "Enter a Hanzi character (e.g. 咖啡, 学) or Pinyin (e.g. shuǐ, péngyou). AI will auto-generate pinyin with tones, radical, stroke order breakdown, and context sentences.",
+                                // Both examples were refused by the validator this field feeds:
+                                // 咖啡 is two characters and `Validator.validateNewWord` allows one,
+                                // and péngyou is two syllables where `PinyinAnalyzer` yields one.
+                                // A library entry is a single character, because a character is the
+                                // unit the stroke and writing-practice screens operate on.
+                                text = "Enter one Hanzi character (e.g. 学, 茶) or its pinyin " +
+                                    "(e.g. xue, cha). AI will auto-generate pinyin with tones, " +
+                                    "radical, stroke order breakdown, and context sentences.",
                                 fontSize = 12.sp,
                                 color = TextMuted,
                                 lineHeight = 17.sp
@@ -221,7 +232,15 @@ fun AddWordScreen(
                                 // all, so on a phone the only way to generate was to dismiss
                                 // the keyboard and then find the button it had been covering.
                                 keyboardActions = KeyboardActions(
-                                    onSearch = { viewModel.generateWord(searchInput) }
+                                    // Guarded exactly as the button below is. The search key
+                                    // bypassed that guard, so it stayed live while a request was
+                                    // already in flight - which, over the service's 30 second
+                                    // timeouts, is a long time to have two generations running.
+                                    onSearch = {
+                                        if (searchInput.isNotBlank() && state !is AiGenerationState.Loading) {
+                                            viewModel.generateWord(searchInput)
+                                        }
+                                    }
                                 ),
                                 keyboardOptions = KeyboardOptions(
                                     // No autocorrect on a pinyin query: the keyboard's
@@ -297,6 +316,7 @@ fun AddWordScreen(
                     WordReviewAndApprovalView(
                         generatedData = state.wordData,
                         customTextFieldColors = customTextFieldColors,
+                        pronunciationService = viewModel.pronunciationService,
                         saveError = wordSaveError,
                         isSaving = isSavingWord,
                         onApprove = { hanzi, pinyin, meaning, hsk, radical, exCn, exPy, exEn, strokes ->
@@ -313,8 +333,6 @@ fun AddWordScreen(
                                 onComplete = onNavigateBack
                             )
                         },
-                        onPlayAudio = { viewModel.playWordAudio(it) },
-                        onPlaySentence = { viewModel.playSentenceAudio(it) },
                         onCancel = { confirmDiscard = true }
                     )
                 }
@@ -364,6 +382,7 @@ fun AddWordScreen(
 fun WordReviewAndApprovalView(
     generatedData: GeneratedWordData,
     customTextFieldColors: androidx.compose.material3.TextFieldColors,
+    pronunciationService: PronunciationService,
     saveError: String?,
     isSaving: Boolean,
     onApprove: (
@@ -377,8 +396,6 @@ fun WordReviewAndApprovalView(
         exampleEn: String,
         strokeBreakdown: String
     ) -> Unit,
-    onPlayAudio: (String) -> Unit,
-    onPlaySentence: (String) -> Unit,
     onCancel: () -> Unit
 ) {
     // Every field here is `rememberSaveable` and keyed on nothing but the draft.
@@ -462,17 +479,29 @@ fun WordReviewAndApprovalView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Character details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = TextLight)
-                    IconButton(onClick = { onPlayAudio(hanzi) }) {
-                        // Describes the character being played, not the button. "Listen" is
-                        // what the button does; a screen reader user needs to know which
-                        // character, and on a form where the character is editable and may be
-                        // mid-edit, "listen" alone is ambiguous.
-                        Icon(
-                            Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Hear $hanzi pronounced",
-                            tint = LilacPrimary
-                        )
-                    }
+                    // `Variant.Tonal` here, where the other three screens use the plain icon:
+                    // this is the one place a learner goes deliberately to hear what they just
+                    // typed, so the control earns prominence rather than recedes into the row.
+                    //
+                    // The request is keyed on the text, so backspacing the field drops any state
+                    // the button was showing. With a fixed id the spinner would outlive the
+                    // character it was about.
+                    PronunciationButton(
+                        service = pronunciationService,
+                        request = remember(hanzi, pinyin) {
+                            PronunciationRequest.forDraftCharacter(
+                                draftId = "add_word_hanzi",
+                                hanzi = hanzi,
+                                pinyin = pinyin
+                            )
+                        },
+                        // Names the character being played, not the button. "Listen" is what the
+                        // button does; on a form where the character is editable and may be
+                        // mid-edit, a screen reader user needs to know *which* character.
+                        contentDescription = "Hear $hanzi pronounced",
+                        variant = PronunciationButtonVariant.Tonal,
+                        testTag = "addword_hanzi_audio"
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -671,17 +700,22 @@ fun WordReviewAndApprovalView(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("Contextual example sentence", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextLight)
-                    IconButton(
-                        onClick = { onPlaySentence(exampleCn) },
-                        enabled = exampleCn.isNotBlank()
-                    ) {
-                        // Silent when there is nothing to play, and named for what it plays.
-                        Icon(
-                            Icons.AutoMirrored.Filled.VolumeUp,
-                            contentDescription = "Hear the example sentence",
-                            tint = if (exampleCn.isNotBlank()) LilacPrimary else TextSubtle
-                        )
-                    }
+                    // The blank case is handled by the button: an empty field yields
+                    // `NothingToSay`, which disables the control without a caption, because
+                    // the empty field beside it is the explanation. The old code got there by
+                    // greying the icon and had no way to say *why* on a device with no voice.
+                    PronunciationButton(
+                        service = pronunciationService,
+                        request = remember(exampleCn) {
+                            PronunciationRequest.forDraftSentence(
+                                draftId = "add_word_sentence",
+                                sentence = exampleCn
+                            )
+                        },
+                        contentDescription = "Hear the example sentence",
+                        variant = PronunciationButtonVariant.Tonal,
+                        testTag = "addword_sentence_audio"
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))

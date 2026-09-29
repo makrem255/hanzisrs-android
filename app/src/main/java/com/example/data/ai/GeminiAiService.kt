@@ -165,20 +165,42 @@ class GeminiAiService {
             .trim()
 
         val wordJson = JSONObject(cleanedJson)
+        // Every one of these used to carry a plausible-looking default, and that is the whole
+        // problem: a well-formed response that simply omitted `radical` came back with the
+        // literal Chinese *word* "radical" as the character's radical, and one that omitted the
+        // strokes came back as a confident four-stroke breakdown. Those were stored as though
+        // the model had said them, and the app then animated someone else's writing as this
+        // character's. A field the model did not supply is now absent, which is a state the UI
+        // already knows how to render.
+        val radical = wordJson.optString("radical", "").trim()
+        val strokes = wordJson.optString("strokeBreakdown", "").trim()
+        val meaning = wordJson.optString("meaning", "").trim()
+        val pinyin = wordJson.optString("pinyin", "").trim()
+        // Meaning and reading are not decoration - without them the card is not a vocabulary
+        // entry, so a response missing either is a malformed response rather than a thin one.
+        if (meaning.isEmpty() || pinyin.isEmpty()) {
+            throw AiFailure.MalformedResponse(null)
+        }
         return GeneratedWordData(
             hanzi = wordJson.optString("hanzi", query),
-            pinyin = wordJson.optString("pinyin", "pīnyīn"),
-            meaning = wordJson.optString("meaning", "Meaning"),
+            pinyin = pinyin,
+            meaning = meaning,
             hskLevel = wordJson.optInt("hskLevel", 1).coerceIn(1, 6),
-            radical = wordJson.optString("radical", "部首"),
-            exampleCn = wordJson.optString("exampleCn", "这是一个例句。"),
-            examplePy = wordJson.optString("examplePy", "Zhè shì yí gè lìjù."),
-            exampleEn = wordJson.optString("exampleEn", "This is an example sentence."),
-            strokeBreakdown = wordJson.optString("strokeBreakdown", "横 (Héng), 竖 (Shù), 撇 (Piě), 捺 (Nà)"),
-            strokeCount = wordJson.optInt("strokeCount", 4),
+            radical = radical,
+            exampleCn = wordJson.optString("exampleCn", "").trim(),
+            examplePy = wordJson.optString("examplePy", "").trim(),
+            exampleEn = wordJson.optString("exampleEn", "").trim(),
+            strokeBreakdown = strokes,
+            // Taken from the breakdown when the model gives one, and 0 when it does not, rather
+            // than assumed to be 4.
+            strokeCount = wordJson.optInt("strokeCount", if (strokes.isEmpty()) 0 else countStrokes(strokes)),
             origin = WordDataOrigin.GEMINI
         )
     }
+
+    /** Counts the comma-separated `name (reading)` segments of a stroke breakdown. */
+    private fun countStrokes(breakdown: String): Int =
+        breakdown.split(',').count { it.trim().isNotEmpty() }
 
     /** Pulls a short, safe message out of a Google error body for display. */
     private fun summarise(errorBody: String): String {
@@ -194,65 +216,36 @@ class GeminiAiService {
     }
 
     /**
-     * Offline sample data for a small built-in dictionary, plus a generic placeholder
-     * for anything unknown.
+     * A real entry from the built-in dictionary, or `null` when there isn't one.
      *
-     * This is deliberately NOT used as an automatic fallback: previously any network
-     * or API error was silently replaced with this data, so the learner was shown
-     * placeholder content while the UI implied the AI had answered. Callers must now
-     * invoke this explicitly (the result is tagged [WordDataOrigin.LOCAL_FALLBACK] so
-     * the UI can label it) after the learner opts into offline sample data.
+     * ### Why this no longer invents anything
+     *
+     * It used to answer any query at all. An unknown single character came back as
+     * `createHeuristicForChar`: the reading `zì`, the meaning "Chinese character 'X'", the radical
+     * the literal string `"部首"`, and a fixed five-stroke breakdown that described no character
+     * whatsoever. Anything else came back as 字 with a six-stroke breakdown and radical 宀. The
+     * caller then saved it with `provenance = AI_GENERATED`, so a fabricated stroke count was
+     * stored in the database as model output and rendered on the card.
+     *
+     * The dictionary itself is sound and unchanged - 爱 ài at ten strokes, 人 rén at two, 中 zhōng
+     * at four, 大 dà at three are all correct. Only the invented answers for entries it does not
+     * contain are gone. `null` is a real answer: the caller says so, and the learner can type the
+     * character in by hand, which is honest and costs them one form.
      */
-    fun offlineSampleFor(query: String): GeneratedWordData {
+    fun offlineSampleFor(query: String): GeneratedWordData? {
         val trimmed = query.trim()
         val predefined = getPredefinedDictionary()
-
-        // Exact Hanzi or Pinyin match
+        // Exact Hanzi or Pinyin match, in that order, then the first character for a multi
+        // character query. All three are lookups against real entries.
         predefined[trimmed]?.let { return it }
-
-        // Character level lookup
-        if (trimmed.length == 1) {
-            return createHeuristicForChar(trimmed[0])
-        }
-
-        // Generic sample for any user input
-        return GeneratedWordData(
-            hanzi = if (isAllChinese(trimmed)) trimmed else "字",
-            pinyin = if (!isAllChinese(trimmed)) trimmed else "zì",
-            meaning = "character; word; written symbol",
-            hskLevel = 1,
-            radical = "宀 (roof)",
-            exampleCn = "这个中文词语很有意思。",
-            examplePy = "Zhège zhōngwén cíyǔ hěn yǒu yìsi.",
-            exampleEn = "This Chinese vocabulary word is very interesting.",
-            strokeBreakdown = "点 (Diǎn), 点 (Diǎn), 横钩 (Héng Gōu), 弯钩 (Wān Gōu), 横 (Héng)",
-            strokeCount = 6
-        )
-    }
-
-    private fun isAllChinese(str: String): Boolean {
-        return str.isNotEmpty() && str.all { it.code in 0x4E00..0x9FFF }
-    }
-
-    private fun createHeuristicForChar(char: Char): GeneratedWordData {
-        return GeneratedWordData(
-            hanzi = char.toString(),
-            pinyin = "zì",
-            meaning = "Chinese character '$char'",
-            hskLevel = 2,
-            radical = "部首",
-            exampleCn = "我们一起学习‘$char’这个汉字。",
-            examplePy = "Wǒmen yìqǐ xuéxí '$char' zhège hànzì.",
-            exampleEn = "Let's study the character '$char' together.",
-            strokeBreakdown = "撇 (Piě), 横 (Héng), 竖 (Shù), 折 (Zhé), 点 (Diǎn)",
-            strokeCount = 5
-        )
+        if (trimmed.length == 1) predefined[trimmed[0].toString()]?.let { return it }
+        return null
     }
 
     private fun getPredefinedDictionary(): Map<String, GeneratedWordData> {
         return mapOf(
-            "爱" to GeneratedWordData("爱", "ài", "love; affection; to like", 1, "爫 (claw)", "我非常爱我的家人。", "Wǒ fēicháng ài wǒ de jiārén.", "I love my family very much.", "撇 (Piě), 点 (Diǎn), 点 (Diǎn), 撇 (Piě), 点 (Diǎn), 横撇 (Héng Piě), 横 (Héng), 撇 (Piě), 捺 (Nà)", 10),
-            "ai" to GeneratedWordData("爱", "ài", "love; affection; to like", 1, "爫 (claw)", "我非常爱我的家人。", "Wǒ fēicháng ài wǒ de jiārén.", "I love my family very much.", "撇 (Piě), 点 (Diǎn), 点 (Diǎn), 撇 (Piě), 点 (Diǎn), 横撇 (Héng Piě), 横 (Héng), 撇 (Piě), 捺 (Nà)", 10),
+            "爱" to GeneratedWordData("爱", "ài", "love; affection; to like", 1, "爫 (claw)", "我非常爱我的家人。", "Wǒ fēicháng ài wǒ de jiārén.", "I love my family very much.", "撇 (Piě), 点 (Diǎn), 点 (Diǎn), 撇 (Piě), 点 (Diǎn), 横钩 (Héng Gōu), 横 (Héng), 撇 (Piě), 横撇 (Héng Piě), 捺 (Nà)", 10),
+            "ai" to GeneratedWordData("爱", "ài", "love; affection; to like", 1, "爫 (claw)", "我非常爱我的家人。", "Wǒ fēicháng ài wǒ de jiārén.", "I love my family very much.", "撇 (Piě), 点 (Diǎn), 点 (Diǎn), 撇 (Piě), 点 (Diǎn), 横钩 (Héng Gōu), 横 (Héng), 撇 (Piě), 横撇 (Héng Piě), 捺 (Nà)", 10),
             "人" to GeneratedWordData("人", "rén", "person; people; human", 1, "人 (person)", "这里有很多好人。", "Zhèlǐ yǒu hěn duō hǎorén.", "There are many good people here.", "撇 (Piě), 捺 (Nà)", 2),
             "ren" to GeneratedWordData("人", "rén", "person; people; human", 1, "人 (person)", "这里有很多好人。", "Zhèlǐ yǒu hěn duō hǎorén.", "There are many good people here.", "撇 (Piě), 捺 (Nà)", 2),
             "中" to GeneratedWordData("中", "zhōng", "middle; center; China", 1, "丨 (line)", "他在教室中间坐着。", "Tā zài jiàoshì zhōngjiān zuòzhe.", "He is sitting in the middle of the classroom.", "竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 竖 (Shù)", 4),

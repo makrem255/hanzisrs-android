@@ -85,6 +85,78 @@ data class PronunciationRequest(
                 text = sentence,
                 kind = Kind.SENTENCE
             )
+
+        /**
+         * Builds a sentence request that is distinct from the request for its own word.
+         *
+         * A card has two audio controls — the character and the example sentence — and both
+         * are enabled on the same word. If they shared a [sourceId], the `sourceId` matching in
+         * [PronunciationButton] could not tell them apart, so tapping the sentence would light
+         * up the word's speaker as well. Two controls that both claim to be playing the same
+         * word is exactly the association bug the id exists to prevent, reintroduced one level
+         * up.
+         *
+         * Negating is safe because every [sourceId] in this app is a Room row id from an
+         * `INTEGER PRIMARY KEY AUTOINCREMENT` column, and those are positive. Stated here
+         * rather than at each call site because the alternative — inventing a second id per
+         * card and threading it through every composable — is worse: it puts a number that has
+         * to be stable and unique in the hands of each screen, and a screen that gets it wrong
+         * produces a spinner that follows the learner onto the wrong card.
+         */
+        fun forSentenceOfWord(sourceId: Long, sentence: String): PronunciationRequest =
+            forSentence(sourceId = -sourceId, sentence = sentence)
+
+        /**
+         * Builds a request for a character the learner is still typing, which has no row id yet.
+         *
+         * The add-word form previews audio for text that does not exist in the database — there
+         * is no enrolment id, no content id, and it may never be saved at all. So the id is
+         * derived from the *text itself*, which has a property the row-id cases do not need and
+         * cannot offer: **editing the field invalidates the button's state.**
+         *
+         * With a fixed id, a learner who hears 學, then backspaces to 学 without tapping again,
+         * is left looking at a spinner belonging to a character they have already deleted. The
+         * request is re-keyed on every keystroke, so the stale state simply stops matching and
+         * the button returns to idle — which is the truth, because nothing is playing.
+         *
+         * @param draftId identifies *which field* this is. Two preview buttons on the same form
+         *   preview different text, and the prefix keeps their ids apart for the same reason
+         *   [forSentenceOfWord] negates a row id.
+         */
+        fun forDraftCharacter(
+            draftId: String,
+            hanzi: String,
+            pinyin: String = ""
+        ): PronunciationRequest {
+            val analysis = com.example.data.srs.PinyinAnalyzer.analyze(pinyin)
+            return PronunciationRequest(
+                sourceId = draftSourceId(draftId, hanzi, prefix = "char:"),
+                text = hanzi,
+                reading = analysis.syllable,
+                toneNumber = analysis.toneNumber
+            )
+        }
+
+        /** The sentence counterpart of [forDraftCharacter]. */
+        fun forDraftSentence(draftId: String, sentence: String): PronunciationRequest =
+            PronunciationRequest(
+                sourceId = draftSourceId(draftId, sentence, prefix = "sent:"),
+                text = sentence,
+                kind = Kind.SENTENCE
+            )
+
+        /**
+         * A stable-per-text id for a draft.
+         *
+         * `String.hashCode` is specified by the Kotlin/JVM contract, so this is stable within a
+         * run, and the only property that matters here is that the *same* text always produces
+         * the *same* id and different text produces a different one — a collision between two
+         * drafts on the same form would only make a spinner follow the wrong button, which is
+         * the same class of defect the row-id cases are already avoiding, so the prefix keeps
+         * them in separate spaces rather than relying on the hash to be collision-free.
+         */
+        private fun draftSourceId(draftId: String, text: String, prefix: String): Long =
+            "$prefix$draftId|$text".hashCode().toLong()
     }
 }
 

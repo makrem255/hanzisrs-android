@@ -1,6 +1,7 @@
 package com.example.data.db
 
 import android.content.Context
+import android.util.Log
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -33,6 +34,7 @@ import com.example.data.model.VocabularyEntity
 import com.example.util.PasswordHasher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -121,6 +123,14 @@ abstract class AppDatabase : RoomDatabase() {
         const val DATABASE_NAME = "hanzi_srs_database"
 
         /**
+         * How long [awaitReferenceCatalogue] waits before giving up and letting the caller
+         * proceed, and how often it looks. Generous enough for a slow first-run seed on a cold
+         * device, short enough that a seed which never lands cannot strand the learner.
+         */
+        private const val SEED_TIMEOUT_MILLIS = 5_000L
+        private const val SEED_POLL_INTERVAL_MILLIS = 50L
+
+        /**
          * The v1 to v2 step. The `words` and `srs_reviews` tables are decomposed into the
          * content and learner tiers; no learner row is discarded.
          *
@@ -147,6 +157,40 @@ abstract class AppDatabase : RoomDatabase() {
                 INSTANCE = instance
                 instance
             }
+        }
+
+        /**
+         * Suspends until the reference catalogue is present, or the timeout expires.
+         *
+         * `SeedCallback.onCreate` returns as soon as it has *launched* its seeding coroutine, so
+         * for a moment after the very first database open `learning_levels` is not there yet. And
+         * `vocabulary.levelId` is a foreign key onto that table with `onDelete = RESTRICT`, so a
+         * word saved in that window is *refused* rather than stored - a brand new learner would
+         * silently get an empty collection, with nothing on screen to say why.
+         *
+         * ### Why this polls the table rather than waiting on a signal
+         *
+         * The obvious alternative is a `CompletableDeferred` completed by the seeder, and it is
+         * wrong. `onCreate` fires only when the schema is *created*, so on every launch after the
+         * first the seeder never runs and the signal never arrives - which would make every later
+         * registration wait out the full timeout. Polling the actual precondition is one cheap
+         * `SELECT` over a six-row table, is correct on a fresh install and a warm one alike, has
+         * no state to go stale, and needs no signal to be wired correctly in the first place.
+         *
+         * Bounded on purpose: a gate that can hang is a worse defect than the one it prevents.
+         */
+        suspend fun awaitReferenceCatalogue() {
+            val deadline = System.currentTimeMillis() + SEED_TIMEOUT_MILLIS
+            do {
+                val levels = INSTANCE?.learningLevelDao()?.getAll()
+                if (levels != null && levels.isNotEmpty()) return
+                delay(SEED_POLL_INTERVAL_MILLIS)
+            } while (System.currentTimeMillis() < deadline)
+            Log.w(
+                "AppDatabase",
+                "reference catalogue still absent after ${SEED_TIMEOUT_MILLIS}ms; " +
+                    "proceeding rather than blocking the learner"
+            )
         }
 
         /** Closes the singleton. Tests use this to isolate one database per case. */

@@ -167,15 +167,27 @@ class ReviewDeckStateTest {
         assertEquals(SrsRating.HARD, state.answerFor(SrsRating.HARD.value.toLong()))
         assertEquals(SrsRating.GOOD, state.answerFor(SrsRating.GOOD.value.toLong()))
         assertEquals(SrsRating.EASY, state.answerFor(SrsRating.EASY.value.toLong()))
-        assertEquals(4, state.total)
-        assertTrue(state.isFinished)
+        // Five, not four: the AGAIN card was put back for a second attempt and has not been
+        // reached yet, so the session is still running. That is the behaviour under test
+        // elsewhere in this file, and it is the whole point of re-queueing.
+        assertEquals(5, state.total)
+        assertFalse("the re-queued AGAIN card is still owed its second attempt", state.isFinished)
+
+        // Answering it out is what finally ends the sitting.
+        val finished = state.reveal().beginRating()!!.completeRating(SrsRating.GOOD)
+        assertTrue(finished.isFinished)
+        // Four distinct cards were covered: the re-queued AGAIN card is the same card as the one
+        // already graded, so it adds an attempt rather than a card. That is the distinction
+        // `answeredCount` and `answersGiven` exist to keep, and it is why both are checked here.
+        assertEquals("four distinct cards covered", 4, finished.answeredCount)
+        assertEquals("but five attempts were graded", 5, finished.answersGiven)
     }
 
     // ---- repeated failures ------------------------------------------------------------------------------
 
     @Test
     fun `a card can be corrected by stepping back and answering again`() {
-        val missed = deck(tea, water).reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+        val missed = deck(tea, water).reveal().beginRating()!!.completeRating(SrsRating.GOOD)
         val steppedBack = missed.previous()
 
         assertEquals("stepping back must reach the card just answered", tea, steppedBack.currentWordId)
@@ -183,25 +195,44 @@ class ReviewDeckStateTest {
             "re-reading a card already answered shows its answer rather than posing it again",
             steppedBack.revealed
         )
-        assertEquals(SrsRating.AGAIN, steppedBack.currentAnswer)
+        assertEquals(SrsRating.GOOD, steppedBack.currentAnswer)
 
-        val corrected = steppedBack.beginRating()!!.completeRating(SrsRating.GOOD)
+        val corrected = steppedBack.beginRating()!!.completeRating(SrsRating.HARD)
 
-        assertEquals("the later answer supersedes the earlier one", SrsRating.GOOD, corrected.answerFor(tea))
+        assertEquals("the later answer supersedes the earlier one", SrsRating.HARD, corrected.answerFor(tea))
         assertEquals("coverage counts cards, not attempts", 1, corrected.answeredCount)
         assertEquals("both attempts were real graded events", 2, corrected.answersGiven)
+    }
+
+    @Test
+    fun `stepping back to a failed card poses it again, because it is owed an attempt`() {
+        // Stepping back to a card the learner got *right* re-reads it, answer showing.
+        // Stepping back to one they got *wrong* is not a re-read: the re-read would hand over
+        // the recall the card is still owed. It is posed, and they turn it over themselves.
+        val missed = deck(tea, water).reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+
+        assertFalse(
+            "a failed card must not be revealed just because the learner navigated to it",
+            missed.previous().revealed
+        )
+        assertTrue(
+            "but it is still correctable: one tap turns it over",
+            missed.previous().reveal().canRate
+        )
     }
 
     @Test
     fun `repeated failures keep accumulating as real answers`() {
         var state = deck(tea).reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
         repeat(3) {
-            state = state.previous().beginRating()!!.completeRating(SrsRating.AGAIN)
+            state = state.previous().reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
         }
 
         assertEquals(4, state.answersGiven)
         assertEquals("one card, however many attempts", 1, state.answeredCount)
         assertEquals(SrsRating.AGAIN, state.answerFor(tea))
+        // Each lapse puts the card back, so it is still owed an attempt after four of them.
+        assertFalse("a card failed this often cannot be finished", state.isFinished)
     }
 
     // ---- previous / next navigation ---------------------------------------------------------------------
@@ -269,6 +300,107 @@ class ReviewDeckStateTest {
     }
 
     // ---- completion --------------------------------------------------------------------------------------
+
+    // ---- a failed card returns in this session ------------------------------------------------------------
+
+    // A card rated AGAIN is scheduled `now + 10 minutes` and the button says so. Nothing in the
+    // app can wake the deck up 10 minutes later - no WorkManager, no AlarmManager, no
+    // JobScheduler, and `remindersEnabled` is read by nobody. So the card has to come back
+    // inside the sitting where it failed, or the promise the button makes is false.
+
+    @Test
+    fun `a failed card is put back at the end of the same session`() {
+        val after = deck(tea, water).reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+
+        assertEquals(
+            "the failed card must still come back in this session",
+            listOf(water, tea),
+            after.wordIds.drop(1)
+        )
+        assertEquals("the re-queued card must not be in front of the learner", water, after.currentWordId)
+    }
+
+    @Test
+    fun `the re-queued card is posed face-down rather than showing the wrong answer`() {
+        // Tea fails, water passes, so the learner has been advanced to the re-queued tea. It
+        // has an answer on record - AGAIN - and showing that answer would hand over the recall
+        // the second attempt exists to test.
+        val after = deck(tea, water)
+            .reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+            .reveal().beginRating()!!.completeRating(SrsRating.GOOD)
+
+        assertEquals(tea, after.currentWordId)
+        assertFalse(
+            "a re-queued card must be posed, not revealed with the answer the learner got wrong",
+            after.revealed
+        )
+        assertFalse("it must not be ratable before the learner attempts it", after.canRate)
+    }
+
+    @Test
+    fun `the re-queued card can be revealed and rated like any other`() {
+        val after = deck(tea, water)
+            .reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+            .reveal().beginRating()!!.completeRating(SrsRating.GOOD)
+            .reveal()
+
+        assertEquals("the learner is on the re-queued card", tea, after.currentWordId)
+        assertTrue("and must be able to turn it over", after.revealed)
+        assertTrue("and then rate it", after.canRate)
+    }
+
+    @Test
+    fun `rating the re-queued card again ends the session`() {
+        // The re-queued card was answered twice - once wrong, once right. Both are real graded
+        // events and both are counted, which is what `answersGiven` is for.
+        val after = deck(tea, water)
+            .reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+            .reveal().beginRating()!!.completeRating(SrsRating.GOOD)
+            .reveal().beginRating()!!.completeRating(SrsRating.EASY)
+
+        assertTrue("a corrected card must not reappear forever", after.isFinished)
+        assertEquals(3, after.total)
+        assertEquals(
+            "the correction must replace the answer rather than add a second one to one card",
+            SrsRating.EASY,
+            after.answerFor(tea)
+        )
+        assertEquals("both attempts are real and both are counted", 3, after.answersGiven)
+    }
+
+    @Test
+    fun `a failed last card keeps the session running instead of finishing it`() {
+        // Rating AGAIN on the final card used to end the sitting, which is the worst version of
+        // this bug: the learner presses "Again" and the deck immediately declares itself done.
+        val after = deck(tea, water)
+            .next().reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+
+        assertFalse("a lapse must not finish the session", after.isFinished)
+        assertEquals(water, after.currentWordId)
+        assertFalse("and the card must be posed, not handed over", after.revealed)
+    }
+
+    @Test
+    fun `a card rated HARD, GOOD or EASY is not re-queued`() {
+        SrsRating.entries.filter { it != SrsRating.AGAIN }.forEach { rating ->
+            val after = deck(tea, water).reveal().beginRating()!!.completeRating(rating)
+            assertEquals(
+                "$rating must leave the deck size alone",
+                2,
+                after.total
+            )
+        }
+    }
+
+    @Test
+    fun `re-queueing does not make an answered card look unrated`() {
+        // `review_log` keeps both attempts, but the deck still knows the card was seen. This is
+        // the difference between a second attempt and a card that was never covered.
+        val after = deck(tea, water).reveal().beginRating()!!.completeRating(SrsRating.AGAIN)
+
+        assertTrue(after.isAnswered(tea))
+        assertEquals(1, after.answeredCount)
+    }
 
     @Test
     fun `answering the last card finishes the session`() {

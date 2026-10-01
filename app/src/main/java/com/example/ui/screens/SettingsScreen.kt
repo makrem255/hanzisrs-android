@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.MinTouchTarget
+import com.example.data.repository.UserRepository
+import com.example.ui.components.DailyLimitStepper
 import com.example.ui.components.SwitchRow
 import com.example.ui.components.rememberNotificationRequest
 import com.example.ui.theme.DarkBg
@@ -208,6 +211,107 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // Daily workload --------------------------------------------------------------------------------
+            //
+            // These two numbers decide what the app asks the learner to study each day.
+            // `DashboardDao` reads them to cap the new words and reviews offered, and the
+            // "caught up" judgement is made against the same pair - so they are the app's answer
+            // to "what should I do today?", set by nobody.
+            //
+            // Both were stored, validated (0..200), migrated and consumed, and unreachable from
+            // any screen. Every learner was on 10 new words a day for the life of their account,
+            // which is a defensible default for an unknown learner and a wrong one for a known
+            // one: someone studying for an exam in three weeks and someone dipping in for ten
+            // minutes are not served by the same number.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
+                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = LilacPrimary)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Daily Workload",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextLight
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "How much the app offers you each day. Reviews come first; new " +
+                            "words fill whatever room is left.",
+                        fontSize = 12.sp,
+                        color = TextMuted
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // `null` while the preference row is still loading, which is different from
+                    // "the learner set it to the default". Rendering the default in that window
+                    // would show a number as though it were chosen, and a stepper there would
+                    // let a tap set a value the learner never looked at.
+                    val limits = viewModel.dailyLimits.collectAsStateWithLifecycle().value
+
+                    if (limits == null) {
+                        Text(
+                            text = "Loading your limits…",
+                            fontSize = 13.sp,
+                            color = TextMuted
+                        )
+                    } else {
+                        DailyLimitStepper(
+                            label = "New words per day",
+                            supporting = "Unfamiliar characters introduced at once",
+                            value = limits.newWords,
+                            minValue = 0,
+                            // The offered ceiling, not `MAX_DAILY_LIMIT`. A value above this
+                            // can exist — the registration path accepts up to 200 — and the
+                            // stepper must render it truthfully rather than showing a number the
+                            // learner never chose. "Increase" simply stops being available.
+                            maxValue = UserRepository.OFFERED_MAX_NEW_WORDS,
+                            step = 5,
+                            onValueChange = viewModel::setDailyNewWordLimit,
+                            modifier = Modifier.testTag("daily_new_word_limit")
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        DailyLimitStepper(
+                            label = "Reviews per day",
+                            supporting = "Words already in your collection",
+                            value = limits.reviews,
+                            minValue = 0,
+                            maxValue = UserRepository.OFFERED_MAX_REVIEWS,
+                            step = 10,
+                            onValueChange = viewModel::setDailyReviewLimit,
+                            modifier = Modifier.testTag("daily_review_limit")
+                        )
+
+                        // Zero is a legitimate choice - it is how a learner pauses new material
+                        // and keeps their retention alive - and without this the screen offers a
+                        // setting whose consequence it never explains.
+                        if (limits.newWords == 0) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "No new words will be introduced. Words you already " +
+                                    "have still come up for review.",
+                                fontSize = 11.sp,
+                                color = LilacPrimary
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Daily Reminder Routine Notification Card
             Card(

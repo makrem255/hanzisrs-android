@@ -12,9 +12,11 @@ import com.example.data.model.UserPreferenceEntity
 import com.example.data.model.UserProfileEntity
 import com.example.util.PasswordHasher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.withContext
 
 /**
@@ -351,7 +353,103 @@ class UserRepository(
         _currentUser.value = user
     }
 
+    // ---- study settings ----------------------------------------------------------------------------------
+
+    /**
+     * The learner's own daily caps, observed.
+     *
+     * Emits `null` while there is no signed-in learner, and for the brief window where a profile
+     * exists but its preferences row has not been read yet — so a caller can tell "no limit set"
+     * from "not loaded", which is the difference between showing a default and showing a lie.
+     * The defaults themselves are the entity's, and the dashboard applies the same two
+     * fallbacks (`COALESCE(..., 10)` / `COALESCE(..., 60)`) on its own side, so an absent row
+     * degrades to one agreed set of numbers rather than two.
+     */
+    fun observePreferences(userId: Long): Flow<UserPreferenceEntity?> =
+        database?.userPreferenceDao()?.observeForUser(userId) ?: emptyFlow()
+
+    /**
+     * Sets the daily new-word cap, leaving every other preference as it is.
+     *
+     * Read-modify-write inside one transaction rather than a narrow `UPDATE`, because
+     * [UserPreferenceDao.updateForUser] sets every column at once. Two concurrent writes to
+     * different settings would otherwise each read the same "before" row and the loser's change
+     * would be silently discarded. The whole-row write is the DAO's contract; doing the read
+     * inside the same transaction is what makes it safe to use.
+     *
+     * The range is clamped rather than rejected, and it clamps to [MAX_DAILY_LIMIT] rather than to
+     * the smaller number the stepper offers. This is a stepper in the settings screen, so an
+     * out-of-range value can only arrive from a bug or a restored backup — but a learner whose
+     * stored value is already above what the stepper reaches must be able to step *down* from it
+     * without the write quietly flooring them at the stepper's ceiling first. Silently ignoring a
+     * learner's setting is worse than storing the nearest legal one.
+     */
+    suspend fun setDailyNewWordLimit(userId: Long, limit: Int) =
+        updatePreferences(userId) { it.copy(dailyNewWordLimit = limit.coerceIn(0, MAX_DAILY_LIMIT)) }
+
+    /** As [setDailyNewWordLimit], for the daily review cap. */
+    suspend fun setDailyReviewLimit(userId: Long, limit: Int) =
+        updatePreferences(userId) { it.copy(dailyReviewLimit = limit.coerceIn(0, MAX_DAILY_LIMIT)) }
+
+    private suspend fun updatePreferences(
+        userId: Long,
+        transform: (UserPreferenceEntity) -> UserPreferenceEntity
+    ) {
+        val db = database ?: return
+        val dao = db.userPreferenceDao()
+        val now = System.currentTimeMillis()
+        db.withTransaction {
+            val existing = dao.getForUser(userId) ?: UserPreferenceEntity(userId = userId)
+            val updated = transform(existing).copy(userId = userId, updatedAt = now)
+            // Insert-then-update, because the surrogate primary key makes `@Upsert` insert a
+            // second row and trip the unique index on `userId`. The reason is written out on
+            // `UserProfileDao`; this is the same rule in the same shape.
+            if (existing.id == 0L) dao.insert(updated) else dao.updateForUser(
+                userId = updated.userId,
+                themeMode = updated.themeMode,
+                ttsSpeed = updated.ttsSpeed,
+                dailyNewWordLimit = updated.dailyNewWordLimit,
+                dailyReviewLimit = updated.dailyReviewLimit,
+                remindersEnabled = updated.remindersEnabled,
+                reminderHour = updated.reminderHour,
+                showPinyin = updated.showPinyin,
+                showStrokeOrder = updated.showStrokeOrder,
+                now = now
+            )
+        }
+    }
+
     companion object {
+        /**
+         * The largest daily cap the write path will store.
+         *
+         * `Validator.MAX_DAILY_WORD_LIMIT`, reused rather than restated, because the app should
+         * have exactly one statement of what a legal daily limit is.
+         *
+         * This started out as a second, tighter constant (50) borrowed from what the settings
+         * stepper offers, which is a different question and had a visible consequence: a learner
+         * whose stored value was 100 — reachable through the registration path, which validates
+         * to 200 — would see 100 in settings, press "−" once, and have it silently rewritten to
+         * 50 as the write clamped on the way down. One tap and a third of their workload
+         * disappeared with no message.
+         *
+         * How far the UI *offers* to go is a presentation decision and lives with the stepper
+         * ([OFFERED_MAX_NEW_WORDS]). What is *legal* belongs here.
+         */
+        const val MAX_DAILY_LIMIT = Validator.MAX_DAILY_WORD_LIMIT
+
+        /**
+         * The most new words the settings stepper offers, which is well below [MAX_DAILY_LIMIT].
+         *
+         * A stepper that runs to 200 teaches the wrong idea about what a day's load looks like.
+         * Offering 50 and accepting 200 means the ceiling is a nudge rather than a limit, and a
+         * value above it — from an older build or a restored backup — still reads back unchanged.
+         */
+        const val OFFERED_MAX_NEW_WORDS = 50
+
+        /** As [OFFERED_MAX_NEW_WORDS], for reviews. Reviews are words already known, so more is reasonable. */
+        const val OFFERED_MAX_REVIEWS = 200
+
         /**
          * The value hashed into the guest profile. It is a local placeholder, not a secret:
          * there is no remote account behind it and no code path accepts it as a credential.

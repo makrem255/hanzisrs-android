@@ -1222,6 +1222,70 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pronunciationService.setSlow(!pronunciationService.isSlowTts)
     }
 
+    // ---- daily study limits -----------------------------------------------------------------------------
+
+    /**
+     * The learner's own daily caps.
+     *
+     * These were the most consequential settings in the app with no way to reach them. The
+     * dashboard computes its whole recommendation from them — `DashboardDao` reads them to cap
+     * the new words and reviews offered each day, and `DashboardSnapshot` uses the same pair to
+     * decide whether the learner is "caught up" — so they decide what the app tells someone to
+     * study today. They were validated, stored, migrated and consumed, and nothing could change
+     * them: every learner got 10 new words a day for the life of their account.
+     *
+     * Exposed as a nullable flow rather than two ints defaulting to 10 and 60, because the
+     * settings screen has to be able to tell "the learner chose 10" from "we have not loaded
+     * their row yet", and rendering the fallback as though it were stored would be the same
+     * mistake as reporting a count before the query has answered.
+     *
+     * Flattened on the current user, so it re-reads when the learner signs in as someone else.
+     */
+    val dailyLimits: StateFlow<DailyLimits?> =
+        currentUser
+            .flatMapLatest { user ->
+                if (user == null) {
+                    flowOf<DailyLimits?>(null)
+                } else {
+                    userRepository.observePreferences(user.id).map { prefs ->
+                        prefs?.let { DailyLimits(it.dailyNewWordLimit, it.dailyReviewLimit) }
+                    }
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * The two caps as one value.
+     *
+     * A pair rather than two separate flows because they are always adjusted together and are
+     * always displayed together; a UI that read them independently could render a new-word count
+     * from one write and a review count from another.
+     *
+     * Declared before [dailyLimits] on purpose only because Kotlin initialisation order matters
+     * for properties, and a nested class has no initialisation dependency - the reader looking
+     * for the definition above its use is the only thing that cares.
+     */
+    data class DailyLimits(val newWords: Int, val reviews: Int)
+
+    /**
+     * Saves a new cap, ignoring a change that would not alter anything.
+     *
+     * A stepper emits the same value repeatedly while a finger rests on it, and each of those
+     * would be a full read-modify-write transaction on a row holding every other setting.
+     */
+    fun setDailyNewWordLimit(limit: Int) {
+        val user = currentUser.value ?: return
+        if (dailyLimits.value?.newWords == limit) return
+        viewModelScope.launch { userRepository.setDailyNewWordLimit(user.id, limit) }
+    }
+
+    /** As [setDailyNewWordLimit], for the daily review cap. */
+    fun setDailyReviewLimit(limit: Int) {
+        val user = currentUser.value ?: return
+        if (dailyLimits.value?.reviews == limit) return
+        viewModelScope.launch { userRepository.setDailyReviewLimit(user.id, limit) }
+    }
+
     // Notification Trigger
     fun sendDueReminderNotification() {
         val count = dueCount.value

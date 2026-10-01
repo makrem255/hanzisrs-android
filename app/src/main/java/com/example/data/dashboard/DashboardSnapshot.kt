@@ -47,6 +47,12 @@ data class DifficultCard(
  * Read from the preferences the learner has already set rather than a new invented "goal"
  * column. The app already decides how much it intends to schedule in a day; a separate goal
  * would be a second, competing number.
+ *
+ * Reachable from the settings screen, which is where they became adjustable. Until then these
+ * two numbers were stored, validated, migrated and read by every scheduling decision in the app
+ * - and no learner could change them, so everyone studied on the same 10/60 for the life of their
+ * account. [com.example.ui.viewmodel.MainViewModel.dailyLimits] is the editable face of this
+ * type; it mirrors these fields rather than being a second definition of the same pair.
  */
 data class DailyLimits(
     val newWords: Int,

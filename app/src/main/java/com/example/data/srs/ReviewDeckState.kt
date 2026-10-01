@@ -22,8 +22,13 @@ package com.example.data.srs
  *
  * Re-answering a card is deliberately *not* treated as a duplicate. Stepping back to a card and
  * rating it again is a real, second graded event - it is how a learner relearns something they
- * got wrong - so it is logged, counted in [answersGiven], and left to the scheduler to react to.
+ * got wrong - so it is logged, counted in [answersGiven], and the new rating replaces the old.
  * What is forbidden is the accidental double-tap, which is what rule 2 stops.
+ *
+ * A third thing follows from treating a failure as real rather than final: a card rated
+ * [SrsRating.AGAIN] returns later in the same session ([completeRating]). The learner pressed
+ * the button that says the word comes back in ten minutes, and the ten minutes they get is the
+ * rest of this sitting rather than whatever they do next with their phone.
  */
 data class ReviewDeckState(
     /**
@@ -43,10 +48,23 @@ data class ReviewDeckState(
      *
      * Starts `true` for a card already answered this session, because stepping back to it to
      * re-read is a re-read of something the learner has already seen, not a fresh test.
+     *
+     * A card re-queued after `AGAIN` is the deliberate exception, via [relearnIds]: it has been
+     * answered, but the answer was *wrong*, so showing the answer again would hand the learner
+     * the recall it is supposed to be testing. It is posed face-down instead.
      */
     val revealed: Boolean = false,
     /** Enrolment id to the rating given for it in this session. Presence marks a card answered. */
     val answers: Map<Long, SrsRating> = emptyMap(),
+    /**
+     * Cards re-queued after a failed rating, awaiting a genuine second attempt.
+     *
+     * Membership means "answered, but owed another go" - the opposite of the assumption
+     * [moveTo] would otherwise make from [answers] alone. Dropped as soon as the card is rated
+     * again by any rating, because at that point the learner's next attempt has been had either
+     * way.
+     */
+    val relearnIds: Set<Long> = emptySet(),
     /** True while a rating is being written. Blocks a second write for the same attempt. */
     val isRating: Boolean = false,
     /**
@@ -144,13 +162,44 @@ data class ReviewDeckState(
      *
      * If this was the final card, [index] lands on `wordIds.size`, which is what [isFinished]
      * reports; the card stays reachable by [previous] so a mis-tap at the end is still correctable.
+     *
+     * A card rated [SrsRating.AGAIN] is additionally **put back at the end of this session**.
+     *
+     * ## Why
+     *
+     * [SrsAlgorithm] schedules `AGAIN` for `now + 10 minutes`, and the rating button says so,
+     * so the learner has been told this word is coming back shortly. Nothing brought it back.
+     * The deck advanced, the sitting ended, and nothing in the app could re-open it: there is no
+     * `androidx.work`, no `AlarmManager`, no `JobScheduler`, and `remindersEnabled` /
+     * `reminderHour` are columns no code path reads. The word returned only if the learner
+     * happened to reopen the app within those ten minutes.
+     *
+     * So the one rating in a spaced-repetition system that most needs a second look was the one
+     * rating guaranteed never to get one - while the button on it advertised the visit. A
+     * learner who pressed "Again" on a word they had just failed learned nothing more about it
+     * from this app, and had been told they would.
+     *
+     * It goes to the **end**, not the next slot: the second attempt should come after some
+     * distance rather than the same card reappearing in front of the eye. Rating the last card
+     * therefore leaves the session running rather than finishing it.
+     *
+     * The failed attempt is still recorded - it is real graded history and belongs in
+     * `review_log`. Re-queueing adds an attempt; it never retracts the mistake. The re-queued
+     * card is posed face-down again via [relearnIds], because it has been answered but the
+     * answer was wrong, and showing the answer would hand over the very recall being tested.
      */
     fun completeRating(rating: SrsRating): ReviewDeckState {
         val answered = currentWordId ?: return copy(isRating = false, revealed = false)
+        val requeued = rating == SrsRating.AGAIN
+
+        val deck = if (requeued) wordIds + answered else wordIds
+
         return copy(
-            index = (index + 1).coerceAtMost(wordIds.size),
+            wordIds = deck,
+            index = (index + 1).coerceAtMost(deck.size),
             revealed = false,
             answers = answers + (answered to rating),
+            relearnIds = if (requeued) relearnIds + answered else relearnIds - answered,
             isRating = false,
             answersGiven = answersGiven + 1
         )
@@ -174,6 +223,10 @@ data class ReviewDeckState(
      *
      * Clamped at the end. The target card is revealed if it was already answered, so stepping
      * back into a card shows its answer rather than posing it again.
+     *
+     * Except a card in [relearnIds]: re-queued after a failure, so it is posed rather than
+     * revealed, because the answer it was answered with was wrong and showing it would defeat
+     * the second attempt [completeRating] queued it for.
      */
     fun next(): ReviewDeckState = if (isRating) this else moveTo(index + 1)
 
@@ -185,7 +238,9 @@ data class ReviewDeckState(
         if (clamped == index) return this
         return copy(
             index = clamped,
-            revealed = wordIds.getOrNull(clamped)?.let { answers.containsKey(it) } ?: false
+            revealed = wordIds.getOrNull(clamped)?.let {
+                answers.containsKey(it) && it !in relearnIds
+            } ?: false
         )
     }
 

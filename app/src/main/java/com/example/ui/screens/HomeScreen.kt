@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -44,14 +45,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +76,7 @@ import com.example.audio.PronunciationRequest
 import com.example.audio.PronunciationService
 import com.example.data.model.WordWithSrs
 import com.example.ui.components.IconTarget
+import com.example.ui.components.rememberNotificationRequest
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
@@ -101,12 +108,51 @@ fun HomeScreen(
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val allWords by viewModel.userWords.collectAsStateWithLifecycle()
+
+    // Both needed to tell the three things an empty `allWords` can mean apart: not asked yet,
+    // asked and failed, and genuinely nothing. See the collection strip below.
+    val wordsLoaded by viewModel.wordsLoaded.collectAsStateWithLifecycle()
+    val libraryError by viewModel.libraryError.collectAsStateWithLifecycle()
     val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
     val progressState by viewModel.progressState.collectAsStateWithLifecycle()
 
+    // A posted notification is the only cross-process thing this screen starts, and on
+    // Android 13+ it may need a permission the learner has not been asked for yet.
+    var notificationMessage by remember { mutableStateOf<String?>(null) }
+    val sendDueReminderPreview = rememberNotificationRequest(
+        onGranted = { viewModel.sendDueReminderNotification() },
+        onDenied = {
+            notificationMessage =
+                "Notifications are off. You can enable them in Android system settings."
+        }
+    )
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Refused, or permanently denied. Android does not distinguish the two, and the honest
+    // message is the same either way.
+    LaunchedEffect(notificationMessage) {
+        notificationMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            notificationMessage = null
+        }
+    }
+
     Scaffold(
+        // The one message this screen has to be able to say is "your notification permission
+        // was refused". Without somewhere to say it, the bell would be the same silent
+        // no-op it was before - the request would be made, and nothing would follow.
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
+                // This app bar does not add the status-bar inset itself: the outer
+                // Scaffold in MainActivity already padded the whole NavHost by it, and the
+                // insets were therefore applied twice - once by that padding and once by
+                // TopAppBarDefaults.windowInsets - pushing every title down by an extra
+                // ~24-48dp. AuthScreen is the reason this is fixed here rather than by
+                // zeroing the outer Scaffold's contentWindowInsets: it has no app bar of its
+                // own and depends on that outer padding for its top inset.
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -136,11 +182,20 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // Through `rememberNotificationRequest`, not straight to the view model.
+                    //
+                    // This button posted the notification unconditionally, and
+                    // `NotificationHelper` swallows the `SecurityException` that `POST_NOTIFICATIONS`
+                    // raises on Android 13+ when it has not been granted. It is requested
+                    // nowhere else in the app, so on a fresh install this was a control that
+                    // did nothing, gave no feedback, and looked identical to one that had
+                    // worked. The settings screen's equivalent button already asked; two
+                    // spellings of one rule, and only one of them was right.
                     IconButton(
-                        onClick = { viewModel.sendDueReminderNotification() },
+                        onClick = sendDueReminderPreview,
                         modifier = Modifier.testTag("send_notification_icon")
                     ) {
-                        Icon(Icons.Default.Notifications, contentDescription = "Test Notification Reminder", tint = LilacPrimary)
+                        Icon(Icons.Default.Notifications, contentDescription = "Preview the due review alert", tint = LilacPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -176,6 +231,7 @@ fun HomeScreen(
             item(key = "dashboard") {
                 when (val state = dashboardState) {
                     is DashboardUiState.Loading -> DashboardLoading(
+                        label = "your dashboard",
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(220.dp)
@@ -183,7 +239,8 @@ fun HomeScreen(
 
                     is DashboardUiState.Failed -> DashboardError(
                         message = state.message,
-                        onRetry = { viewModel.refreshDashboard() }
+                        onRetry = { viewModel.refreshDashboard() },
+                        label = "dashboard"
                     )
 
                     is DashboardUiState.Ready -> DashboardContent(
@@ -211,6 +268,7 @@ fun HomeScreen(
             item(key = "progress") {
                 when (val state = progressState) {
                     is ProgressUiState.Loading -> DashboardLoading(
+                        label = "your progress",
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(160.dp)
@@ -218,7 +276,8 @@ fun HomeScreen(
 
                     is ProgressUiState.Failed -> DashboardError(
                         message = state.message,
-                        onRetry = { viewModel.refreshProgress() }
+                        onRetry = { viewModel.refreshProgress() },
+                        label = "progress"
                     )
 
                     is ProgressUiState.Ready -> ProgressContent(progress = state.progress)
@@ -256,7 +315,21 @@ fun HomeScreen(
                             )
                         ) {
                             Text(
-                                text = "View all (${allWords.size})",
+                                // Withheld until there is an answer, for the same reason the
+                                // library screen withholds its own count - and that fix stopped
+                                // here from being applied twice.
+                                //
+                                // `allWords` starts empty before the query runs, so this told a
+                                // learner with a full collection they had nothing. Worse on a
+                                // failed read: the view model degrades an unreadable database to
+                                // an empty list because a `List` flow has no error variant, so a
+                                // full disk rendered "View all (0)" directly above "Your
+                                // vocabulary could not be read".
+                                text = if (wordsLoaded && libraryError == null) {
+                                    "View all (${allWords.size})"
+                                } else {
+                                    "View all"
+                                },
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -267,10 +340,24 @@ fun HomeScreen(
 
                     if (allWords.isEmpty()) {
                         // An empty list with no explanation looks like a failure to load.
+                        //
+                        // Three states, not one. `allWords` starts empty before the query has
+                        // run, so this used to tell a learner with a full library that they had
+                        // nothing in their collection, every time they opened the app. The
+                        // library screen has guarded this exact hazard with a `wordsLoaded` gate
+                        // since the last audit; the home screen never got the same treatment.
+                        // The error case is here too, and it is the one that mattered: a failed
+                        // read degrades to an empty list, so without this a full disk told a
+                        // learner their collection was gone. Written `error ?: when { … }`
+                        // because a `by`-delegated property cannot be smart-cast.
                         Text(
-                            text = "Nothing in your collection yet. Add a word to get started.",
+                            text = libraryError ?: when {
+                                !wordsLoaded -> "Loading your collection…"
+                                else -> "Nothing in your collection yet. Add a word to get started."
+                            },
                             fontSize = 13.sp,
-                            color = TextMuted
+                            color = TextMuted,
+                            modifier = Modifier.testTag("home_collection_state")
                         )
                     } else {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -423,7 +510,15 @@ private fun PillarItem(
             // 11sp, the floor this app uses for body-adjacent text. It was 9sp, which is
             // below the point where the glyphs are reliably distinguishable on a 6.1" screen
             // held at arm's length.
-            Text(subtitle, fontSize = 11.sp, color = TextMuted, maxLines = 1)
+            //
+            // `maxLines = 1` is gone. The two-column layout above exists to stop these labels
+            // being ellipsised - the comment there records "Stroke order" becoming "Stroke…" -
+            // but the constraint it fixes is measured in dp, and `BoxWithConstraints` does not
+            // scale with the user's font scale while this text does. At 1.5x the labels outgrow
+            // the same fixed column and clip all over again, with the `maxLines` doing it
+            // silently. Wrapping costs one line of height in the one place on this screen with
+            // room to spare, and it cannot lose text.
+            Text(subtitle, fontSize = 11.sp, color = TextMuted)
         }
     }
 }
@@ -511,4 +606,3 @@ private fun RecentWordCard(
         }
     }
 }
-

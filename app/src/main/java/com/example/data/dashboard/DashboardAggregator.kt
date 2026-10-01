@@ -1,6 +1,7 @@
 package com.example.data.dashboard
 
 import com.example.data.model.StorageValues.CardState
+import com.example.util.plural
 
 /**
  * Turns the learner's own rows into a [DashboardSnapshot].
@@ -158,6 +159,4 @@ object DashboardAggregator {
             cardCount = 0
         )
     }
-
-    private fun plural(count: Int, one: String, many: String): String = if (count == 1) one else many
 }

@@ -57,6 +57,7 @@ import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.SrsEasyDark
 import com.example.ui.theme.SrsGoodDark
 import com.example.ui.theme.SrsHardDark
+import com.example.ui.theme.srsStateColor
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
@@ -276,9 +277,21 @@ private fun TodayCard(snapshot: DashboardSnapshot) {
  * not been accurate or inaccurate, and printing `0%` would be a number they never earned.
  */
 internal fun accuracyLabel(today: DayActivity?): String {
-    val rate = today?.accuracy ?: return "—"
+    val rate = today?.accuracy ?: return NO_ACCURACY_GLYPH
     return "${(rate * 100).toInt()}%"
 }
+
+/**
+ * What both accuracy surfaces print when there is no accuracy to print.
+ *
+ * One constant because two functions in two files had drifted — this one used an em dash (U+2014)
+ * and `sessionAccuracyLabel` a hyphen (U+002D) — while the KDoc above the other insisted that
+ * "two surfaces using the same glyph means the learner has to learn one convention rather than
+ * two". Two visually distinct placeholders for the same state is precisely the thing that
+ * shared function existed to prevent, and the comment was actively discouraging anyone from
+ * noticing.
+ */
+internal const val NO_ACCURACY_GLYPH = "—"
 
 /** The streak, and whether it is alive. */
 @Composable
@@ -395,7 +408,7 @@ private fun DistributionCard(progress: Progress) {
                             modifier = Modifier
                                 .weight(share.count / total)
                                 .fillMaxSize()
-                                .background(colorFor(share.state))
+                                .background(srsStateColor(share.state))
                         )
                     }
                 }
@@ -411,7 +424,7 @@ private fun DistributionCard(progress: Progress) {
                             text = "${share.count}",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = colorFor(share.state)
+                            color = srsStateColor(share.state)
                         )
                         Text(
                             text = share.state.name.lowercase().replaceFirstChar { it.uppercase() },
@@ -688,9 +701,16 @@ private fun SecondaryButton(
     }
 }
 
-/** Shown while the snapshot is being read. */
+/**
+ * Shown while the snapshot is being read.
+ *
+ * [label] names what is loading. It was hardcoded to "Loading your progress", and this
+ * component is used for the dashboard as well as the progress tab — so a dashboard read that
+ * took a moment told the learner their *progress* was loading, naming a different surface than
+ * the one they were looking at.
+ */
 @Composable
-fun DashboardLoading(modifier: Modifier = Modifier) {
+fun DashboardLoading(label: String = "your progress", modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -698,14 +718,25 @@ fun DashboardLoading(modifier: Modifier = Modifier) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(color = LilacPrimary)
             Spacer(modifier = Modifier.height(12.dp))
-            Text(text = "Loading your progress", fontSize = 13.sp, color = TextMuted)
+            Text(text = "Loading $label", fontSize = 13.sp, color = TextMuted)
         }
     }
 }
 
-/** Shown when the data could not be read. Says what to do about it. */
+/**
+ * Shown when the data could not be read. Says what to do about it.
+ *
+ * [label] is the surface that failed to load, for the same reason as [DashboardLoading]: these
+ * two components serve both the dashboard and the progress tab, and the heading used to be
+ * fixed to "Progress" regardless of which one the learner was actually on.
+ */
 @Composable
-fun DashboardError(message: String, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun DashboardError(
+    message: String,
+    onRetry: () -> Unit,
+    label: String = "progress",
+    modifier: Modifier = Modifier
+) {
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -714,7 +745,7 @@ fun DashboardError(message: String, onRetry: () -> Unit, modifier: Modifier = Mo
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "Progress could not be loaded",
+                text = label.replaceFirstChar { it.uppercase() } + " could not be loaded",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextLight
@@ -730,13 +761,6 @@ fun DashboardError(message: String, onRetry: () -> Unit, modifier: Modifier = Mo
             SecondaryButton(text = "Try again", onClick = onRetry, tag = "dashboard_retry")
         }
     }
-}
-
-private fun colorFor(state: CardState): Color = when (state) {
-    CardState.NEW -> SrsAgainDark
-    CardState.LEARNING -> SrsHardDark
-    CardState.REVIEW -> SrsGoodDark
-    CardState.MASTERED -> SrsEasyDark
 }
 
 /** Short weekday label for the week chart. */

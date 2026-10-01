@@ -3,6 +3,7 @@ package com.example.data.repository
 import androidx.room.withTransaction
 import com.example.data.db.AppDatabase
 import com.example.data.model.CharacterEntity
+import com.example.data.model.DailyStatEntity
 import com.example.data.model.ExampleSentenceEntity
 import com.example.data.model.NewWordDraft
 import com.example.data.model.PinyinSyllableEntity
@@ -11,12 +12,14 @@ import com.example.data.model.UserVocabularyEntity
 import com.example.data.model.VocabularyEntity
 import com.example.data.model.WordWithSrs
 import com.example.data.srs.PinyinAnalyzer
+import com.example.data.srs.StudyDay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import java.time.ZoneId
 
 /** The outcome of adding a word, distinguishing "you already have it" from "that is invalid". */
 sealed interface SaveWordResult {
@@ -44,7 +47,24 @@ sealed interface SaveWordResult {
  * 好 at the same time converge on one `vocabulary` row and one `characters` row instead of
  * racing to create duplicates.
  */
-class WordRepository(private val database: AppDatabase) {
+class WordRepository(
+    private val database: AppDatabase,
+    private val zone: ZoneId = ZoneId.systemDefault(),
+    /**
+     * The current time, as the repository sees it.
+     *
+     * Injected for the same reason [com.example.data.repository.DashboardRepository] takes one:
+     * this repository now writes to `daily_stats`, and a row is keyed on the *study day* it was
+     * written on, so "which day was this word added" is a question only the test can answer by
+     * choosing the answer. Reading the wall clock directly made that unanswerable, and the
+     * visible symptom was a test that had to run its reviews and its enrolments on two different
+     * calendars at once — the enrolments landing on the machine's real day and the reviews on the
+     * fixed day the test had chosen, and the two appearing in the history as unrelated rows.
+     *
+     * `DashboardRepository` names this `clock`; the default is the same, so no call site changes.
+     */
+    private val clock: () -> Long = System::currentTimeMillis
+) {
 
     private val vocabularyDao = database.vocabularyDao()
     private val characterDao = database.characterDao()
@@ -53,6 +73,7 @@ class WordRepository(private val database: AppDatabase) {
     private val exampleDao = database.exampleSentenceDao()
     private val enrollmentDao = database.userVocabularyDao()
     private val srsDao = database.srsStateDao()
+    private val dailyStatDao = database.dailyStatDao()
 
     fun getWordsForUser(userId: Long): Flow<List<WordWithSrs>> =
         vocabularyDao.observeLibraryForUser(userId).map { rows -> rows.map { it.toWordWithSrs() } }
@@ -107,7 +128,7 @@ class WordRepository(private val database: AppDatabase) {
      * One query, no clock, no caching. This is a one-shot decision, not a subscription.
      */
     suspend fun getDueWordsForUserOnce(userId: Long): List<WordWithSrs> =
-        vocabularyDao.dueForUserNow(userId, System.currentTimeMillis()).map { it.toWordWithSrs() }
+        vocabularyDao.dueForUserNow(userId, clock()).map { it.toWordWithSrs() }
 
     suspend fun findWordByHanzi(userId: Long, hanzi: String): WordWithSrs? =
         vocabularyDao.getRowByHanzi(userId, hanzi)?.toWordWithSrs()
@@ -130,7 +151,7 @@ class WordRepository(private val database: AppDatabase) {
         Validator.validateNewWord(draft)?.let { return SaveWordResult.Invalid(it) }
 
         return database.withTransaction {
-            val now = System.currentTimeMillis()
+            val now = clock()
 
             val characterId = resolveCharacterId(draft.hanzi.trim(), now, draft.radical)
             val pinyinId = resolvePinyinId(draft.pinyin.trim(), now)
@@ -186,6 +207,29 @@ class WordRepository(private val database: AppDatabase) {
                     "Enrolment $enrollmentId was created without a scheduling row"
                 )
             }
+
+            // Counts toward the learner's daily "new words" total, here rather than anywhere
+            // else, because this is the one place a word enters a collection.
+            //
+            // The counter was never written: `SrsRepository.recordActivity` copied the column
+            // forward on every review and nothing incremented it, so the dashboard rendered
+            // "0/10" under the label "New words" forever, next to an accuracy figure that did
+            // move. A well-formed progress indicator that cannot advance is the shape of a bug
+            // report, and no amount of the learner studying would ever have cleared it.
+            //
+            // In the same transaction as the enrolment, so a day total cannot claim a word the
+            // collection does not have.
+            val epochDay = StudyDay.epochDayOf(now, zone)
+            val existingStat = dailyStatDao.get(draft.userId, epochDay)
+            dailyStatDao.upsert(
+                (existingStat ?: DailyStatEntity(
+                    userId = draft.userId,
+                    dateEpochDay = epochDay
+                )).copy(
+                    id = existingStat?.id ?: 0L,
+                    newWordsIntroduced = (existingStat?.newWordsIntroduced ?: 0) + 1
+                )
+            )
 
             SaveWordResult.Saved(enrollmentId, vocabularyId, reused)
         }
@@ -341,7 +385,7 @@ class WordRepository(private val database: AppDatabase) {
 
     private fun dueClock(): Flow<Long> = flow {
         while (true) {
-            emit(System.currentTimeMillis())
+            emit(clock())
             delay(DUE_CLOCK_INTERVAL_MILLIS)
         }
     }

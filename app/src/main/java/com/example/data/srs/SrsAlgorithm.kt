@@ -1,6 +1,7 @@
 package com.example.data.srs
 
 import com.example.data.model.SrsStateEntity
+import com.example.data.model.StorageValues
 import kotlin.math.max
 import kotlin.math.min
 
@@ -38,7 +39,7 @@ data class SrsCalculationResult(
  * This is the contract between [SrsAlgorithm] and everything that stores or checks a
  * scheduling result, so it is defined once:
  * [com.example.data.repository.Validator] refuses to write a value outside the ease band,
- * and `SrsAlgorithmBoundsTest` asserts the algorithm never produces one. If the band were
+ * and `SrsAlgorithmLimitsTest` asserts the algorithm never produces one. If the band were
  * duplicated in both places, a later change to one would silently disagree with the other.
  */
 object SrsAlgorithmLimits {
@@ -66,10 +67,20 @@ object SrsAlgorithm {
     private const val ONE_DAY_MILLIS = 86_400_000L
     private const val AGAIN_DELAY_MILLIS = 10 * 60_000L
 
+    /**
+     * The schedule a [rating] earns, as of [now].
+     *
+     * [now] has no default. It used to be `now: Long = System.currentTimeMillis()`, which meant
+     * a stateless `object` — presented throughout as the deterministic core of the scheduler —
+     * could quietly read a wall clock: a test calling it with two arguments was really calling
+     * it with three, one of which changed under it, and could pass at 23:59 and fail at 00:01.
+     * Every production caller already passed an explicit `now`; making it required turns the
+     * impurity from something you have to know into something the compiler finds.
+     */
     fun calculateNextReview(
         currentReview: SrsStateEntity?,
         rating: SrsRating,
-        now: Long = System.currentTimeMillis()
+        now: Long
     ): SrsCalculationResult {
         val currentRepetitions = currentReview?.repetitions ?: 0
         val currentInterval = currentReview?.intervalDays ?: 0
@@ -85,13 +96,17 @@ object SrsAlgorithm {
                 newRepetitions = 0
                 newInterval = 0
                 newEase = max(SrsAlgorithmLimits.MIN_EASE_FACTOR, currentEase - 0.20)
-                newState = "LEARNING"
+                newState = StorageValues.CardState.LEARNING.storageValue
             }
             SrsRating.HARD -> {
                 newRepetitions = currentRepetitions + 1
                 newInterval = if (currentInterval <= 1) 1 else max(2, (currentInterval * 1.2).toInt())
                 newEase = max(SrsAlgorithmLimits.MIN_EASE_FACTOR, currentEase - 0.15)
-                newState = if (newInterval >= SrsAlgorithmLimits.MASTERED_INTERVAL_THRESHOLD) "MASTERED" else "LEARNING"
+                newState = if (newInterval >= SrsAlgorithmLimits.MASTERED_INTERVAL_THRESHOLD) {
+                    StorageValues.CardState.MASTERED.storageValue
+                } else {
+                    StorageValues.CardState.LEARNING.storageValue
+                }
             }
             SrsRating.GOOD -> {
                 newRepetitions = currentRepetitions + 1
@@ -101,7 +116,11 @@ object SrsAlgorithm {
                     else -> max(currentInterval + 1, (currentInterval * currentEase).toInt())
                 }
                 newEase = currentEase
-                newState = if (newInterval >= SrsAlgorithmLimits.MASTERED_INTERVAL_THRESHOLD) "MASTERED" else "REVIEW"
+                newState = if (newInterval >= SrsAlgorithmLimits.MASTERED_INTERVAL_THRESHOLD) {
+                    StorageValues.CardState.MASTERED.storageValue
+                } else {
+                    StorageValues.CardState.REVIEW.storageValue
+                }
             }
             SrsRating.EASY -> {
                 newRepetitions = currentRepetitions + 1
@@ -111,7 +130,11 @@ object SrsAlgorithm {
                     else -> max(currentInterval + 2, (currentInterval * currentEase * 1.35).toInt())
                 }
                 newEase = min(SrsAlgorithmLimits.MAX_EASE_FACTOR, currentEase + 0.15)
-                newState = if (newInterval >= SrsAlgorithmLimits.MASTERED_INTERVAL_THRESHOLD) "MASTERED" else "REVIEW"
+                newState = if (newInterval >= SrsAlgorithmLimits.MASTERED_INTERVAL_THRESHOLD) {
+                    StorageValues.CardState.MASTERED.storageValue
+                } else {
+                    StorageValues.CardState.REVIEW.storageValue
+                }
             }
         }
 
@@ -138,7 +161,15 @@ object SrsAlgorithm {
         return SrsCalculationResult(
             intervalDays = scheduledInterval,
             repetitions = newRepetitions,
-            easeFactor = (newEase * 100.0).toInt() / 100.0,
+            // Rounded, not truncated. This was `(newEase * 100.0).toInt() / 100.0`, and the
+            // cast truncates toward zero while binary floating point puts the product a hair
+            // under the intended value often enough to matter: `2.5 - 0.20` is 2.3 in decimal
+            // and 229.99999999999997 in binary, so a learner failing a card for the first time
+            // had their ease stored as 2.29. Ease compounds — it scales every later interval —
+            // so the loss is permanent, and it biases downward, penalising exactly the learner
+            // who is struggling. Verified rather than assumed: the accompanying
+            // `SrsEaseRoundingTest` failed with 2.29 before this line changed.
+            easeFactor = Math.round(newEase * 100.0) / 100.0,
             dueDateMillis = dueDateMillis,
             state = newState,
             nextReviewLabel = label

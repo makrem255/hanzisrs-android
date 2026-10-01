@@ -31,8 +31,26 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.MyApplication"
             android:windowSoftInputMode="adjustResize">
+            <!--
+                singleTop, so the notification's PendingIntent is delivered to the running
+                activity rather than constructing a second one.
+
+                Without it this activity was `standard`, which made `onNewIntent` unreachable -
+                Android only calls it when the existing instance is reused, and with `standard`
+                it never is. So the handler written for the notification's `navigate_to` extra
+                could not run, and tapping the alert while the app was open produced a *second*
+                MainActivity. That second instance gets its own `MainViewModel`, because the
+                view model is Activity-scoped: a second repository set, a second pronunciation
+                service, and a second review session, with the first still alive behind it. Two
+                entries in the recents list for one app.
+
+                `singleTop` is the minimum that fixes it. `singleTask` would also work but would
+                additionally clear anything stacked above the activity, which is more than
+                opening the review deck requires.
+            -->
             <!--
                 adjustResize, with imePadding() on the screens that need it.
 

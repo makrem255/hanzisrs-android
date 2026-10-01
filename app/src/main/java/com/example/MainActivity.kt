@@ -247,9 +247,11 @@ fun MainAppContainer(
                 HomeScreen(
                     viewModel = viewModel,
                     onStartReview = {
-                        viewModel.startReviewSession(
-                            viewModel.dueWords.value.ifEmpty { viewModel.userWords.value }
-                        )
+                        // No argument: which cards a sitting covers is the view model's decision
+                        // (due words, or the whole collection if nothing is due). It used to be
+                        // written here as well, in a different spelling, reading the view model's
+                        // flows from a composable-scope lambda.
+                        viewModel.startReviewSession()
                         navController.navigate(Screen.Deck.route)
                     },
                     onNavigateToAddWord = { navController.navigate(Screen.AddWord.route) },

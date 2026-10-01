@@ -10,10 +10,10 @@ import com.example.data.db.AppDatabase
 import com.example.data.db.toDailyLimits
 import com.example.data.model.DailyStatEntity
 import com.example.data.model.StorageValues.CardState
+import com.example.data.srs.StudyDay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import java.time.Instant
 import java.time.ZoneId
 
 /**
@@ -151,13 +151,16 @@ class DashboardRepository(
     /**
      * The learner's epoch day for [millis], in their own timezone.
      *
-     * The same rule [SrsRepository] uses to bucket a review into a day. Two copies of this would
-     * be a latent bug - a review logged just before midnight could land in a different day from
-     * the one the dashboard attributes it to - so the two must agree, and the shared shape of
-     * the signature is the thing that makes a divergence visible.
+     * Delegates to [StudyDay], which is also what the write path calls. That is the whole
+     * point: a review logged just before local midnight has to land in the day the dashboard
+     * will later attribute it to, and the only reliable way to guarantee that is for both sides
+     * to call one function.
+     *
+     * This KDoc used to go further and assert that the two "must agree" because they shared a
+     * signature. They did not agree — the write side bucketed in UTC — and the matching shape
+     * is what kept the disagreement from being visible.
      */
-    fun toEpochDay(millis: Long): Int =
-        Instant.ofEpochMilli(millis).atZone(zone).toLocalDate().toEpochDay().toInt()
+    fun toEpochDay(millis: Long): Int = StudyDay.epochDayOf(millis, zone)
 
     /**
      * The last instant of [millis]'s day, in the learner's timezone.
@@ -165,13 +168,11 @@ class DashboardRepository(
      * "Due today" has to mean the whole day, not the current instant. Using `now` would tell a
      * learner at breakfast that a card which falls due at lunchtime is not due, and a dashboard
      * that understates the queue to look tidy is worse than one that admits a card is coming.
+     *
+     * Resolved through [StudyDay.endOfEpochDayMillis] so the instant is derived from the same
+     * day number [toEpochDay] produced. A local day is not always 86,400,000 ms — a
+     * daylight-saving transition makes it 23 or 25 hours — so this cannot be `epochDay * MS`.
      */
-    private fun endOfTodayMillis(millis: Long): Long {
-        val endOfDay = Instant.ofEpochMilli(millis)
-            .atZone(zone)
-            .toLocalDate()
-            .plusDays(1)
-            .atStartOfDay(zone)
-        return endOfDay.toInstant().toEpochMilli()
-    }
+    private fun endOfTodayMillis(millis: Long): Long =
+        StudyDay.endOfEpochDayMillis(toEpochDay(millis), zone)
 }

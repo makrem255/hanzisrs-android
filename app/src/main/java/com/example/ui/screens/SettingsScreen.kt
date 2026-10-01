@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -48,13 +49,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.MinTouchTarget
 import com.example.ui.components.SwitchRow
+import com.example.ui.components.rememberNotificationRequest
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
@@ -80,6 +75,7 @@ import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.MainViewModel
+import com.example.util.plural
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,7 +87,6 @@ fun SettingsScreen(
     val isSlowTts by viewModel.isSlowTts.collectAsStateWithLifecycle()
     val dueCount by viewModel.dueCount.collectAsStateWithLifecycle()
 
-    val context = LocalContext.current
     // Saveable so turning the phone sideways does not silently re-enable a setting the
     // learner just turned off. It is still not persisted across leaving the screen, which
     // is the honest state of things: this is a local preview switch, not a stored
@@ -103,19 +98,29 @@ fun SettingsScreen(
     // and a `var` written in a lambda is local to that lambda — so the `AlertDialog` below
     // the column, which is what actually reads and writes it, could not see it.
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            viewModel.sendDueReminderNotification()
-        } else {
+
+    // The permission check and the request live in `rememberNotificationRequest`, shared with
+    // the home screen's bell. This screen had its own correct copy inline; the home screen had
+    // none, which is why its bell silently did nothing on Android 13+. One rule, one
+    // implementation, so the two controls cannot diverge again.
+    val requestNotification = rememberNotificationRequest(
+        onGranted = { viewModel.sendDueReminderNotification() },
+        onDenied = {
             notificationMessage = "Notifications are off. You can enable them in Android system settings."
         }
-    }
+    )
 
     Scaffold(
         topBar = {
             TopAppBar(
+                // This app bar does not add the status-bar inset itself: the outer
+                // Scaffold in MainActivity already padded the whole NavHost by it, and the
+                // insets were therefore applied twice - once by that padding and once by
+                // TopAppBarDefaults.windowInsets - pushing every title down by an extra
+                // ~24-48dp. AuthScreen is the reason this is fixed here rather than by
+                // zeroing the outer Scaffold's contentWindowInsets: it has no app bar of its
+                // own and depends on that outer padding for its top inset.
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
                         text = "Settings & Preferences",
@@ -267,15 +272,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
-                        onClick = {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                            ) {
-                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                            } else {
-                                viewModel.sendDueReminderNotification()
-                            }
-                        },
+                        onClick = requestNotification,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = DarkSurfaceContainer,
                             contentColor = LilacPrimary
@@ -290,7 +287,12 @@ fun SettingsScreen(
                         Icon(Icons.Default.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Preview alert ($dueCount words due)",
+                            // Was `"$dueCount words due"`, so a learner with exactly one word
+                            // due - the most likely moment to be previewing an alert at all -
+                            // read "1 words due". `NotificationHelper` fixed the identical
+                            // defect in its own string; this was the third site, hand-rolled
+                            // because the shared helper was private to `DashboardAggregator`.
+                            text = "Preview alert ($dueCount ${plural(dueCount, "word", "words")} due)",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )

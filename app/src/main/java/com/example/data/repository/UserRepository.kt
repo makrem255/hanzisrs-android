@@ -17,10 +17,42 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
+/**
+ * The outcome of any attempt to become a learner: sign in, register, or continue as guest.
+ *
+ * All three speak this one type, which is the point. [login] and [register] returned it while
+ * [loginAsGuest] returned a bare [UserEntity] and had no way to report failure at all, so the
+ * guest button needed a separate path in the view model and could not surface an error even in
+ * principle. One type means one place decides what a failure looks like.
+ */
 sealed class AuthResult {
-    data class Success(val user: UserEntity, val token: String) : AuthResult()
+    /**
+     * The learner is now signed in on this device.
+     *
+     * There is deliberately no `token` field. The raw token is written to [SessionStore] by the
+     * method that minted it, before this is constructed, and only its SHA-256 digest ever
+     * reaches the database — so a token travelling back out to a caller was a secret handed to
+     * code that had no use for it, and nothing ever read it. Its absence is also what lets
+     * [loginAsGuest] return this same type without inventing a value to put in that slot.
+     */
+    data class Success(val user: UserEntity) : AuthResult()
+
+    /** The attempt did not succeed. [message] is written to be shown to the learner. */
     data class Error(val message: String) : AuthResult()
 }
+
+/**
+ * The one sentence returned for a rejected sign-in, whether the identifier is unknown or the
+ * password is wrong.
+ *
+ * A single constant rather than two literals, because the property being protected is that the
+ * two are *equal*, and two identical strings sitting in two branches stay equal only until
+ * someone edits one of them. It also reads wrong: a sentence naming the specific field that was
+ * wrong is friendlier, and that friendliness is exactly the leak.
+ *
+ * `internal` so the parity can be asserted from a test without making the string public API.
+ */
+internal const val AUTH_FAILED_MESSAGE = "Incorrect email or password."
 
 /**
  * Accounts, and the per-learner rows every account is entitled to.
@@ -139,7 +171,7 @@ class UserRepository(
         // sending them straight to the sign-in form to type it all again would be absurd.
         sessionStore?.writeToken(token)
         _currentUser.value = savedUser
-        return AuthResult.Success(savedUser, token)
+        return AuthResult.Success(savedUser)
     }
 
     /**
@@ -197,7 +229,13 @@ class UserRepository(
             // the delay a clean oracle for "does this account exist": guessing stops costing
             // anything the moment the identifier is wrong.
             sessionStore?.recordFailure(normalized, now)
-            return AuthResult.Error("No account found with this identifier")
+            // The *same* sentence as a wrong password, below. The failure counter is symmetric
+            // across the two branches, which is what stops the backoff from leaking existence —
+            // and returning a distinct message here undid exactly that, because the response a
+            // caller gets is the message, not the delay. Anyone with a list of candidate
+            // addresses could tell which were registered, from a field meant only to reject
+            // them. One sentence, two causes.
+            return AuthResult.Error(AUTH_FAILED_MESSAGE)
         }
 
         // Passwords are verified against the stored PBKDF2 hash. The only tolerated
@@ -216,7 +254,7 @@ class UserRepository(
         }
         if (!validPassword) {
             sessionStore?.recordFailure(normalized, now)
-            return AuthResult.Error("Incorrect password")
+            return AuthResult.Error(AUTH_FAILED_MESSAGE)
         }
 
         // A fresh token per sign-in, so a token captured earlier stops working the moment the
@@ -232,7 +270,7 @@ class UserRepository(
         sessionStore?.clearFailures(normalized)
         sessionStore?.writeToken(newToken)
         _currentUser.value = updatedUser
-        return AuthResult.Success(updatedUser, newToken)
+        return AuthResult.Success(updatedUser)
     }
 
     /**
@@ -242,8 +280,14 @@ class UserRepository(
      * guest slot no longer occupies a real-looking identifier that someone could try to
      * register. Its password hash is still a real PBKDF2 hash of a fixed local value, because
      * it is never used to authenticate — the guest button is the only way in.
+     *
+     * Returns the same [AuthResult] as [login] and [register]. That type is the only reason this
+     * can report a failure: it previously ended in `error("Guest profile could not be created")`,
+     * an `IllegalStateException` thrown out of a repository into a `viewModelScope.launch` that
+     * did not catch it, so the one path where the guest row could not be read took the process
+     * down instead of asking for a retry.
      */
-    suspend fun loginAsGuest(): UserEntity {
+    suspend fun loginAsGuest(): AuthResult {
         val guest = userDao.findFirstByAuthType(StorageValues.AuthType.ANONYMOUS.storageValue)
             ?: run {
                 val guestToken = SessionToken.generate()
@@ -279,11 +323,16 @@ class UserRepository(
                     // button again — which is the honest outcome, rather than storing a fabricated
                     // token that would fail validation on the next launch anyway.
                     userDao.findFirstByAuthType(StorageValues.AuthType.ANONYMOUS.storageValue)
-                        ?: error("Guest profile could not be created")
                 }
             }
-        _currentUser.value = guest
-        return guest
+        // Reachable only if the insert lost the race *and* the winner's row was deleted before
+        // this read. Reported rather than thrown, so the guest button can say so and try again.
+        return if (guest == null) {
+            AuthResult.Error("Could not open the guest profile. Please try again.")
+        } else {
+            _currentUser.value = guest
+            AuthResult.Success(guest)
+        }
     }
 
     /**

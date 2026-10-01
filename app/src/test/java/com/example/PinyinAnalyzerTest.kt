@@ -133,6 +133,63 @@ class PinyinAnalyzerTest {
         assertEquals("", analysis.syllable)
         assertEquals(0, analysis.toneNumber)
         assertTrue(analysis.initial.isEmpty())
+        // Added because this test passed while the field beside it was wrong. `analyze("")` was
+        // returning `toneContour = ""` for exactly as long as this method existed, and the
+        // assertion that would have caught it is the one this test did not make.
+        assertEquals("33", analysis.toneContour)
+    }
+
+    /**
+     * `Analysis.toneContour` documents itself as always populated: an empty string means "no
+     * contour", and every site that draws a tone contour would then have to special-case it.
+     *
+     * That invariant was only half-enforced — the empty-input branch violated it, and the main
+     * path read the same map through a `.orEmpty()` that could reintroduce it. Both are now
+     * routed through one total accessor, so this asserts the property over inputs chosen to hit
+     * every branch rather than trusting a comment to say which branches exist.
+     */
+    @Test
+    fun `no input produces a missing tone contour`() {
+        val inputs = listOf(
+            "", "   ", "ni", "nǐ", "ní", "nì", "nī", "lüè", "lǜe", "v", "V",
+            "xuéá", "ng", "hm", "5", "!", "ni hao3", "zzzzzzzz", "ā", "é", "ǚ"
+        )
+
+        inputs.forEach { input ->
+            val analysis = PinyinAnalyzer.analyze(input)
+            assertTrue(
+                "toneContour was empty for input \"$input\", which the Analysis contract says " +
+                    "cannot happen; a caller drawing the contour gets a blank stroke diagram",
+                analysis.toneContour.isNotEmpty()
+            )
+            assertTrue(
+                "toneContour for input \"$input\" must be one of the five declared contours, " +
+                    "not \"${analysis.toneContour}\"",
+                analysis.toneContour in setOf("55", "35", "214", "51", "33")
+            )
+        }
+    }
+
+    /**
+     * The contour must agree with the tone number, on every path.
+     *
+     * A contour that is merely *present* but wrong — the neutral `"33"` leaking into a
+     * third-tone reading, say — is the more damaging failure of the two, because it draws
+     * convincingly. So the pairing is asserted, not just the non-emptiness.
+     */
+    @Test
+    fun `the contour always matches the tone number it belongs to`() {
+        val expected = mapOf(0 to "33", 1 to "55", 2 to "35", 3 to "214", 4 to "51")
+
+        // Tone 0 is unreachable for the marked forms, so it is covered by the plain forms.
+        listOf("ni", "nǐ", "ní", "nǐ", "nì", "", "zhong", "lǜ", "mā", "ma").forEach { input ->
+            val analysis = PinyinAnalyzer.analyze(input)
+            assertEquals(
+                "contour for \"$input\" (tone ${analysis.toneNumber}) did not match its tone",
+                expected[analysis.toneNumber],
+                analysis.toneContour
+            )
+        }
     }
 
     @Test

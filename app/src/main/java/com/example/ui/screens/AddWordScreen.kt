@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -133,6 +134,14 @@ fun AddWordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                // This app bar does not add the status-bar inset itself: the outer
+                // Scaffold in MainActivity already padded the whole NavHost by it, and the
+                // insets were therefore applied twice - once by that padding and once by
+                // TopAppBarDefaults.windowInsets - pushing every title down by an extra
+                // ~24-48dp. AuthScreen is the reason this is fixed here rather than by
+                // zeroing the outer Scaffold's contentWindowInsets: it has no app bar of its
+                // own and depends on that outer padding for its top inset.
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
                         text = if (aiState is AiGenerationState.ReadyForReview) "Review & approve" else "Add word",

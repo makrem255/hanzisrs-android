@@ -23,6 +23,15 @@ import org.junit.Test
  */
 class SrsCardStateContractTest {
 
+    /**
+     * A fixed instant for every scheduling walk below.
+     *
+     * The ease band and the state vocabulary are properties of the rating sequence alone — `now`
+     * only reaches the due date — so pinning it changes nothing about what is being asserted and
+     * makes the walk mean the same thing on every run, on any machine, at any hour.
+     */
+    private val FIXED_NOW = 1_700_000_000_000L
+
     @Test
     fun `the algorithm only emits states the schema vocabulary declares`() {
         val ratings = SrsRating.entries
@@ -55,7 +64,16 @@ class SrsCardStateContractTest {
         var current: com.example.data.model.SrsStateEntity? = null
 
         repeat(120) { step ->
-            val result = SrsAlgorithm.calculateNextReview(current, ratings[step % ratings.size])
+            // `now` is explicit rather than defaulted. It used to have a
+            // `System.currentTimeMillis()` default, so this loop was walking 120 schedules
+            // against a clock that moved underneath it — a contract test on the scheduler's
+            // bounds could pass at 23:59 and fail at 00:01. A fixed instant makes the walk
+            // mean the same thing on every run.
+            val result = SrsAlgorithm.calculateNextReview(
+                currentReview = current,
+                rating = ratings[step % ratings.size],
+                now = FIXED_NOW
+            )
             assertTrue(
                 "ease ${result.easeFactor} left [${SrsAlgorithmLimits.MIN_EASE_FACTOR}, ${SrsAlgorithmLimits.MAX_EASE_FACTOR}]",
                 result.easeFactor in SrsAlgorithmLimits.MIN_EASE_FACTOR..SrsAlgorithmLimits.MAX_EASE_FACTOR
@@ -80,7 +98,11 @@ class SrsCardStateContractTest {
 
         repeat(60) { step ->
             val rating = ratings[step % ratings.size]
-            val result = SrsAlgorithm.calculateNextReview(current, rating)
+            val result = SrsAlgorithm.calculateNextReview(
+                currentReview = current,
+                rating = rating,
+                now = FIXED_NOW
+            )
             assertNull(
                 "the validator rejected a state the algorithm produced: ${result.state}",
                 Validator.validateSchedulerState(

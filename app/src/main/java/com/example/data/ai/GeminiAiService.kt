@@ -70,6 +70,12 @@ class GeminiAiService {
      * generativelanguage.googleapis.com rather than through the Firebase AI proxy.
      * A production release should move this behind a backend proxy or the
      * Firebase AI SDK with App Check.
+     *
+     * The Firebase SDK and the App Check dependency used to sit in `build.gradle.kts`
+     * alongside this note, which read as though something was enforcing it. Nothing was:
+     * grepping `app/src` for `com.google.firebase` returned nothing, and the request below is
+     * a hand-built OkHttp call. The unused coordinates are gone, so the gap between this
+     * comment and the build file is now closed rather than described.
      */
     suspend fun generateChineseWordData(query: String): Result<GeneratedWordData> =
         withContext(Dispatchers.IO) {

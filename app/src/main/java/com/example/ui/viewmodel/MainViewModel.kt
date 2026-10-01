@@ -1,4 +1,4 @@
-﻿package com.example.ui.viewmodel
+package com.example.ui.viewmodel
 
 import android.app.Application
 import android.util.Log
@@ -41,9 +41,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
@@ -95,13 +97,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // in here rather than built inside the repository because only the ViewModel has a Context,
     // and a repository that reached for one could not be unit-tested against an in-memory
     // database.
-    val userRepository = UserRepository(
+    // Private, and deliberately so. These were `val`s with default (public) visibility, which
+    // published seven repositories as the ViewModel's API. Grepping the whole source tree found
+    // no reader of any of them outside this class - every test constructs its own repository
+    // against its own in-memory database, and no screen reaches past the ViewModel at all. So
+    // the visibility was not buying a seam; it was an invitation to skip the ViewModel, and
+    // `viewModel.srsRepository.processReview(...)` from a composable would have bypassed the
+    // deck's rating-claim guard without anything making that fail to compile.
+    private val userRepository = UserRepository(
         userDao = database.userDao(),
         database = database,
         sessionStore = SessionStore(application)
     )
-    val wordRepository = WordRepository(database)
-    val srsRepository = SrsRepository(database)
+    private val wordRepository = WordRepository(database)
+    private val srsRepository = SrsRepository(database)
     private val dashboardRepository = DashboardRepository(database)
     private val gamificationRepository = GamificationRepository(database)
     private val sessionRepository = StudySessionRepository(database)
@@ -125,6 +134,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val currentUser: StateFlow<UserEntity?> = userRepository.currentUser
 
+    /**
+     * Set when the learner's collection could not be read, cleared as soon as it can.
+     *
+     * `null` means the read is fine — including the perfectly ordinary case of a learner who has
+     * no words. A message means the database threw: a full disk, a corrupt file, a revoked
+     * permission. Those are very different situations and [userWords] cannot express the
+     * difference, because the only honest degradation available on a `List` flow is to emit an
+     * empty one.
+     *
+     * Which is exactly the bug this fixes. Without it, a corrupt database told a learner whose
+     * data was perfectly intact that their vocabulary was empty — "ready for its first word",
+     * alongside an invitation to go and re-type it. An empty list is rendered as a starting point;
+     * it is not evidence that the learner has no words, and on the failure path it was claiming
+     * so. The screen now has a third state to draw instead.
+     */
+    private val _libraryError = MutableStateFlow<String?>(null)
+    val libraryError: StateFlow<String?> = _libraryError.asStateFlow()
+
     // Observe all words for current user
     //
     // The `.catch` on all three collection flows below is not defensive noise. Room throws out of
@@ -133,14 +160,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // `viewModelScope` is not supervised for it. The app dies. There is no error variant on a
     // `List` flow to render into, so the honest degradation is an empty collection; the log
     // carries the reason, since a learner cannot act on a SQLITE_ code.
+    //
+    // `onEach` ahead of `catch` so a recovery clears the flag. Without it the message would be a
+    // latch set by the worst thing that ever happened and never unset, which is worse than not
+    // having it: the screen would keep reporting a failure for a database that now reads fine.
     val userWords: StateFlow<List<WordWithSrs>> = currentUser.flatMapLatest { user ->
         if (user != null) {
             wordRepository.getWordsForUser(user.id)
+                .onEach { _libraryError.value = null }
                 .catch { throwable ->
                     Log.w("MainViewModel", "collection read failed", throwable)
+                    // Fixed sentence, never `throwable.message`. A Room or SQLite message is a
+                    // `SQLITE_IOERR` code or an absolute file path; neither means anything to
+                    // the learner reading it and the second discloses where their data lives.
+                    _libraryError.value = "Your vocabulary could not be read. Your words are " +
+                        "still saved — try again in a moment."
                     emit(emptyList())
                 }
         } else {
+            // Signing out clears it. A read failure belonged to the account that has now gone,
+            // and carrying it across a sign-out would greet the next learner with a message about
+            // a database they have never touched — including a guest who signed in on the same
+            // device. The same applies on the way back in: `onEach` clears it on the first
+            // successful read either way.
+            _libraryError.value = null
             flowOf(emptyList())
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -153,6 +196,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * and the flow itself cannot tell them apart, because `stateIn` starts it off empty. A screen
      * that treats the second as the first tells a brand new learner they have nothing to study,
      * and does it every time they open the app, before the database has been asked.
+     *
+     * Read [libraryError] alongside it: a third cause, "the query failed", was rendered as the
+     * empty state, which told a learner whose words were intact that they had none.
      */
     val wordsLoaded: StateFlow<Boolean> = userWords
         .map { true }
@@ -221,18 +267,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private val _reviewDeckState = MutableStateFlow(ReviewDeckState(emptyList()))
 
+    /**
+     * The deck, as one value.
+     *
+     * The index, the reveal and the answer count used to be published as three more
+     * `MutableStateFlow`s that had to be written by hand at every single transition — five sync
+     * sites, each of which could be forgotten. The result was a class of bug where the card on
+     * screen and the machine tracking it disagreed, and the two bugs fixed in the last audit
+     * (§2.10 and §2.11) both lived in the gap between them. The screen now reads `index`,
+     * `revealed`, `isFinished`, `progress` and `positionLabel` off this one object, so a
+     * transition cannot half-apply.
+     *
+     * That list is the screen's readers and nothing more, checked by grep rather than recalled.
+     * It previously also named `answersGiven`, which the screen does not read: the answer count
+     * is held inside [ReviewDeckState] and consumed by [canRate] and `completeRating`, and a
+     * learner never sees a number of answers on the deck. The state object has more members than
+     * the screen needs, which is normal for a state machine — the screen is not its only
+     * legitimate reader, it is simply the only external one.
+     */
+    val reviewDeckState: StateFlow<ReviewDeckState> = _reviewDeckState.asStateFlow()
+
     /** The words in this sitting, in the order they will be shown. Fixed when the deck starts. */
     private val _reviewDeck = MutableStateFlow<List<WordWithSrs>>(emptyList())
     val reviewDeck: StateFlow<List<WordWithSrs>> = _reviewDeck.asStateFlow()
-
-    private val _currentDeckIndex = MutableStateFlow(0)
-    val currentDeckIndex: StateFlow<Int> = _currentDeckIndex.asStateFlow()
-
-    private val _isCardFlipped = MutableStateFlow(false)
-    val isCardFlipped: StateFlow<Boolean> = _isCardFlipped.asStateFlow()
-
-    private val _reviewedSessionCount = MutableStateFlow(0)
-    val reviewedSessionCount: StateFlow<Int> = _reviewedSessionCount.asStateFlow()
 
     /** Null until a deck has been started, which is what tells the screen a session is pending. */
     private val _reviewSessionWordIds = MutableStateFlow<List<Long>?>(null)
@@ -316,51 +373,74 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (session == null) {
             // Nothing was studied, so there is nothing to summarise. Null rather than a
             // zero-card summary, because a session of zero cards is not a session.
-            _sessionSummary.value = null
-            _sessionAwards.value = emptyList()
+            clearSessionSummary()
             return
         }
         activeSession = null
 
         viewModelScope.launch {
-            // Awaited for the same reason `submitRating` awaits it: a session that was opened
-            // milliseconds ago has no id yet, and closing a null id would leave the real one
-            // open for the next sitting to abandon.
-            val sessionId = session.await() ?: run {
-                _sessionSummary.value = null
-                _sessionAwards.value = emptyList()
-                return@launch
-            }
-
-            val closed = sessionRepository.end(
-                sessionId = sessionId,
-                userId = user.id,
-                status = StorageValues.SessionStatus.COMPLETED,
-                now = now
-            )
-            // Only report a session that actually recorded answers. A deck the learner opened and
-            // closed has a row and no history, and a summary claiming "0 answered, 100% correct"
-            // is the kind of number that makes the rest of the app untrustworthy.
-            if (closed != null && closed.reviewedCount > 0) {
-                _sessionSummary.value = gamificationRepository.summariseSession(
-                    userId = user.id,
-                    sessionId = sessionId,
-                    durationMillis = closed.durationMillis
-                )
-                val earned = gamificationRepository.evaluateAwards(user.id, now)
-                _sessionAwards.value = earned
-                earned.forEach { award ->
-                    gamificationRepository.markSeen(user.id, award.userAchievementId, now)
+            // Every step below is a database call, and none of them are individually guarded.
+            //
+            // `launch` reports an uncaught failure to the CoroutineExceptionHandler, which for
+            // this scope means the thread's default handler and the end of the process — the
+            // `async` sibling stored in [activeSession] does not, which is the whole difference
+            // between the two and the reason this was easy to miss. A full disk, or a revoked
+            // permission, between opening a deck and finishing it took the app down at exactly
+            // the moment the learner was looking for their results.
+            //
+            // The session row is committed by the time the failure could land, so the honest
+            // outcome is to show no summary rather than a wrong one: the answers are safe in
+            // `review_log` and will be counted next time. Deliberately not `failure.message`,
+            // which is a `SQLITE_` code or a file path.
+            try {
+                val sessionId = session.await() ?: run {
+                    clearSessionSummary()
+                    return@launch
                 }
-            } else {
-                _sessionSummary.value = null
-                _sessionAwards.value = emptyList()
+
+                val closed = sessionRepository.end(
+                    sessionId = sessionId,
+                    userId = user.id,
+                    status = StorageValues.SessionStatus.COMPLETED,
+                    now = now
+                )
+                // Only report a session that actually recorded answers. A deck the learner
+                // opened and closed has a row and no history, and a summary claiming
+                // "0 answered, 100% correct" is the kind of number that makes the rest of the
+                // app untrustworthy.
+                if (closed != null && closed.reviewedCount > 0) {
+                    _sessionSummary.value = gamificationRepository.summariseSession(
+                        userId = user.id,
+                        sessionId = sessionId,
+                        durationMillis = closed.durationMillis
+                    )
+                    val earned = gamificationRepository.evaluateAwards(user.id, now)
+                    _sessionAwards.value = earned
+                    earned.forEach { award ->
+                        gamificationRepository.markSeen(user.id, award.userAchievementId, now)
+                    }
+                } else {
+                    clearSessionSummary()
+                }
+                refreshProgress()
+            } catch (failure: Exception) {
+                Log.w("MainViewModel", "closing the session failed", failure)
+                clearSessionSummary()
+                _reviewError.value = "This session could not be closed properly. Your answers " +
+                    "were still saved."
             }
-            refreshProgress()
         }
     }
 
-    /** Clears the session result, so leaving the screen does not replay it on the way back in. */
+    /**
+     * Clears the session result, so leaving the screen does not replay it on the way back in.
+     *
+     * The summary and the award list are cleared together and never separately. Three other sites
+     * in this class used to spell out the pair inline, and `restartReviewSession` spelled it
+     * inline in one branch while calling this method two lines later in the other. That is not a
+     * style objection: §2.12 was exactly this bug — one entry point that forgot, so the previous
+     * sitting's badges were drawn on top of a brand new deck.
+     */
     fun clearSessionSummary() {
         _sessionSummary.value = null
         _sessionAwards.value = emptyList()
@@ -440,6 +520,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _sessionRestored.value = true
             }
         }
+
+        // Watch the collection for enrolments that vanish while a deck is open. Collected off
+        // `userWords` rather than called once, because the deletion usually happens *after* the
+        // deck was built — a learner cannot be on the review screen and the library at the same
+        // time, so this can only be caught by reacting to the change.
+        //
+        // `drop(1)` because the first emission is the collection as it stood when this started,
+        // which is the one the deck was already built from; acting on it would be a no-op at
+        // best and, if a deck were somehow open at construction, a race against `stateIn`'s
+        // initial `emptyList()` — skipping every card in it.
+        viewModelScope.launch {
+            userWords.drop(1).collect { skipVanishedCards() }
+        }
     }
 
     // Auth Operations
@@ -455,21 +548,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _authError.value = null
     }
 
-    fun login(identifier: String, passwordPlain: String, onSuccess: () -> Unit) {
+    /**
+     * Runs one auth attempt, owning the loading flag, the error slot, and the exception path.
+     *
+     * All three entry points below used to spell this out for themselves, and all three got the
+     * same thing subtly wrong: they set `_authLoading = false` on the *success* and *error*
+     * branches only. Every one of them ends in a `withTransaction`, so a `SQLiteDiskIOException`
+     * or a full disk escapes the repository, skips both branches, and leaves the flag set for
+     * good. The sign-in form is then disabled with nothing loading and nothing to cancel — the
+     * only recovery is killing the app. The flag is therefore cleared in `finally`.
+     *
+     * The thrown case gets a fixed sentence, never `failure.message`. A Room or SQLite message
+     * is a `SQLITE_IOERR` code or an absolute file path; both are noise to a learner and, in
+     * the path case, a disclosure.
+     */
+    private fun runAuthAttempt(attempt: suspend () -> AuthResult, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _authLoading.value = true
             _authError.value = null
-            when (val result = userRepository.login(identifier, passwordPlain)) {
-                is AuthResult.Success -> {
-                    _authLoading.value = false
-                    onSuccess()
-                }
-                is AuthResult.Error -> {
-                    _authLoading.value = false
-                    _authError.value = result.message
-                }
+            val result = try {
+                attempt()
+            } catch (failure: Exception) {
+                Log.w("MainViewModel", "auth attempt failed", failure)
+                AuthResult.Error("Something went wrong signing you in. Please try again.")
+            } finally {
+                _authLoading.value = false
+            }
+            when (result) {
+                is AuthResult.Success -> onSuccess()
+                is AuthResult.Error -> _authError.value = result.message
             }
         }
+    }
+
+    fun login(identifier: String, passwordPlain: String, onSuccess: () -> Unit) {
+        runAuthAttempt({ userRepository.login(identifier, passwordPlain) }, onSuccess)
     }
 
     fun register(
@@ -479,32 +592,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isPhone: Boolean,
         onSuccess: () -> Unit
     ) {
-        viewModelScope.launch {
-            _authLoading.value = true
-            _authError.value = null
-            when (val result = userRepository.register(identifier, passwordPlain, displayName, isPhone)) {
-                is AuthResult.Success -> {
-                    // Seed initial starter pack for new registered user
-                    seedUserData(result.user.id)
-                    _authLoading.value = false
-                    onSuccess()
-                }
-                is AuthResult.Error -> {
-                    _authLoading.value = false
-                    _authError.value = result.message
-                }
-            }
-        }
+        runAuthAttempt(
+            attempt = {
+                userRepository.register(identifier, passwordPlain, displayName, isPhone)
+                    .also { result ->
+                        // Seeded inside the attempt, so a failure to seed is reported as one
+                        // rather than handing the learner a signed-in account with no words and
+                        // no error on screen. Seeding itself is already total — it reports
+                        // refusal by returning, and says so in the log.
+                        if (result is AuthResult.Success) seedUserData(result.user.id)
+                    }
+            },
+            onSuccess = onSuccess,
+        )
     }
 
     fun loginAsGuest(onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            _authLoading.value = true
-            val guest = userRepository.loginAsGuest()
-            seedUserData(guest.id)
-            _authLoading.value = false
-            onSuccess()
-        }
+        runAuthAttempt(
+            attempt = {
+                userRepository.loginAsGuest().also { result ->
+                    if (result is AuthResult.Success) seedUserData(result.user.id)
+                }
+            },
+            onSuccess = onSuccess,
+        )
     }
 
     fun logout() {
@@ -840,12 +951,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                         // One transition moves the index, records the answer and releases the
-                        // in-flight claim together. Incrementing the index by hand alongside a
-                        // separate `isRating` flag is how the two came to disagree.
-                        val advanced = _reviewDeckState.updateAndGet { it.completeRating(rating) }
-                        _currentDeckIndex.value = advanced.index
-                        _isCardFlipped.value = advanced.revealed
-                        _reviewedSessionCount.value = advanced.answersGiven
+                        // in-flight claim together. The index, the reveal and the answer count
+                        // used to be three further writes here, which is how they came to
+                        // disagree with the machine tracking them.
+                        _reviewDeckState.update { it.completeRating(rating) }
                     }
                     is ReviewOutcome.Rejected -> {
                         Log.w(
@@ -874,6 +983,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Steps the deck past any card whose enrolment no longer exists.
+     *
+     * [ReviewDeckState.skipMissing] was written for exactly this and was never called by
+     * anything but its own tests. The path it guards is reachable: start a sitting, go back,
+     * delete a word in the library, return — [reviewSessionWordIds] is still set, so the deck is
+     * not rebuilt and still holds the deleted enrolment. The learner is then shown a card whose
+     * answer can never be recorded.
+     *
+     * That is not data loss — [SrsRepository.processReview] rejects it as
+     * [ReviewFailure.NotEnrolled], and Skip still works — but it is a card that costs the
+     * learner a tap, an error message and a decision about what to do next, in exchange for
+     * a word they no longer have.
+     *
+     * Driven off [userWords] rather than a re-query, and applied through `skipMissing`, so only
+     * the *index* moves. The snapshot in [reviewDeck] is left alone on purpose: that is the
+     * whole reason a card cannot change identity between being shown and being rated, and
+     * rebuilding it from the live collection is the bug that snapshot was introduced to prevent.
+     * A card deleted further ahead is still skipped when the learner reaches it, which is what
+     * `skipMissing`'s leading-run rule is for.
+     */
+    private fun skipVanishedCards() {
+        val presentIds = userWords.value.mapTo(mutableSetOf()) { it.word.id }
+        _reviewDeckState.update { it.skipMissing(presentIds) }
+    }
+
+    /**
      * Returns the deck to its first card without discarding it.
      *
      * Clears the reveal and the counts but keeps the snapshot, so "start again" and "the deck is
@@ -885,16 +1020,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // snapshot, so "start again" and "the deck is still opening" both land on card one of the
         // same sitting rather than on an empty deck.
         _reviewDeckState.update { it.start(it.wordIds) }
-        _currentDeckIndex.value = 0
-        _isCardFlipped.value = false
-        _reviewedSessionCount.value = 0
     }
 
     /** Moves to the next card, releasing the reveal on the way. */
     fun goToNextCard() {
-        val next = _reviewDeckState.updateAndGet { it.next() }
-        _currentDeckIndex.value = next.index
-        _isCardFlipped.value = next.revealed
+        _reviewDeckState.update { it.next() }
     }
 
     /**
@@ -903,12 +1033,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * A previous card that was already answered shows its answer rather than its prompt, because
      * re-rating it would write a second review for one sitting, and the scheduler's answer to
      * that is to skip the card entirely.
+     *
+     * That rule needs no code here. `ReviewDeckState.moveTo` already sets `revealed` to whether
+     * the card it lands on is in `answers`, which is the same question — this used to add
+     * `|| currentAnswer != null` on top, reading the state twice without `updateAndGet` where
+     * its two siblings used it, and re-deriving a value the transition had just computed.
      */
     fun goToPreviousCard() {
         _reviewDeckState.update { it.previous() }
-        _currentDeckIndex.value = _reviewDeckState.value.index
-        val state = _reviewDeckState.value
-        _isCardFlipped.value = state.revealed || state.currentAnswer != null
     }
 
     /**
@@ -918,8 +1050,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * forwards shows a consistent thing for the same card.
      */
     fun flipCard() {
-        val next = _reviewDeckState.updateAndGet { it.toggleReveal() }
-        _isCardFlipped.value = next.revealed
+        _reviewDeckState.update { it.toggleReveal() }
     }
 
     /** Clears a surfaced review failure, so a snackbar does not reappear on the next frame. */
@@ -950,8 +1081,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _reviewDeck.value = emptyList()
                 _reviewSessionWordIds.value = emptyList()
                 _reviewDeckState.value = ReviewDeckState(emptyList())
-                _sessionSummary.value = null
-                _sessionAwards.value = emptyList()
+                clearSessionSummary()
                 _nothingLeftToReview.value = true
                 return@launch
             }
@@ -1027,15 +1157,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * An empty list here means "we have looked and there is nothing", which is a different
      * statement from the `null` that means "we have not looked yet", and the screen needs
      * to be able to tell them apart.
+     *
+     * Takes no arguments, and takes them from [wordsForReview] rather than from the screen, so
+     * that a notification-opened sitting covers the same cards a tap on "Start Learning" would.
      */
-    fun ensureReviewSession(words: List<WordWithSrs>) {
+    fun ensureReviewSession() {
         if (_reviewSessionWordIds.value != null) return
+        val words = wordsForReview()
         if (words.isNotEmpty()) {
             startReviewSession(words)
         } else {
             _reviewSessionWordIds.value = emptyList()
             _nothingLeftToReview.value = true
         }
+    }
+
+    /**
+     * What a sitting should cover: whatever is due, or the whole collection if nothing is.
+     *
+     * This was written out at two call sites, in two spellings that meant the same thing —
+     * `dueWords.ifEmpty { userWords }` in the navigation layer and
+     * `if (dueWords.isNotEmpty()) dueWords else allWords` in the review screen. Both read
+     * `StateFlow.value` off this class from a composable-scope lambda to do it, so the decision
+     * about which cards a learner is shown lived outside the thing that owns the deck, and a
+     * change to it — capping the sitting, or preferring learning cards to due ones — had two
+     * places to be made and one of them was a navigation callback that no test reaches.
+     *
+     * Reading `.value` there was also quietly wrong twice over: a `stateIn` flow's `value` is
+     * whatever the last emission held, which on a cold start is the initial `emptyList()` and so
+     * resolves to "the whole collection" for a learner whose due words had not been queried yet.
+     */
+    private fun wordsForReview(): List<WordWithSrs> {
+        val due = dueWords.value
+        return if (due.isNotEmpty()) due else userWords.value
+    }
+
+    /**
+     * Starts a sitting over whatever is due, or the whole collection if nothing is.
+     *
+     * The no-argument form, for the navigation layer: pressing "Start Learning" is a request for
+     * a sitting, not for a particular set of cards, and deciding which cards that is is this
+     * class's job. [startReviewSession] keeps the explicit-list overload for the two callers that
+     * have already queried — [restartReviewSession], which must not fall back, and
+     * [ensureReviewSession], which shares [wordsForReview].
+     */
+    fun startReviewSession() {
+        startReviewSession(wordsForReview())
     }
 
     // Audio

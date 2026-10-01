@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -139,9 +140,15 @@ fun SwipeDeckReviewScreen(
     val reviewSessionWordIds by viewModel.reviewSessionWordIds.collectAsStateWithLifecycle()
 
     // Notifications can enter this screen directly, without the dashboard's Start action.
+    //
+    // The rule for which cards a sitting covers is not restated here. It used to be, as
+    // `if (dueWords.isNotEmpty()) dueWords else allWords`, in a second spelling of the copy in
+    // the navigation layer — two places to change and no test covering either. The keys stay as
+    // they are: this re-runs when a query lands, so a screen opened before `userWords` resolved
+    // still settles once it has.
     LaunchedEffect(reviewSessionWordIds, dueWords, allWords) {
         if (reviewSessionWordIds == null) {
-            viewModel.ensureReviewSession(if (dueWords.isNotEmpty()) dueWords else allWords)
+            viewModel.ensureReviewSession()
         }
     }
 
@@ -155,8 +162,13 @@ fun SwipeDeckReviewScreen(
     // the way a re-lookup from a collection flow lets them.
     val reviewDeck by viewModel.reviewDeck.collectAsStateWithLifecycle()
 
-    val currentDeckIndex by viewModel.currentDeckIndex.collectAsStateWithLifecycle()
-    val isFlipped by viewModel.isCardFlipped.collectAsStateWithLifecycle()
+    // The deck machine, as one value. The index and the reveal used to be read from two further
+    // `StateFlow`s that the view model had to write by hand at every transition, so the card on
+    // screen and the state tracking it could disagree; both of the bugs fixed in the last audit
+    // lived in that gap. Everything below is now read off this one object.
+    val deckState by viewModel.reviewDeckState.collectAsStateWithLifecycle()
+    val currentDeckIndex = deckState.index
+    val isFlipped = deckState.revealed
     val isSlowTts by viewModel.isSlowTts.collectAsStateWithLifecycle()
     val reviewError by viewModel.reviewError.collectAsStateWithLifecycle()
     val sessionSummary by viewModel.sessionSummary.collectAsStateWithLifecycle()
@@ -193,7 +205,12 @@ fun SwipeDeckReviewScreen(
     // and it was the answer - behind a second tap on a tab that opened on stroke order.
     var selectedPillarTab by rememberSaveable { mutableIntStateOf(1) } // 0 = Writing & Strokes, 1 = Meaning & Radical, 2 = Context Sentence
 
-    val isFinished = currentDeckIndex >= reviewDeck.size
+    // `isFinished` was `currentDeckIndex >= reviewDeck.size`, which compared an index owned by
+    // the deck state against a size owned by a *different* list - two sources for one question.
+    // The state machine's own answer uses the same id list the index is relative to, and it also
+    // answers for an empty deck, where the hand-written comparison only got `0 >= 0` right by
+    // coincidence.
+    val isFinished = deckState.isFinished
 
     // Closing the session is a side effect of reaching the end of the deck, keyed on the deck
     // having actually been worked through. Guarded so it runs once: `finishSession` is a
@@ -208,6 +225,14 @@ fun SwipeDeckReviewScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                // This app bar does not add the status-bar inset itself: the outer
+                // Scaffold in MainActivity already padded the whole NavHost by it, and the
+                // insets were therefore applied twice - once by that padding and once by
+                // TopAppBarDefaults.windowInsets - pushing every title down by an extra
+                // ~24-48dp. AuthScreen is the reason this is fixed here rather than by
+                // zeroing the outer Scaffold's contentWindowInsets: it has no app bar of its
+                // own and depends on that outer padding for its top inset.
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     // One title, not two. The "Card 3 of 12" subtitle here was the same
                     // sentence the counter row prints directly beneath it, so it was
@@ -325,7 +350,14 @@ fun SwipeDeckReviewScreen(
                 if (!shortViewport) {
                     // Progress Bar
                     LinearProgressIndicator(
-                        progress = { (currentDeckIndex + 1).toFloat() / reviewDeck.size.toFloat() },
+                        // Was `(currentDeckIndex + 1) / reviewDeck.size`, unclamped. When the last
+                        // card is answered the index lands on the exhausted sentinel
+                        // `wordIds.size`, so the ratio becomes `(size + 1) / size` and the bar is
+                        // asked to draw past full - on the one screen where the learner is most
+                        // likely to be looking at it. `ReviewDeckState.progress` clamps at both
+                        // ends, guards the empty deck, and is tested; this was a hand-rolled
+                        // duplicate of it that used the version with the bug.
+                        progress = { deckState.progress },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
@@ -362,7 +394,7 @@ fun SwipeDeckReviewScreen(
                     }
 
                     Text(
-                        text = "Card ${currentDeckIndex + 1} of ${reviewDeck.size}",
+                        text = "Card ${deckState.positionLabel}",
                         fontSize = 12.sp,
                         color = TextMuted
                     )
@@ -465,7 +497,16 @@ fun SwipeDeckReviewScreen(
                                     border = androidx.compose.foundation.BorderStroke(1.dp, if (currentWordWithSrs.isDue) SrsAgainDark else SrsGoodDark)
                                 ) {
                                     Text(
-                                        text = currentWordWithSrs.state,
+                                        // The learner's word for the state, not the storage
+                                        // token. `text = currentWordWithSrs.state` printed
+                                        // `REVIEW` / `LEARNING` / `NEW` on the one badge the
+                                        // learner reads while deciding how hard the word was -
+                                        // and `REVIEW` is also a noun in this app, because it
+                                        // is the tab they tapped to get here. The badge and
+                                        // the tab were the same string meaning two different
+                                        // things.
+                                        text = srsStateLabelOrNull(currentWordWithSrs.state)
+                                            ?: "Unknown state",
                                         // 11sp, not 10. This badge is one of two pieces of
                                         // information on the card the learner must read before
                                         // deciding how hard it was, and 10sp is marginal at
@@ -730,7 +771,10 @@ fun SwipeDeckReviewScreen(
                     }
                 }
 
-                if (isFlipped) {
+                // Four buttons that grey out while the answer they are recording is being written.
+            val canRate = deckState.canRate
+
+            if (isFlipped) {
                     Spacer(modifier = Modifier.height(if (shortViewport) 6.dp else 12.dp))
 
                 // PILLAR 4: SRS SM-2 RATING BUTTONS (Again, Hard, Good, Easy)
@@ -756,9 +800,9 @@ fun SwipeDeckReviewScreen(
                     // 1. Again (<1d)
                     SrsRatingButton(
                         rating = SrsRating.AGAIN,
-                        label = "Again",
                         interval = nextIntervals.getValue(SrsRating.AGAIN),
                         color = SrsAgainDark,
+                        enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.AGAIN) }
                     )
@@ -766,9 +810,9 @@ fun SwipeDeckReviewScreen(
                     // 2. Hard (~1.2x)
                     SrsRatingButton(
                         rating = SrsRating.HARD,
-                        label = "Hard",
                         interval = nextIntervals.getValue(SrsRating.HARD),
                         color = SrsHardDark,
+                        enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.HARD) }
                     )
@@ -776,9 +820,9 @@ fun SwipeDeckReviewScreen(
                     // 3. Good (~2.5x)
                     SrsRatingButton(
                         rating = SrsRating.GOOD,
-                        label = "Good",
                         interval = nextIntervals.getValue(SrsRating.GOOD),
                         color = SrsGoodDark,
+                        enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.GOOD) }
                     )
@@ -786,9 +830,9 @@ fun SwipeDeckReviewScreen(
                     // 4. Easy (>3.5x)
                     SrsRatingButton(
                         rating = SrsRating.EASY,
-                        label = "Easy",
                         interval = nextIntervals.getValue(SrsRating.EASY),
                         color = SrsEasyDark,
+                        enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.EASY) }
                     )
@@ -803,14 +847,29 @@ fun SwipeDeckReviewScreen(
 @Composable
 private fun SrsRatingButton(
     rating: SrsRating,
-    label: String,
     interval: String,
     color: Color,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
+    // The label comes from the enum, not from a `label` argument.
+    //
+    // This took both: a `rating: SrsRating` that was never read in the body, and a `label: String`
+    // passed alongside it. So the call site named the rating twice, the two could disagree with
+    // nothing to notice, and `SrsRating.label` — the domain's own copy of the button text — was
+    // never rendered anywhere in the app. A fix to the enum would have shipped as a no-op.
+    val label = rating.label
     ElevatedButton(
         onClick = onClick,
+        // While the write for this card is in flight the buttons go disabled.
+        //
+        // `ReviewDeckState.beginRating()` already refuses the second tap, so this is not a
+        // double-write fix - the state machine holds that. It is the missing feedback: four
+        // buttons that accept a tap, do nothing, and stay lit for as long as the database round
+        // trip takes. `canRate` is the same predicate that guard uses, so the greying-out and
+        // the refusal cannot disagree about when a rating is allowed.
+        enabled = enabled,
         colors = ButtonDefaults.elevatedButtonColors(
             containerColor = color.copy(alpha = 0.2f),
             contentColor = color

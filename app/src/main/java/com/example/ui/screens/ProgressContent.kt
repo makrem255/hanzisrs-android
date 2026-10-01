@@ -283,12 +283,12 @@ internal fun SessionSummaryCard(
     modifier: Modifier = Modifier
 ) {
     DashboardCard(modifier = modifier.testTag("session_summary")) {
-        Text(
-            text = "Session complete",
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextLight
-        )
+        // No heading of its own, deliberately. This printed "Session complete" at 17sp while
+        // its only caller already printed "Session complete" at 22sp twenty-four dp above it,
+        // so a completed sitting announced itself twice on one screen. The heading belongs to
+        // whatever is presenting the card, because only the presenter knows whether the sitting
+        // was completed or simply produced nothing — the deck screen says "Nothing to review"
+        // in the same position, and a card that asserted "Session complete" would contradict it.
         Spacer(modifier = Modifier.height(12.dp))
 
         if (summary.answers == 0) {
@@ -420,10 +420,13 @@ private fun AwardRow(award: UnlockedAward, modifier: Modifier = Modifier) {
  *
  * A dash rather than `0%` for the same reason `accuracyLabel` uses one: a session with nothing in
  * it has no accuracy, and a dash is the only honest thing to print. Two surfaces using the same
- * glyph means the learner has to learn one convention rather than two.
+ * glyph means the learner has to learn one convention rather than two — which is now actually
+ * true, because both read [NO_ACCURACY_GLYPH]. This one had been using a plain hyphen while the
+ * dashboard used an em dash, so the two were visibly different characters under a comment
+ * claiming they were the same.
  */
 internal fun sessionAccuracyLabel(accuracy: Float?): String =
-    if (accuracy == null) "-" else "${(accuracy.coerceIn(0f, 1f) * 100).toInt()}%"
+    if (accuracy == null) NO_ACCURACY_GLYPH else "${(accuracy.coerceIn(0f, 1f) * 100).toInt()}%"
 
 /** Coarse on purpose: a session summary does not need seconds, and rounding to minutes is honest. */
 internal fun durationLabel(millis: Long): String {

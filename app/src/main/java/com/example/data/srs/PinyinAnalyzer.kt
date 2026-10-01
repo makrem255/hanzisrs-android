@@ -59,13 +59,34 @@ object PinyinAnalyzer {
     private val CONTOURS = mapOf(1 to "55", 2 to "35", 3 to "214", 4 to "51", 0 to "33")
 
     /**
+     * The contour for [tone], total over every value `analyze` can produce.
+     *
+     * `Analysis.toneContour` documents itself as always populated, because an empty contour means
+     * "no contour" and every drawing site would then have to special-case it. That invariant was
+     * enforced in exactly one of the two places that produce a contour — the empty-input branch,
+     * which was returning `""` — and left to a `.orEmpty()` in the other, which is how it came
+     * back: a caller could still have been handed the case the field says is impossible.
+     *
+     * [TONE_MARKS] only ever defines tones 1 to 4 and `analyze` starts at 0, so the `?:` below
+     * cannot currently be taken. It is kept anyway, as the one total place the mapping is read,
+     * so that adding a tone to [TONE_MARKS] without adding its contour degrades to neutral rather
+     * than to a string the type says does not exist.
+     */
+    private fun contourFor(tone: Int): String = CONTOURS[tone] ?: CONTOURS.getValue(0)
+
+    /**
      * Analyses [input], tolerating surrounding whitespace, an initial capital, and the ASCII
      * `v` spelling of `ü` that older data uses.
      */
     fun analyze(input: String): Analysis {
         val trimmed = input.trim()
         if (trimmed.isEmpty()) {
-            return Analysis("", 0, "", "", "", "")
+            // The neutral contour, not an empty string. The `toneContour` field documents
+            // itself as always populated — an empty value would mean "no contour", which the
+            // drawing code would then have to special-case — and this branch was returning
+            // exactly the case its own invariant rules out. Tone 0 is also the honest answer:
+            // an unparseable reading is neutral, not "unknown".
+            return Analysis("", 0, "", "", "", contourFor(0))
         }
 
         // `v` is used for `ü` when a tone mark cannot be shown; expand it before anything else.
@@ -94,7 +115,7 @@ object PinyinAnalyzer {
             toneMarked = toneMarked,
             initial = initial,
             final = canonicalise(final),
-            toneContour = CONTOURS[tone].orEmpty()
+            toneContour = contourFor(tone)
         )
     }
 

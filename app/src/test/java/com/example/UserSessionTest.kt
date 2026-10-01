@@ -295,4 +295,94 @@ class UserSessionTest {
         val result = repo.login("innocent@example.com", "the real password")
         assertTrue("one account's lockout spilled onto another: $result", result is AuthResult.Success)
     }
+
+    // ---- the enumeration oracle ---------------------------------------------------------------
+
+    /**
+     * The two failure branches must be indistinguishable, not merely equally slow.
+     *
+     * The test above already proves the backoff is symmetric: guessing a non-existent identifier
+     * costs the same number of attempts before it is throttled. That was the *easy* half. The
+     * half that actually leaked was the one the timing did not cover, because the thing a caller
+     * reads is not how long it took but what it was told:
+     *
+     * ```
+     * login("nobody@example.com", "x")  ->  "No account with that email"
+     * login("real@example.com",   "x")  ->  "Incorrect password"
+     * ```
+     *
+     * Given a list of candidate addresses, that difference alone tells an attacker which of them
+     * are registered — no password guessing required. The symmetric delay does nothing about it,
+     * because the delay is only an oracle if you can distinguish the two responses.
+     *
+     * So this asserts the *sentence*, not the timing, and asserts it against the same constant
+     * both branches read, so the property cannot drift by someone editing one site.
+     */
+    @Test
+    fun `an unknown identifier and a wrong password are refused in the same words`() = runBlocking {
+        val repo = repository()
+        newUser("real@example.com")
+        val realId = database.userDao().findByIdentifier("real@example.com")!!.id
+        database.userDao().updateCredentials(
+            userId = realId,
+            passwordHash = com.example.util.PasswordHasher.createHash("the real password"),
+            token = "",
+            now = System.currentTimeMillis()
+        )
+
+        val unknownAccount = repo.login("nobody@example.com", "guess")
+        val wrongPassword = repo.login("real@example.com", "guess")
+
+        assertTrue("expected an error for an unknown account, got $unknownAccount", unknownAccount is AuthResult.Error)
+        assertTrue("expected an error for a wrong password, got $wrongPassword", wrongPassword is AuthResult.Error)
+
+        assertEquals(
+            "a wrong password and a non-existent account must be refused in identical words; " +
+                "any difference here is a free account-enumeration oracle",
+            com.example.data.repository.AUTH_FAILED_MESSAGE,
+            (wrongPassword as AuthResult.Error).message
+        )
+        assertEquals(
+            "and the unknown-account branch must use that same constant, not a parallel string",
+            (unknownAccount as AuthResult.Error).message,
+            (wrongPassword as AuthResult.Error).message
+        )
+    }
+
+    /**
+     * The *correct* password must also be refused identically, so the property is "an
+     * authentication failure sounds the same regardless of cause" rather than "two particular
+     * cases happen to match".
+     *
+     * Guards the obvious future regression: someone making the unknown-account branch match this
+     * one, and the wrong-password branch left saying something more specific.
+     */
+    @Test
+    fun `no authentication failure distinguishes its cause`() = runBlocking {
+        val repo = repository()
+        newUser("member@example.com")
+        val id = database.userDao().findByIdentifier("member@example.com")!!.id
+        database.userDao().updateCredentials(
+            userId = id,
+            passwordHash = com.example.util.PasswordHasher.createHash("the real password"),
+            token = "",
+            now = System.currentTimeMillis()
+        )
+
+        val cases = mapOf(
+            "unknown account" to repo.login("ghost@example.com", "the real password"),
+            "wrong password" to repo.login("member@example.com", "not the real password"),
+            "empty password" to repo.login("member@example.com", ""),
+            "registered as a phone number" to repo.login("+15550100", "the real password")
+        )
+
+        cases.forEach { (label, result) ->
+            assertTrue("$label should be refused, got $result", result is AuthResult.Error)
+            assertEquals(
+                "\"$label\" was refused in different words from the others",
+                com.example.data.repository.AUTH_FAILED_MESSAGE,
+                (result as AuthResult.Error).message
+            )
+        }
+    }
 }

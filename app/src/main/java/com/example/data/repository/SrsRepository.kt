@@ -10,7 +10,9 @@ import com.example.data.model.StreakEntity
 import com.example.data.srs.SrsAlgorithm
 import com.example.data.srs.SrsCalculationResult
 import com.example.data.srs.SrsRating
+import com.example.data.srs.StudyDay
 import kotlinx.coroutines.flow.Flow
+import java.time.ZoneId
 
 /**
  * Why a review could not be recorded.
@@ -52,8 +54,17 @@ data class SrsStats(
  * are two views of the same event: if they were written separately, a crash between them would
  * leave a card that moved forward with no record of why, and every later retention figure
  * derived from the log would be quietly wrong.
+ *
+ * [zone] decides which study day a review belongs to. It is a constructor dependency because
+ * the write path used to bucket in UTC while the dashboard read back in the learner's zone, so
+ * a review answered just after local midnight was written into one day and read out of another.
+ * See [StudyDay]. Defaults to the device zone, which is the strongest claim the current schema
+ * supports — `UserProfileEntity.timezoneId` is written but never read back.
  */
-class SrsRepository(private val database: AppDatabase) {
+class SrsRepository(
+    private val database: AppDatabase,
+    private val zone: ZoneId = ZoneId.systemDefault()
+) {
 
     private val srsDao = database.srsStateDao()
     private val reviewLogDao = database.reviewLogDao()
@@ -283,13 +294,14 @@ class SrsRepository(private val database: AppDatabase) {
     }
 
     /**
-     * Days since 1970-01-01 in UTC.
+     * Days since 1970-01-01, in the learner's zone.
      *
-     * The learner's own zone is the correct boundary for a study day, but it is not available
-     * to a pure calculation, so this uses UTC and the roll-up job is what reconciles a day
-     * against a profile's `timezoneId`. Getting this wrong costs a day's bucket, never data.
+     * Delegates to [StudyDay] rather than computing a UTC day here. This used to be
+     * `floorDiv(millis, 86_400_000)`, which disagrees with the dashboard's local-zone
+     * conversion for every instant near a day boundary outside UTC — so it has to be the same
+     * function on both sides, and there is now only one.
      */
-    private fun epochDayOf(millis: Long): Int = Math.floorDiv(millis, 86_400_000L).toInt()
+    private fun epochDayOf(millis: Long): Int = StudyDay.epochDayOf(millis, zone)
 
     private fun estimateStudyMillis(result: SrsCalculationResult): Long {
         val thinkTime = 4_000L

@@ -15,6 +15,7 @@ import com.example.data.repository.SaveWordResult
 import com.example.data.repository.SrsRepository
 import com.example.data.repository.WordRepository
 import com.example.data.srs.SrsRating
+import com.example.data.srs.StudyDay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
@@ -65,8 +66,16 @@ class DashboardRepositoryTest {
             .allowMainThreadQueries()
             .build()
         runBlocking { AppDatabase.seedReferenceData(database) }
-        words = WordRepository(database)
-        srs = SrsRepository(database)
+        // Both repositories are pinned to [day] and to [zone]. The clock matters because
+        // `WordRepository` now writes a `daily_stats` row when it enrols a word, and that row is
+        // keyed on the study day it was written on. Left on the wall clock, every enrolment
+        // landed on the machine's real day while the reviews landed on [day], and the two showed
+        // up in the history as unrelated rows — which is what made
+        // "a review yesterday is not reported as today's work" report two days of activity
+        // instead of one. It was the repository reading a clock the test could not set, not the
+        // dashboard miscounting.
+        words = WordRepository(database, zone) { day }
+        srs = SrsRepository(database, zone)
     }
 
     @After
@@ -101,8 +110,28 @@ class DashboardRepositoryTest {
     )
 
     private suspend fun enrol(userId: Long, hanzi: String, pinyin: String, meaning: String) =
-        (words.saveNewWordWithInitialSrs(draft(userId, hanzi, pinyin, meaning)) as SaveWordResult.Saved)
-            .userVocabularyId
+        enrol(words, userId, hanzi, pinyin, meaning)
+
+    /**
+     * Enrols through an explicit repository, so a test can choose *which day* the word counts
+     * against.
+     *
+     * `saveNewWordWithInitialSrs` writes a `daily_stats` row for the day it is called on, and
+     * that is what the daily new-word allowance is measured against — so "enrol five words" and
+     * "enrol five words *today*" are different fixtures, and only one of them leaves the
+     * allowance intact.
+     */
+    private suspend fun enrol(
+        repository: WordRepository,
+        userId: Long,
+        hanzi: String,
+        pinyin: String,
+        meaning: String
+    ) = (repository.saveNewWordWithInitialSrs(draft(userId, hanzi, pinyin, meaning))
+        as SaveWordResult.Saved).userVocabularyId
+
+    /** A repository whose enrolments are dated to [millis] rather than to the wall clock. */
+    private fun wordsOn(millis: Long) = WordRepository(database, zone) { millis }
 
     private fun dashboard(userId: Long, now: Long = day): DashboardSnapshot =
         runBlocking {
@@ -160,8 +189,18 @@ class DashboardRepositoryTest {
         // Five distinct real characters. `Validator` refuses a multi-character hanzi, so a
         // generated fixture like "字0" would be rejected before it reached the database and the
         // failure would read as a bug in the goal arithmetic.
+        //
+        // Dated to *yesterday*, deliberately. This test is about where the limit comes from, and
+        // it needs five cards waiting with the allowance untouched. It used to enrol them today
+        // and assert three were offered, which it could only do because `newWordsIntroduced` was
+        // never incremented — the daily cap was not being enforced, only reported. Now that the
+        // counter works, five words added today consume the whole allowance of three and the
+        // correct answer is zero, which is a different test; it is
+        // `the daily new word allowance is consumed by words added today` below.
         listOf("好" to "hǎo", "水" to "shuǐ", "火" to "huǒ", "山" to "shān", "人" to "rén")
-            .forEach { (hanzi, pinyin) -> enrol(alice, hanzi, pinyin, "a meaning for $hanzi") }
+            .forEach { (hanzi, pinyin) ->
+                enrol(wordsOn(day - dayMillis), alice, hanzi, pinyin, "a meaning for $hanzi")
+            }
 
         val snapshot = dashboard(alice)
 
@@ -171,6 +210,67 @@ class DashboardRepositoryTest {
             "five new words must be offered at the learner's limit of three",
             3,
             snapshot.workload.newOffered
+        )
+    }
+
+    /**
+     * The daily new-word limit is actually enforced, not just reported.
+     *
+     * This could not be written before `newWordsIntroduced` was incremented, because the
+     * allowance was computed as `limit - 0` for every learner on every day. A learner could add
+     * a hundred words in one morning and the dashboard would keep offering them the full daily
+     * allowance, because the one number that would have told it otherwise was permanently zero.
+     *
+     * The cap is asserted at each step rather than only at the end, so a failure names the word
+     * that broke it.
+     */
+    @Test
+    fun `the daily new word allowance is consumed by words added today`() = runTest {
+        val alice = newUser("alice@example.com")
+        setLimits(alice, newLimit = 3, reviewLimit = 25)
+
+        // Ten cards waiting, added *yesterday* so they do not touch today's quota.
+        //
+        // This is the part that makes the test about the quota rather than about arithmetic. The
+        // offered count is `newAvailable.coerceAtMost(limit - taken)`, so with only four cards in
+        // the collection the *card count* binds first and the quota never gets to speak — which is
+        // what an earlier version of this test measured, and it read as the quota falling when it
+        // was only the collection shrinking.
+        val waiting = listOf(
+            "好" to "hǎo", "水" to "shuǐ", "火" to "huǒ", "山" to "shān", "人" to "rén",
+            "日" to "rì", "月" to "yuè", "木" to "mù", "石" to "shí", "田" to "tián"
+        )
+        waiting.forEach { (hanzi, pinyin) ->
+            enrol(wordsOn(day - dayMillis), alice, hanzi, pinyin, "a meaning for $hanzi")
+        }
+        assertEquals(
+            "the collection itself must not be the binding constraint, or this test measures the " +
+                "wrong thing",
+            3,
+            dashboard(alice).workload.newOffered
+        )
+
+        // Four more, added today, one past the limit of three.
+        val expectedAfterEach = listOf(2, 1, 0, 0)
+        listOf("天" to "tiān", "地" to "dì", "风" to "fēng", "雨" to "yǔ")
+            .forEachIndexed { index, (hanzi, pinyin) ->
+                enrol(alice, hanzi, pinyin, "a meaning for $hanzi")
+                assertEquals(
+                    "after adding ${index + 1} word(s) today, the remaining daily allowance was " +
+                        "wrong",
+                    expectedAfterEach[index],
+                    dashboard(alice).workload.newOffered
+                )
+            }
+
+        // `day` is a millisecond instant, so the epoch day is derived through the same zone-aware
+        // helper the write and read paths use rather than by dividing — the division is only
+        // right in UTC, which is the assumption that hid §2.1 in the first place.
+        val todayEpochDay = StudyDay.epochDayOf(day, zone)
+        assertEquals(
+            "the day counted the wrong number of new words",
+            4,
+            database.dailyStatDao().get(alice, todayEpochDay)?.newWordsIntroduced
         )
     }
 
@@ -254,9 +354,36 @@ class DashboardRepositoryTest {
 
         val snapshot = dashboard(alice, now = day)
 
-        assertNull("today is a different day", snapshot.today)
-        assertEquals("yesterday's review is history", 1, snapshot.recentDays.size)
-        assertEquals(1, snapshot.recentDays.single().reviewsCompleted)
+        // Asserted on the count rather than on `today` being null. Enrolling a word writes a
+        // `daily_stats` row for today, so `today` is now a real day with one new word on it and
+        // no reviews — which is the truth. The old `assertNull` was a proxy for "no reviews were
+        // counted today", and it only held while the enrolment wrote no row at all; asserting the
+        // thing the test is named for is also the thing that survives that changing.
+        assertEquals(
+            "yesterday's review was counted as today's work",
+            0,
+            snapshot.today?.reviewsCompleted
+        )
+
+        // The history holds two days, and the count is asserted per day rather than as a total:
+        // enrolling a word wrote a row for today, so `recentDays.size` is 2 and asserting 1 would
+        // be asserting that adding a word leaves no trace — the very behaviour that made the
+        // dashboard's new-word figure permanently zero.
+        //
+        // Both days are resolved through [StudyDay] rather than by dividing millis by 86,400,000.
+        // The division only works in UTC, which is the assumption that hid the day-bucket bug in
+        // the first place; `zone` is UTC here so the two agree, and using the shared function
+        // keeps it that way if the fixture zone ever changes.
+        val history = snapshot.recentDays.associateBy { it.epochDay }
+        val yesterdayReviews: Int? =
+            history[StudyDay.epochDayOf(day - dayMillis, zone)]?.reviewsCompleted
+        val todayNewWords: Int? =
+            history[StudyDay.epochDayOf(day, zone)]?.newWordsIntroduced
+
+        // Typed locals, because JUnit4's overloads are chosen by argument type and a bare
+        // `history[...]?.reviewsCompleted` in the call position does not resolve.
+        assertEquals("yesterday's review is history", 1, yesterdayReviews)
+        assertEquals("the word added today belongs to today", 1, todayNewWords)
     }
 
     @Test
@@ -425,7 +552,21 @@ class DashboardRepositoryTest {
 
         assertEquals("bob has one word of his own", 1, bobs.progress.enrolled)
         assertEquals("and none of alice's reviews", 0, bobs.progress.lifetimeReviews)
-        assertNull("bob has not studied", bobs.today)
+        // Bob's own day is present and empty of reviews, which is a *stronger* statement of
+        // isolation than the `assertNull` this replaced: Alice's review did not turn up in his
+        // dashboard under any spelling. It is present because Bob added a word of his own today,
+        // and adding a word writes a roll-up row — so the row is his, with one new word and no
+        // reviews, and Alice's review is nowhere in it.
+        assertEquals(
+            "bob has not studied, so today's reviews must be zero",
+            0,
+            bobs.today?.reviewsCompleted
+        )
+        assertEquals(
+            "and the one thing on his day is his own word, not Alice's review",
+            1,
+            bobs.today?.newWordsIntroduced
+        )
     }
 
     @Test

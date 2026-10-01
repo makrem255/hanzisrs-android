@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -93,10 +94,12 @@ import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.SrsEasyDark
 import com.example.ui.theme.SrsGoodDark
 import com.example.ui.theme.SrsHardDark
+import com.example.ui.theme.srsStateColorOrNull
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.MainViewModel
+import com.example.util.plural
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +114,9 @@ fun LibraryScreen(
     // "is ready for its first word", for as long as the query took. The deck already reads this
     // flag for exactly this reason.
     val wordsLoaded by viewModel.wordsLoaded.collectAsStateWithLifecycle()
+
+    // Distinct from "loaded and empty", and checked before it everywhere below.
+    val libraryError by viewModel.libraryError.collectAsStateWithLifecycle()
     // Saveable so a rotation does not throw away the search the learner was in the middle
     // of, and so returning to this tab from a review shows the same filtered list.
     var searchQuery by rememberSaveable { mutableStateOf("") }
@@ -137,10 +143,14 @@ fun LibraryScreen(
                     PinyinSearch.foldToneMarks(item.word.pinyin)
                         .contains(PinyinSearch.foldToneMarks(searchQuery), ignoreCase = true)
 
+            // Compared against the enum's storage values rather than bare literals. `Filter`'s
+            // own KDoc records that these literals were replaced with an enum on one side of
+            // this screen and left as strings three lines away from it.
             val matchesFilter = when (selectedFilter) {
                 Filter.DUE -> item.isDue
-                Filter.LEARNING -> item.srs?.state == "LEARNING" || item.srs?.state == "NEW"
-                Filter.MASTERED -> item.srs?.state == "MASTERED"
+                Filter.LEARNING -> item.srs?.state == StorageValues.CardState.LEARNING.storageValue ||
+                    item.srs?.state == StorageValues.CardState.NEW.storageValue
+                Filter.MASTERED -> item.srs?.state == StorageValues.CardState.MASTERED.storageValue
                 Filter.ALL -> true
             }
 
@@ -151,12 +161,24 @@ fun LibraryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                // This app bar does not add the status-bar inset itself: the outer
+                // Scaffold in MainActivity already padded the whole NavHost by it, and the
+                // insets were therefore applied twice - once by that padding and once by
+                // TopAppBarDefaults.windowInsets - pushing every title down by an extra
+                // ~24-48dp. AuthScreen is the reason this is fixed here rather than by
+                // zeroing the outer Scaffold's contentWindowInsets: it has no app bar of its
+                // own and depends on that outer padding for its top inset.
+                    windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
                         // The count is a claim about the learner's collection, so it is withheld
                         // until there is an answer. "(0)" during the query is a statement that
-                        // they have no words, which is both wrong and alarming.
-                        text = if (wordsLoaded) {
+                        // they have no words, which is both wrong and alarming — and on a failed
+                        // read it was not merely premature, it was false: the view model emits an
+                        // empty list because that is the only honest degradation available on a
+                        // `List` flow, so a full disk rendered as "Vocabulary Library (0)" above
+                        // a card inviting the learner to re-enter everything they had.
+                        text = if (wordsLoaded && libraryError == null) {
                             "Vocabulary Library (${allWords.size})"
                         } else {
                             "Vocabulary Library"
@@ -251,6 +273,12 @@ fun LibraryScreen(
                                     onClick = { selectedFilter = filter },
                                     role = Role.Tab
                                 )
+                                // The 48dp half of the fix the comment below describes. The
+                                // `selectable` half had landed and the height had not: the chip
+                                // measured 12dp padding plus 13sp text, about 42dp, leaving a
+                                // 6dp shortfall on the control a learner uses to partition their
+                                // whole library. The import was here the whole time, unreferenced.
+                                .minimumTouchTarget()
                                 .testTag("library_filter_${filter.name.lowercase()}")
                         ) {
                             Text(
@@ -303,7 +331,7 @@ fun LibraryScreen(
                                 // "Loading your library..." and nothing else reads as a
                                 // half-rendered screen, and the second line has to be blank to
                                 // avoid saying something it does not know yet.
-                                if (!wordsLoaded) {
+                                if (!wordsLoaded && libraryError == null) {
                                     CircularProgressIndicator(
                                         modifier = Modifier
                                             .size(28.dp)
@@ -313,25 +341,37 @@ fun LibraryScreen(
                                     )
                                 }
                                 Text(
-                                    // Three distinct situations, not two. The first was
+                                    // Four distinct situations, not three. The first was
                                     // previously shown to anyone whose query was still in flight,
                                     // which told a learner with a full library that it was empty.
-                                    text = when {
-                                        !wordsLoaded -> "Loading your library..."
-                                        allWords.isEmpty() -> "Your vocabulary library is ready for its first word."
-                                        else -> "No words match these filters."
-                                    },
+                                    // The read *failed* case was worse and had nowhere to go: the
+                                    // view model degrades an unreadable database to an empty list
+                                    // because there is no error variant on a `List` flow, so a
+                                    // learner whose words were intact and whose disk was full was
+                                    // told their vocabulary was ready for its first word, and
+                                    // invited to type it all in again.
+                                    //
+                                    // Written `error ?: when { … }` rather than as the first
+                                    // `when` branch because a `by`-delegated property cannot be
+                                    // smart-cast, and the compiler will say so.
+                                    text = libraryError?.let { "Your vocabulary could not be read" }
+                                        ?: when {
+                                            !wordsLoaded -> "Loading your library..."
+                                            allWords.isEmpty() -> "Your vocabulary library is ready for its first word."
+                                            else -> "No words match these filters."
+                                        },
                                     color = TextLight,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 15.sp
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = when {
-                                        !wordsLoaded -> ""
-                                        allWords.isEmpty() -> "Add a Hanzi from the Routine tab to begin your review deck."
-                                        else -> "Try another search term or clear a filter."
-                                    },
+                                    text = libraryError
+                                        ?: when {
+                                            !wordsLoaded -> ""
+                                            allWords.isEmpty() -> "Add a Hanzi from the Routine tab to begin your review deck."
+                                            else -> "Try another search term or clear a filter."
+                                        },
                                     color = TextMuted,
                                     fontSize = 12.sp
                                 )
@@ -362,8 +402,18 @@ fun LibraryScreen(
             onDismissRequest = { wordPendingDeletion = null },
             title = { Text("Remove ${wordWithSrs.word.hanzi}?", color = TextLight, fontWeight = FontWeight.SemiBold) },
             text = {
+                // "and its review history" was here, and it was the one false sentence in the app
+                // that pointed the wrong way. `LearnerProgress` documents the opposite as a
+                // deliberate decision: `review_log` points at the shared content rather than at
+                // the enrolment, so it "is deliberately left alone, so a learner's history
+                // survives them dropping a word", and its DAO is append-only by design. The
+                // enrolment, its schedule and its place in the due queue do go.
+                //
+                // Wrong in the direction that matters: a learner removing a word who believed
+                // the record was gone was told it was.
                 Text(
-                    "This removes the word and its review history from this device. This cannot be undone.",
+                    "This removes the word, its schedule and its place in your review queue. " +
+                        "Your past reviews of it are kept. This cannot be undone.",
                     color = TextMuted
                 )
             },
@@ -467,13 +517,12 @@ fun WordLibraryRow(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // SRS Badge
-                val srsColor = when (wordWithSrs.state) {
-                    "MASTERED" -> SrsEasyDark
-                    "REVIEW" -> SrsGoodDark
-                    "LEARNING" -> SrsHardDark
-                    else -> SrsAgainDark
-                }
+                // SRS Badge. Was a `when` over the raw stored `String` with an
+                // `else -> SrsAgainDark`, which is the colour that means "you failed this word
+                // again" — so an unrecognised state told the learner their word had lapsed.
+                // `null` is now rendered as grey: a state this build does not know about is not
+                // the same claim as a state that says the learner failed.
+                val srsColor = srsStateColorOrNull(wordWithSrs.state) ?: TextMuted
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -483,8 +532,17 @@ fun WordLibraryRow(
                             .background(srsColor)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
+                    // The state name is the learner's word for it, not the storage token, and an
+                    // interval of zero is not printed for a card that has never been scheduled.
+                    val srs = wordWithSrs.srs
                     Text(
-                        text = "${wordWithSrs.state} • Interval: ${wordWithSrs.srs?.intervalDays ?: 0}d",
+                        text = srsStateLabelOrNull(wordWithSrs.state) +
+                            if (srs == null) {
+                                " - no schedule yet"
+                            } else {
+                                " - every ${srs.intervalDays} " +
+                                    plural(srs.intervalDays, "day", "days")
+                            },
                         fontSize = 11.sp,
                         color = TextMuted
                     )
@@ -737,12 +795,31 @@ fun WordDetailSheet(
             Spacer(modifier = Modifier.height(10.dp))
 
             // Spaced-repetition state, with the numbers that produced it. An SRS state
-            // label on its own ("LEARNING") is an assertion; the interval and the review
+            // label on its own ("In progress") is an assertion; the interval and the review
             // count are the evidence for it.
+            //
+            // `srs` is null for a word that has never been scheduled, and that is a different
+            // fact from an interval of zero - there is no schedule, rather than a schedule
+            // that happens to be immediate. The `?: 0` that used to be here stated a number
+            // the database does not contain, on the same line as the review count.
+            val srs = wordWithSrs.srs
             Text(
-                text = "Review state: ${wordWithSrs.state} · " +
-                    "every ${wordWithSrs.srs?.intervalDays ?: 0} day(s) · " +
-                    "${wordWithSrs.srs?.repetitions ?: 0} review(s)",
+                text = buildString {
+                    append("Review state: ")
+                    append(srsStateLabelOrNull(wordWithSrs.state) ?: "Unknown")
+                    if (srs == null) {
+                        append(" - not scheduled yet")
+                    } else {
+                        append(" - reviewed ")
+                        append(srs.repetitions)
+                        append(' ')
+                        append(plural(srs.repetitions, "time", "times"))
+                        append(", next in ")
+                        append(srs.intervalDays)
+                        append(' ')
+                        append(plural(srs.intervalDays, "day", "days"))
+                    }
+                },
                 fontSize = 11.sp,
                 color = TextSubtle
             )

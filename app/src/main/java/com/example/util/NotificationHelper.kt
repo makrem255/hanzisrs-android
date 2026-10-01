@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.MainActivity
@@ -33,7 +34,18 @@ object NotificationHelper {
         createNotificationChannel(context)
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            // `FLAG_ACTIVITY_CLEAR_TASK` used to be here, with `NEW_TASK`.
+
+            // Together they told the system to finish the existing task and start a fresh
+            // one - which is exactly what `singleTop` on the activity is there to prevent. The
+            // existing instance was destroyed, so `onNewIntent` still could not run, and a
+            // learner who tapped the alert mid-sitting lost the review session, which lives in
+            // the Activity-scoped view model, with no way back to it.
+            //
+            // `SINGLE_TOP` instead: deliver to the running activity if it is at the top of the
+            // task, create it only if the app is not running. `NEW_TASK` is still required -
+            // this starts an activity from a `PendingIntent`, which is not itself in a task.
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
             putExtra("navigate_to", "deck")
         }
 
@@ -46,7 +58,12 @@ object NotificationHelper {
 
         val title = if (dueCount > 0) "⏰ Daily Chinese SRS Review" else "🎉 All Caught Up!"
         val message = if (dueCount > 0) {
-            "You have $dueCount words to review today! Maintain your learning streak."
+            // Pluralised. This was `"$dueCount words"`, so a learner with exactly one card due
+            // — the most likely moment to be reminded at all — was told they had "1 words".
+            // `ProgressModels.describe` exists to stop exactly this, and this string had been
+            // written alongside it without using it.
+            val noun = if (dueCount == 1) "word" else "words"
+            "You have $dueCount $noun to review today! Maintain your learning streak."
         } else {
             "No words due right now! Great job staying on top of your daily reviews."
         }
@@ -65,7 +82,19 @@ object NotificationHelper {
             val notificationManager = NotificationManagerCompat.from(context)
             notificationManager.notify(NOTIFICATION_ID, notification)
         } catch (e: SecurityException) {
-            // Android 13+ permission not granted
+            // Android 13+ and `POST_NOTIFICATIONS` not granted. The catch itself is correct -
+            // `notify` genuinely throws here rather than no-opping - but it was empty, so a
+            // control that did nothing left nothing behind: not a log line, not a return value,
+            // no way to tell afterwards whether the tap reached this method at all.
+            //
+            // Logged rather than returned. The caller is a Compose button, and threading a
+            // "nothing happened" signal up through `MainViewModel` for one recoverable,
+            // user-recoverable condition would be a wider change than the condition warrants -
+            // the screens now ask for the permission before getting here at all.
+            Log.w(
+                "NotificationHelper",
+                "POST_NOTIFICATIONS not granted; the due-review alert was not posted."
+            )
         }
     }
 }

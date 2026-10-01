@@ -1,6 +1,7 @@
 package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import com.example.data.model.StorageValues
 
 // Dark surfaces. A neutral ramp: Material 3's own surface roles are purple-tinted, and
 // these greys are what the cards, containers and elevations in the app were drawn against.
@@ -55,3 +56,38 @@ val Tone2Color = Color(0xFFFFB786) // Tone 2 — rising
 val Tone3Color = Color(0xFFA6D3A0) // Tone 3 — dipping
 val Tone4Color = Color(0xFFB5C4FF) // Tone 4 — falling
 val ToneNeutralColor = Color(0xFF938F99) // Neutral, e.g. the particle "ma"
+
+/**
+ * The one mapping from a card's scheduling state to the colour that means it.
+ *
+ * This existed twice. The library screen compared a raw `String` with an `else` branch, and the
+ * dashboard compared the parsed enum with no `else` — so the two answers could not both be
+ * exhaustive, and only the dashboard's would fail to compile when a state was added. The copy
+ * the compiler does *not* check is the dangerous one: a fifth state would have rendered as
+ * [SrsAgainDark], which is the colour that means "you failed this word again", on every row in
+ * the library. It would look like data, not like a missing branch.
+ *
+ * So the `when` below is over the enum and has no `else`. Adding a state is now a compile error
+ * here, which is the property the enum exists to provide. The unrecognised case is handled at
+ * the boundary by [srsStateColor] returning `null` for a value that is not a declared state,
+ * which the caller renders as [TextMuted] — grey, "state not recognised", rather than a colour
+ * that asserts a scheduling judgement the data does not support.
+ *
+ * That is the same policy `StorageValues.fromStorage` states for itself: an unrecognised stored
+ * value is reported, not disguised as a valid one.
+ */
+fun srsStateColor(state: StorageValues.CardState): Color = when (state) {
+    StorageValues.CardState.NEW -> SrsAgainDark
+    StorageValues.CardState.LEARNING -> SrsHardDark
+    StorageValues.CardState.REVIEW -> SrsGoodDark
+    StorageValues.CardState.MASTERED -> SrsEasyDark
+}
+
+/**
+ * As [srsStateColor], for a state still held as its stored `String`.
+ *
+ * Returns `null` for a value that is not a declared state, so the caller has to decide what an
+ * unknown state looks like rather than inheriting a default by accident.
+ */
+fun srsStateColorOrNull(storedState: String?): Color? =
+    StorageValues.CardState.fromStorage(storedState)?.let(::srsStateColor)

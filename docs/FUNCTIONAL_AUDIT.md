@@ -390,9 +390,10 @@ Recorded so the negative results are not re-derived.
   `ABANDONED`. The answers did happen, so the log is not wrong — but the summary is computed for
   the *new* session and omits them.
 - **`AiGenerationState.Error` carries only a `String`,** so the type of failure is lost at the
-  boundary. *Use offline sample data instead* is therefore offered for `MissingApiKey` and for
-  HTTP 400/403/429, where it is a non-sequitur. Much of the harm is gone now that a miss reports
-  a miss instead of fabricating (§2.14), but the button is still wrong for those two cases.
+  boundary. *Use offline sample data instead* is therefore offered for `BackendNotConfigured` (the
+  old name was `MissingApiKey`, when the build held a key) and for HTTP 400/403/429, where it is a
+  non-sequitur. Much of the harm is gone now that a miss reports a miss instead of fabricating
+  (§2.14), but the button is still wrong for those two cases.
 - **The rating buttons are not disabled while a write is in flight.** The state machine now
   refuses the second tap correctly (§2.10) and `isRating` is the right signal, but no composable
   reads it — so the UI gives no hint that a tap landed.

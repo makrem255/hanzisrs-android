@@ -176,8 +176,12 @@ Still honest, still worth knowing:
   states at `MainActivity.kt:176-183`, which it applied to the nav badge. The honest fix is a
   palette decision — `srsStateColor` already maps `NEW` to the same red — so I left it rather than
   make a design change blind.
-- **`GEMINI_API_KEY` ships in the APK** and is extractable. Documented as a deliberate trade-off
-  at `GeminiAiService.kt:65-79`; not solvable without a backend proxy.
+- **`GEMINI_API_KEY` shipped in the APK** and was extractable — recorded here as an accepted
+  trade-off. This is now **fixed rather than accepted**: the key moved to the AI backend's
+  environment (`backend/server.mjs`), the Secrets plugin that injected it was removed, and the app
+  now calls the proxy with no credential. `BuildConfigSecretsTest` asserts no credential-shaped
+  field returns to `BuildConfig`. What remains is endpoint abuse rather than key theft, which
+  rate limiting only bounds — see `backend/README.md`.
 
 ---
 

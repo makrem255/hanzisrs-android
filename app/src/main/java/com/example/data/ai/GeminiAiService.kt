@@ -30,23 +30,36 @@ data class GeneratedWordData(
 enum class WordDataOrigin { GEMINI, LOCAL_FALLBACK }
 
 /**
- * Why a word could not be produced by Gemini. Callers can tell these apart so the
+ * Why a word could not be produced. Callers can tell these apart so the
  * learner sees an actionable message instead of silently receiving fallback data.
  */
 sealed class AiFailure(message: String) : Exception(message) {
-    /** No usable API key was compiled into the build. */
-    object MissingApiKey : AiFailure(
-        "AI word generation is unavailable: no Gemini API key is configured in this build."
+    /**
+     * No AI backend was configured in this build.
+     *
+     * This used to be `MissingApiKey`, and the difference matters: the app no longer holds a key,
+     * so the thing that can be missing is an endpoint. Saying "no API key is configured" to a
+     * learner would point them at a credential they have never seen and cannot fix.
+     */
+    object BackendNotConfigured : AiFailure(
+        "AI word generation is unavailable: this build has no AI service configured."
     )
 
-    /** The request never reached Google (offline, DNS, timeout, TLS). */
+    /** The request never reached the AI service (offline, DNS, timeout, TLS). */
     class Network(cause: Throwable) : AiFailure(
         "Couldn't reach the AI service. Check your connection and try again."
     ) { init { initCause(cause) } }
 
-    /** Google answered, but rejected the request (bad key, quota, unsupported model). */
+    /**
+     * The AI service answered, but rejected the request.
+     *
+     * Almost always a problem on the server (a missing or wrong key there, exhausted quota, an
+     * unknown model) rather than anything the learner did. The wording says so, because the
+     * previous version told the user the *app* had no API key, which sent them looking for a
+     * setting that has deliberately been removed.
+     */
     class Api(val code: Int, val detail: String) : AiFailure(
-        "The AI service rejected the request (HTTP $code). $detail"
+        "The AI service is unavailable right now (HTTP $code). $detail"
     )
 
     /** The response arrived but did not contain the JSON we asked for. */
@@ -63,40 +76,55 @@ class GeminiAiService {
         .build()
 
     /**
-     * SECURITY NOTE: the API key is compiled into the APK via BuildConfig and is
-     * therefore extractable by anyone who downloads the app. This is a known,
-     * accepted trade-off for this build (see project README). App Check is not
-     * enforced on this endpoint because the call goes directly to
-     * generativelanguage.googleapis.com rather than through the Firebase AI proxy.
-     * A production release should move this behind a backend proxy or the
-     * Firebase AI SDK with App Check.
+     * Asks the AI backend to generate word data for [query].
      *
-     * The Firebase SDK and the App Check dependency used to sit in `build.gradle.kts`
-     * alongside this note, which read as though something was enforcing it. Nothing was:
-     * grepping `app/src` for `com.google.firebase` returned nothing, and the request below is
-     * a hand-built OkHttp call. The unused coordinates are gone, so the gap between this
-     * comment and the build file is now closed rather than described.
+     * ## Where the credential went
+     *
+     * This used to build an OkHttp request to `generativelanguage.googleapis.com` with an
+     * `x-goog-api-key` header read from `BuildConfig.GEMINI_API_KEY`. That was the single largest
+     * security defect in the app: a `buildConfigField` is a string constant in `classes.dex`, so
+     * the key shipped inside every APK and was recoverable by anyone who unzipped one. It was
+     * documented as an accepted trade-off, which is a way of saying it was not fixed.
+     *
+     * It is fixed. The app now calls an operator-run proxy (`backend/server.mjs`), which holds the
+     * key in its own environment and forwards to Gemini. The client sends a query and nothing
+     * else - no key, no header, no token - because it has none to send.
+     *
+     * ## What that costs, stated honestly
+     *
+     * The Gemini credential is no longer extractable, but the *endpoint* is public: anyone can
+     * point a modified APK at `https://your-proxy/v1/word` and spend your quota. Moving the key
+     * stops credential theft; it does not by itself stop abuse. What limits that is the proxy's
+     * per-address rate limit plus, in a real deployment, Android App Check (or an equivalent)
+     * attesting that the caller is your app. The rate limit is a ceiling, not an identity check,
+     * and the README says so rather than implying the proxy is sealed.
+     *
+     * ## What is unchanged
+     *
+     * The request and response shapes. The server holds the prompt and returns Gemini's
+     * `generateContent` body verbatim, so [parseWordData] still parses exactly what it always
+     * parsed - including its refusal to invent a radical or a stroke count for fields the model
+     * omitted. Nothing about the word data a learner sees has changed.
      */
     suspend fun generateChineseWordData(query: String): Result<GeneratedWordData> =
         withContext(Dispatchers.IO) {
-            val apiKey = runCatching { BuildConfig.GEMINI_API_KEY }.getOrDefault("")
+            val baseUrl = aiBackendUrl()
 
-            if (apiKey.isBlank() || apiKey == "MY_GEMINI_API_KEY") {
-                Log.w("GeminiAiService", "No Gemini key configured in this build.")
-                return@withContext Result.failure(AiFailure.MissingApiKey)
+            if (baseUrl.isBlank()) {
+                Log.w(TAG, "No AI backend configured in this build.")
+                return@withContext Result.failure(AiFailure.BackendNotConfigured)
             }
 
             try {
                 val request = Request.Builder()
-                    .url("$BASE_URL/models/$MODEL_ID:generateContent")
-                    .header("x-goog-api-key", apiKey)
+                    .url("${baseUrl.trimEnd('/')}$WORD_PATH")
                     .post(buildRequestBody(query))
                     .build()
 
                 client.newCall(request).execute().use { response ->
                     val body = response.body?.string().orEmpty()
                     if (!response.isSuccessful) {
-                        Log.w("GeminiAiService", "Gemini API returned HTTP ${response.code}.")
+                        Log.w(TAG, "AI backend returned HTTP ${response.code}.")
                         return@withContext Result.failure(
                             AiFailure.Api(response.code, summarise(body))
                         )
@@ -107,48 +135,37 @@ class GeminiAiService {
                 Result.failure(e)
             } catch (e: java.io.IOException) {
                 // Connection reset, timeout, DNS failure, no network.
-                Log.w("GeminiAiService", "Network failure calling Gemini: ${e.message}")
+                Log.w(TAG, "Network failure calling AI backend: ${e.message}")
                 Result.failure(AiFailure.Network(e))
             } catch (e: org.json.JSONException) {
-                Log.e("GeminiAiService", "Malformed Gemini response: ${e.message}", e)
+                Log.e(TAG, "Malformed AI response: ${e.message}", e)
                 Result.failure(AiFailure.MalformedResponse(e))
             } catch (e: Exception) {
-                Log.e("GeminiAiService", "Unexpected Gemini failure: ${e.message}", e)
+                Log.e(TAG, "Unexpected AI failure: ${e.message}", e)
                 Result.failure(AiFailure.MalformedResponse(e))
             }
         }
 
-    private fun buildRequestBody(query: String): RequestBody {
-        val systemPrompt = """
-            You are an expert Chinese linguist and educator. Analyze the provided Chinese character (Hanzi) or Pinyin input.
-            Return ONLY a valid, single JSON object with the following fields:
-            - hanzi: Chinese character(s) in Simplified Chinese.
-            - pinyin: Pinyin with correct tone marks (e.g. "xuéxí", "hǎo").
-            - meaning: Concise English translation and grammatical function.
-            - hskLevel: Integer from 1 to 6 (default 1).
-            - radical: Radical with meaning (e.g. "子 (child)").
-            - exampleCn: Natural, contextual example sentence in Simplified Chinese.
-            - examplePy: Pinyin for the example sentence.
-            - exampleEn: English translation for the example sentence.
-            - strokeCount: Integer number of strokes for the primary character.
-            - strokeBreakdown: Comma-separated list of stroke names with tone/direction (e.g. "点 (Diǎn), 横折 (Héng Zhé), 竖 (Shù)").
-            Do NOT wrap the JSON in Markdown code fences if possible, or provide standard raw JSON.
-        """.trimIndent()
+    /**
+     * The configured backend endpoint.
+     *
+     * This is a `buildConfigField`, which is the same mechanism that leaked the Gemini key, so it
+     * is worth being explicit about why this one is fine: an endpoint URL is not a secret. Knowing
+     * where the app talks to is public information by definition — it is in every network request —
+     * and making it hard to configure would buy nothing.
+     *
+     * What stops a *secret* from being added back here is `BuildConfigSecretsTest`, which fails
+     * if any credential-shaped field appears on the generated class. An earlier version read this
+     * reflectively on the theory that removing the compile-time dependency would prevent misuse.
+     * It would not: the field is declared in `app/build.gradle.kts` regardless, so reflection only
+     * traded a compile error for a silent blank string and a feature that quietly stopped working.
+     */
+    private fun aiBackendUrl(): String = BuildConfig.AI_BACKEND_URL
 
-        val jsonPayload = JSONObject().apply {
-            put("contents", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().apply {
-                        put(JSONObject().put("text", "$systemPrompt\n\nUser Input: $query"))
-                    })
-                })
-            })
-            put("generationConfig", JSONObject().apply {
-                put("temperature", 0.3)
-                put("responseMimeType", "application/json")
-            })
-        }
+    private fun buildRequestBody(query: String): RequestBody {
+        // The model prompt lives on the server now. The client sends the learner's query and
+        // nothing else, which is also what keeps the API shape independent of the prompt's wording.
+        val jsonPayload = JSONObject().put("query", query)
         return jsonPayload.toString().toRequestBody("application/json".toMediaType())
     }
 
@@ -208,17 +225,42 @@ class GeminiAiService {
     private fun countStrokes(breakdown: String): Int =
         breakdown.split(',').count { it.trim().isNotEmpty() }
 
-    /** Pulls a short, safe message out of a Google error body for display. */
+    /**
+     * Pulls a short, safe message out of an error body for display.
+     *
+     * Two shapes arrive here, and this has to handle both. Google's own error body is
+     * `{"error":{"message":"..."}}`. The proxy does not reinterpreting it: it wraps whatever
+     * upstream sent in `{"error":"<that body, as text>"}`, which it does so it can redact the key
+     * from the string first. So the outer `error` may be an object or a string, and when it is a
+     * string there is a useful message nested inside it one level down.
+     *
+     * Reading only the object shape — as this did before the proxy existed — meant every backend
+     * error rendered as "No further detail available", quietly discarding the one piece of
+     * information that tells a user whether their quota ran out or their backend is down.
+     */
     private fun summarise(errorBody: String): String {
         val message = runCatching {
-            JSONObject(errorBody).optJSONObject("error")?.optString("message")
+            when (val error = JSONObject(errorBody).opt("error")) {
+                is JSONObject -> error.optString("message")
+                is String -> nestedGoogleMessage(error) ?: error
+                else -> null
+            }
         }.getOrNull()
-        return message?.takeIf { it.isNotBlank() }?.take(200) ?: "No further detail available."
+
+        return message?.trim()?.takeIf { it.isNotEmpty() }?.take(200)
+            ?: errorBody.trim().take(200).ifEmpty { "No further detail available." }
     }
 
+    /** Unwraps `{"error":{"message":"..."}}` from a body the proxy quoted as a string. */
+    private fun nestedGoogleMessage(quoted: String): String? = runCatching {
+        JSONObject(quoted).optJSONObject("error")?.optString("message")
+    }.getOrNull()
+
     companion object {
-        private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-        private const val MODEL_ID = "gemini-3.5-flash"
+        private const val TAG = "GeminiAiService"
+
+        /** Path served by `backend/server.mjs`. Must match its route exactly. */
+        private const val WORD_PATH = "/v1/word"
     }
 
     /**

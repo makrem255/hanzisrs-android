@@ -1,0 +1,14 @@
+{
+  "name": "hanzisrs-ai-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI proxy for the HanziSRS Android app. Holds the Gemini API key server-side so it never ships in the APK.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node backend/server.mjs",
+    "test": "node --test backend/server.test.mjs backend/e2e.test.mjs"
+  }
+}

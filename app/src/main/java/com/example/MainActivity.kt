@@ -6,21 +6,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LocalLibrary
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -35,7 +34,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -50,16 +48,15 @@ import com.example.ui.screens.AddWordScreen
 import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LibraryScreen
+import com.example.ui.screens.ProgressScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SwipeDeckReviewScreen
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
 import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
+import com.example.ui.theme.DarkSurfaceContainer
 import com.example.ui.theme.MyApplicationTheme
-import com.example.ui.theme.SrsAgainContainer
-import com.example.ui.theme.SrsAgainDark
-import com.example.ui.theme.TextLight
+import com.example.ui.theme.OutlineSubtle
 import com.example.ui.theme.TextMuted
 import com.example.ui.viewmodel.MainViewModel
 
@@ -91,11 +88,21 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * The four destinations in the bottom bar, plus the screens reached from them.
+ *
+ * The route strings are unchanged from the previous information architecture, so
+ * every `navigate` call, deep link and test tag that referred to `library` or
+ * `settings` still resolves. What changed is the *labels and order the learner sees*:
+ * the vocabulary library is now "Learn", progress is promoted from a section inside
+ * Home to its own destination, and settings presents as "Profile".
+ */
 sealed class Screen(val route: String, val title: String, val icon: @Composable () -> Unit) {
-    object Home : Screen("home", "Routine", { Icon(Icons.Default.Home, contentDescription = "Home") })
+    object Home : Screen("home", "Home", { Icon(Icons.Default.Home, contentDescription = "Home") })
+    object Learn : Screen("library", "Learn", { Icon(Icons.Default.School, contentDescription = "Learn") })
+    object Progress : Screen("progress", "Progress", { Icon(Icons.Default.Insights, contentDescription = "Progress") })
+    object Profile : Screen("settings", "Profile", { Icon(Icons.Default.Person, contentDescription = "Profile") })
     object AddWord : Screen("add_word", "Add Word", { Icon(Icons.Default.AddCircle, contentDescription = "Add Word") })
-    object Library : Screen("library", "Library", { Icon(Icons.Default.LocalLibrary, contentDescription = "Library") })
-    object Settings : Screen("settings", "Settings", { Icon(Icons.Default.Settings, contentDescription = "Settings") })
     object Deck : Screen("deck", "Review", {})
     object Auth : Screen("auth", "Auth", {})
 }
@@ -136,9 +143,9 @@ fun MainAppContainer(
 
     val bottomNavScreens = listOf(
         Screen.Home,
-        Screen.AddWord,
-        Screen.Library,
-        Screen.Settings
+        Screen.Learn,
+        Screen.Progress,
+        Screen.Profile
     )
 
     val showBottomNav = currentRoute in bottomNavScreens.map { it.route }
@@ -146,71 +153,73 @@ fun MainAppContainer(
     Scaffold(
         bottomBar = {
             if (showBottomNav) {
-                NavigationBar(
-                    containerColor = DarkSurfaceCard,
-                    contentColor = LilacPrimary
-                ) {
-                    bottomNavScreens.forEach { screen ->
-                        val isSelected = currentRoute == screen.route
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                if (screen == Screen.Home && dueCount > 0) {
-                                    BadgedBox(
-                                        badge = {
-                                            // The count of work outstanding, in the accent
-                                            // colour, not the failure colour.
-                                            //
-                                            // This was `SrsAgainDark` — the same red the app
-                                            // uses for "you rated this Again" — on the tab
-                                            // for the dashboard rather than the tab for the
-                                            // review it counts toward. A learner who had
-                                            // simply not studied yet, at any hour of any day,
-                                            // saw a red number about work they had not
-                                            // failed at. The count is legitimate
-                                            // information; presenting it as a penalty is
-                                            // not, and this app's gamification layer is
-                                            // built on the rule that nothing is measured
-                                            // as a threat.
-                                            Badge(
-                                                containerColor = LilacPrimary,
-                                                contentColor = LilacPrimaryDark
-                                            ) {
-                                                Text("$dueCount")
-                                            }
+                Column {
+                    // A single hairline between content and the bar. The bar is the same
+                    // colour family as the background, so without this the navigation floated
+                    // with no edge at all on a scrolling screen.
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(OutlineSubtle)
+                    )
+                    NavigationBar(
+                        containerColor = DarkSurfaceContainer,
+                        contentColor = AccentPrimary,
+                        tonalElevation = 0.dp
+                    ) {
+                        bottomNavScreens.forEach { screen ->
+                            val isSelected = currentRoute == screen.route
+                            NavigationBarItem(
+                                selected = isSelected,
+                                onClick = {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
                                         }
-                                    ) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                icon = {
+                                    if (screen == Screen.Home && dueCount > 0) {
+                                        BadgedBox(
+                                            badge = {
+                                                // The count of work outstanding, in the accent
+                                                // colour, not the failure colour. A learner who
+                                                // had simply not studied yet saw a red number
+                                                // about work they had not failed at.
+                                                Badge(
+                                                    containerColor = AccentPrimary,
+                                                    contentColor = AccentPrimaryInk
+                                                ) {
+                                                    Text("$dueCount")
+                                                }
+                                            }
+                                        ) {
+                                            screen.icon()
+                                        }
+                                    } else {
                                         screen.icon()
                                     }
-                                } else {
-                                    screen.icon()
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = screen.title,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = LilacPrimaryDark,
-                                selectedTextColor = TextLight,
-                                indicatorColor = LilacPrimary,
-                                unselectedIconColor = TextMuted,
-                                unselectedTextColor = TextMuted
-                            ),
-                            modifier = Modifier.testTag("nav_item_${screen.route}")
-                        )
+                                },
+                                label = {
+                                    Text(
+                                        text = screen.title,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = AccentPrimaryInk,
+                                    selectedTextColor = AccentPrimary,
+                                    indicatorColor = AccentPrimary,
+                                    unselectedIconColor = TextMuted,
+                                    unselectedTextColor = TextMuted
+                                ),
+                                modifier = Modifier.testTag("nav_item_${screen.route}")
+                            )
+                        }
                     }
                 }
             }
@@ -247,16 +256,21 @@ fun MainAppContainer(
                 HomeScreen(
                     viewModel = viewModel,
                     onStartReview = {
-                        // No argument: which cards a sitting covers is the view model's decision
-                        // (due words, or the whole collection if nothing is due). It used to be
-                        // written here as well, in a different spelling, reading the view model's
-                        // flows from a composable-scope lambda.
+                        // Which cards a sitting covers is the view model's decision.
                         viewModel.startReviewSession()
                         navController.navigate(Screen.Deck.route)
                     },
                     onNavigateToAddWord = { navController.navigate(Screen.AddWord.route) },
-                    onNavigateToLibrary = { navController.navigate(Screen.Library.route) },
-                    onNavigateToSettings = { navController.navigate(Screen.Settings.route) }
+                    onNavigateToLibrary = { navController.navigate(Screen.Learn.route) },
+                    onNavigateToProgress = { navController.navigate(Screen.Progress.route) },
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                )
+            }
+
+            composable(Screen.Progress.route) {
+                ProgressScreen(
+                    viewModel = viewModel,
+                    onNavigateToLibrary = { navController.navigate(Screen.Learn.route) }
                 )
             }
 
@@ -274,20 +288,20 @@ fun MainAppContainer(
                 )
             }
 
-            composable(Screen.Library.route) {
+            composable(Screen.Learn.route) {
                 LibraryScreen(
-                    viewModel = viewModel
+                    viewModel = viewModel,
+                    onNavigateToAddWord = { navController.navigate(Screen.AddWord.route) }
                 )
             }
 
-            composable(Screen.Settings.route) {
+            composable(Screen.Profile.route) {
                 SettingsScreen(
                     viewModel = viewModel,
                     // No navigation here on purpose. `SettingsScreen` calls `viewModel.logout()`
                     // and then this callback, and `logout()` clears `currentUser` - which is the
-                    // same signal the gate above watches, so navigating from both places issued two
-                    // `popUpTo(0)` navigations for one sign-out, racing each other over the back
-                    // stack. One decision, one place: the gate.
+                    // same signal the gate above watches, so navigating from both places issued
+                    // two `popUpTo(0)` navigations for one sign-out. One decision, one place.
                     onLogout = {}
                 )
             }

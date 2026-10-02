@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,18 +16,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,30 +34,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.dashboard.DashboardSnapshot
 import com.example.data.dashboard.DayActivity
 import com.example.data.dashboard.DifficultCard
 import com.example.data.dashboard.NextAction
 import com.example.data.dashboard.Progress
-import com.example.data.dashboard.Workload
-import com.example.data.model.StorageValues.CardState
-import com.example.ui.theme.DarkSurfaceCard
+import com.example.ui.components.AppCard
+import com.example.ui.components.GoalBar
+import com.example.ui.components.IconBadge
+import com.example.ui.components.ProgressRing
+import com.example.ui.components.SectionHeader
+import com.example.ui.components.VSpace
+import com.example.ui.theme.AccentAmber
+import com.example.ui.theme.AccentCyan
+import com.example.ui.theme.AccentMint
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
+import com.example.ui.theme.AccentRed
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsAgainDark
-import com.example.ui.theme.SrsEasyDark
+import com.example.ui.theme.Dimens
+import com.example.ui.theme.HeroSheen
 import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.SrsHardDark
-import com.example.ui.theme.srsStateColor
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
+import com.example.ui.theme.srsStateColor
 
 /**
  * The learning dashboard, drawn from one [DashboardSnapshot].
@@ -90,7 +90,7 @@ fun DashboardContent(
         // A Column, not a LazyColumn: this is embedded as one item inside a screen that already
         // scrolls, and a lazy list nested in a lazy list is given unbounded height and throws.
         // The caller owns the scrolling; this owns the arrangement.
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
             NextActionCard(snapshot, onStartReview, onNavigateToAddWord, onNavigateToLibrary)
 
             AdaptiveGrid(columns, listOf(
@@ -119,7 +119,7 @@ fun DashboardContent(
  * what actually determines whether two cards fit. Reading it from the container rather than the
  * window also means a foldable or a split-screen window is handled by the same code.
  */
-internal fun columnsFor(maxWidth: androidx.compose.ui.unit.Dp): Int = when {
+internal fun columnsFor(maxWidth: Dp): Int = when {
     maxWidth < 400.dp -> 1
     maxWidth < 720.dp -> 2
     else -> 3
@@ -139,13 +139,13 @@ internal fun columnsFor(maxWidth: androidx.compose.ui.unit.Dp): Int = when {
 internal fun AdaptiveGrid(columns: Int, children: List<@Composable () -> Unit>) {
     // Never more columns than there are children. A 3-wide grid holding 2 cards reserves
     // a third of the width for an empty slot, so the two cards are sized as though a third
-    // existed — which is exactly the wrong outcome on the wide screens where the extra
+    // existed - which is exactly the wrong outcome on the wide screens where the extra
     // column was supposed to help. The breakpoint says how many *could* fit; this says how
     // many are actually needed.
     val safeColumns = columns.coerceIn(1, children.size.coerceAtLeast(1))
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
         children.chunked(safeColumns).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.md)) {
                 row.forEach { child ->
                     Box(modifier = Modifier.weight(1f)) { child() }
                 }
@@ -157,53 +157,80 @@ internal fun AdaptiveGrid(columns: Int, children: List<@Composable () -> Unit>) 
     }
 }
 
-/** The hero: the one thing to do next. */
+/**
+ * The hero: the one thing to do next.
+ *
+ * This is the only card on the screen with a gradient, because it is the only card that is
+ * asking the learner to do something. Everything below it is a report.
+ */
 @Composable
-private fun NextActionCard(
+internal fun NextActionCard(
     snapshot: DashboardSnapshot,
     onStartReview: () -> Unit,
     onNavigateToAddWord: () -> Unit,
     onNavigateToLibrary: () -> Unit
 ) {
     val action = snapshot.recommendation
-    DashboardCard(modifier = Modifier.testTag("dashboard_next_action")) {
-        Text(
-            text = when (action.kind) {
-                NextAction.Kind.REVIEW_DUE, NextAction.Kind.LEARN_NEW -> "What to do today"
-                NextAction.Kind.PRACTICE_DIFFICULT -> "You're caught up"
-                NextAction.Kind.CAUGHT_UP -> "Nothing scheduled"
-                NextAction.Kind.NOTHING_ENROLLED -> "Get started"
-            },
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextMuted
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = action.headline,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextLight,
-            modifier = Modifier.testTag("dashboard_next_headline")
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+    AppCard(
+        modifier = Modifier.testTag("dashboard_next_action"),
+        brush = HeroSheen
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(
+                icon = when (action.kind) {
+                    NextAction.Kind.REVIEW_DUE -> Icons.Default.PlayArrow
+                    NextAction.Kind.LEARN_NEW -> Icons.Default.AutoAwesome
+                    NextAction.Kind.PRACTICE_DIFFICULT -> Icons.Default.TrendingUp
+                    NextAction.Kind.CAUGHT_UP -> Icons.Default.TrendingUp
+                    NextAction.Kind.NOTHING_ENROLLED -> Icons.Default.AutoAwesome
+                },
+                tint = AccentPrimary,
+                background = AccentPrimary.copy(alpha = 0.16f),
+                size = 44.dp
+            )
+            Spacer(Modifier.width(Dimens.md))
+            Column {
+                Text(
+                    text = when (action.kind) {
+                        NextAction.Kind.REVIEW_DUE, NextAction.Kind.LEARN_NEW -> "What to do today"
+                        NextAction.Kind.PRACTICE_DIFFICULT -> "You're caught up"
+                        NextAction.Kind.CAUGHT_UP -> "Nothing scheduled"
+                        NextAction.Kind.NOTHING_ENROLLED -> "Get started"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = TextMuted
+                )
+                Text(
+                    text = action.headline,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = TextLight,
+                    modifier = Modifier.testTag("dashboard_next_headline")
+                )
+            }
+        }
+
+        VSpace(Dimens.sm)
+
         Text(
             text = action.detail,
-            fontSize = 13.sp,
-            lineHeight = 19.sp,
+            style = MaterialTheme.typography.bodyMedium,
             color = TextMuted
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        VSpace(Dimens.lg)
 
         // The primary action is the only button on the card. A dashboard that offers four
         // equally weighted buttons has not answered "what should I do next".
         if (action.kind == NextAction.Kind.NOTHING_ENROLLED) {
-            PrimaryButton(text = "Add a word", onClick = onNavigateToAddWord, tag = "dashboard_add_first")
+            com.example.ui.components.PrimaryButton(
+                text = "Add a word",
+                onClick = onNavigateToAddWord,
+                modifier = Modifier.testTag("dashboard_add_first")
+            )
         } else {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
                 if (action.isStartable) {
-                    PrimaryButton(
+                    com.example.ui.components.PrimaryButton(
                         text = when (action.kind) {
                             NextAction.Kind.REVIEW_DUE -> "Start review"
                             NextAction.Kind.LEARN_NEW -> "Learn new words"
@@ -211,15 +238,17 @@ private fun NextActionCard(
                             else -> "Start review"
                         },
                         onClick = onStartReview,
-                        tag = "dashboard_start",
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("dashboard_start")
                     )
                 }
-                SecondaryButton(
+                com.example.ui.components.SecondaryButton(
                     text = "Library",
                     onClick = onNavigateToLibrary,
-                    tag = "dashboard_library",
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("dashboard_library")
                 )
             }
         }
@@ -228,45 +257,60 @@ private fun NextActionCard(
 
 /** Today's activity, or a truthful statement that there has been none. */
 @Composable
-private fun TodayCard(snapshot: DashboardSnapshot) {
+internal fun TodayCard(snapshot: DashboardSnapshot) {
     val today = snapshot.today
     val workload = snapshot.workload
     val goal = workload.limits.reviews
     val done = today?.reviewsCompleted ?: 0
 
-    DashboardCard(modifier = Modifier.testTag("dashboard_today")) {
+    AppCard(modifier = Modifier.testTag("dashboard_today")) {
         SectionHeader("Today")
-        Spacer(modifier = Modifier.height(12.dp))
+        VSpace(Dimens.md)
 
-        GoalBar(
-            done = done,
-            goal = goal,
-            caption = "Reviews toward your daily goal"
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Weighted, and the gaps shrink with the card.
-        //
-        // Three `MiniStat`s with 18dp gaps need about 230dp. `columnsFor` returns 2 from
-        // 400dp, so on a 411dp phone each card is ~(411-32-12)/2 = 183dp wide and 151dp of
-        // usable inner width — which meant "Accuracy" and "New words" wrapped to two lines
-        // in a card whose neighbour stayed one line, so the two cards in the row ended at
-        // different heights. Weighting the stats divides the real width rather than
-        // assuming it, and the gap is small enough to survive a narrow card.
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MiniStat("Accuracy", accuracyLabel(today), modifier = Modifier.weight(1f))
-            MiniStat(
-                label = "New words",
-                value = "${today?.newWordsIntroduced ?: 0}/${workload.limits.newWords}",
-                modifier = Modifier.weight(1f)
-            )
-            MiniStat(
-                label = "Mastered",
-                value = "${today?.newWordsMastered ?: 0}",
-                modifier = Modifier.weight(1f)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ProgressRing(
+                progress = if (goal > 0) done.toFloat() / goal.coerceAtLeast(1) else 0f,
+                accent = AccentPrimary,
+                diameter = 84.dp
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "$done",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = TextLight
+                    )
+                    Text(
+                        text = "of $goal",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextMuted
+                    )
+                }
+            }
+            Spacer(Modifier.width(Dimens.lg))
+            Column(modifier = Modifier.weight(1f)) {
+                MiniStat("Accuracy", accuracyLabel(today))
+                VSpace(Dimens.sm)
+                MiniStat(
+                    label = "New words",
+                    value = "${today?.newWordsIntroduced ?: 0}/${workload.limits.newWords}"
+                )
+                VSpace(Dimens.sm)
+                MiniStat("Mastered", value = "${today?.newWordsMastered ?: 0}")
+            }
         }
+
+        VSpace(Dimens.md)
+        GoalBar(
+            progress = if (goal > 0) done.toFloat() / goal.coerceAtLeast(1) else 0f,
+            accent = if (done >= goal && goal > 0) SrsGoodDark else AccentPrimary
+        )
+        VSpace(Dimens.xs)
+        Text(
+            text = "Reviews toward your daily goal",
+            style = MaterialTheme.typography.labelSmall,
+            color = TextMuted,
+            modifier = Modifier.testTag("dashboard_goal")
+        )
     }
 }
 
@@ -284,39 +328,44 @@ internal fun accuracyLabel(today: DayActivity?): String {
 /**
  * What both accuracy surfaces print when there is no accuracy to print.
  *
- * One constant because two functions in two files had drifted — this one used an em dash (U+2014)
- * and `sessionAccuracyLabel` a hyphen (U+002D) — while the KDoc above the other insisted that
- * "two surfaces using the same glyph means the learner has to learn one convention rather than
- * two". Two visually distinct placeholders for the same state is precisely the thing that
- * shared function existed to prevent, and the comment was actively discouraging anyone from
- * noticing.
+ * One constant because two functions in two files had drifted - one used an em dash and the
+ * other a hyphen - while the KDoc above the other insisted that "two surfaces using the same
+ * glyph means the learner has to learn one convention rather than two".
  */
 internal const val NO_ACCURACY_GLYPH = "—"
 
 /** The streak, and whether it is alive. */
 @Composable
-private fun StreakCard(snapshot: DashboardSnapshot) {
+internal fun StreakCard(snapshot: DashboardSnapshot) {
     val p = snapshot.progress
-    DashboardCard(modifier = Modifier.testTag("dashboard_streak")) {
-        SectionHeader("Learning streak")
-        Spacer(modifier = Modifier.height(12.dp))
+    AppCard(modifier = Modifier.testTag("dashboard_streak")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(
+                icon = Icons.Default.LocalFireDepartment,
+                tint = if (p.currentStreakDays > 0) AccentAmber else TextMuted,
+                background = (if (p.currentStreakDays > 0) AccentAmber else TextMuted).copy(alpha = 0.14f),
+                size = 36.dp
+            )
+            Spacer(Modifier.width(Dimens.sm))
+            SectionHeader("Learning streak")
+        }
+        VSpace(Dimens.md)
 
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = "${p.currentStreakDays}",
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (p.currentStreakDays > 0) SrsGoodDark else TextSubtle
+                style = MaterialTheme.typography.displaySmall,
+                color = if (p.currentStreakDays > 0) AccentAmber else TextSubtle
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(Modifier.width(Dimens.xs))
             Text(
                 text = if (p.currentStreakDays == 1) "day" else "days",
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = Dimens.sm)
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        VSpace(Dimens.xs)
         Text(
             text = when {
                 p.enrolled == 0 -> "No words yet"
@@ -324,14 +373,14 @@ private fun StreakCard(snapshot: DashboardSnapshot) {
                 p.currentStreakDays > 0 -> "Not yet extended today"
                 else -> "Start one by reviewing a card"
             },
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = TextMuted
         )
-        Spacer(modifier = Modifier.height(10.dp))
+        VSpace(Dimens.sm)
         Text(
             text = "Longest ${p.longestStreakDays} · ${p.activeDays} active " +
                 if (p.activeDays == 1) "day" else "days",
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.labelSmall,
             color = TextSubtle
         )
     }
@@ -339,40 +388,48 @@ private fun StreakCard(snapshot: DashboardSnapshot) {
 
 /** Lifetime figures, and the mastery rate. */
 @Composable
-private fun ProgressCard(snapshot: DashboardSnapshot) {
+internal fun ProgressCard(snapshot: DashboardSnapshot) {
     val p = snapshot.progress
-    DashboardCard(modifier = Modifier.testTag("dashboard_progress")) {
-        SectionHeader("Progress")
-        Spacer(modifier = Modifier.height(12.dp))
+    AppCard(modifier = Modifier.testTag("dashboard_progress")) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(
+                icon = Icons.Default.TrendingUp,
+                tint = AccentMint,
+                background = AccentMint.copy(alpha = 0.14f),
+                size = 36.dp
+            )
+            Spacer(Modifier.width(Dimens.sm))
+            SectionHeader("Progress")
+        }
+        VSpace(Dimens.md)
 
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = "${p.wordsLearned}",
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.displaySmall,
                 color = TextLight
             )
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(Modifier.width(Dimens.xs))
             Text(
                 text = "of ${p.enrolled} learned",
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 color = TextMuted,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = Dimens.sm)
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        VSpace(Dimens.md)
 
         Text(
             text = p.masteryRate?.let { "Mastered: ${(it * 100).toInt()}% of collection" }
                 ?: "Mastery appears once the collection has words",
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = TextMuted
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        VSpace(Dimens.xs)
         Text(
             text = "${p.lifetimeReviews} reviews all time",
-            fontSize = 12.sp,
+            style = MaterialTheme.typography.labelSmall,
             color = TextSubtle
         )
     }
@@ -380,17 +437,17 @@ private fun ProgressCard(snapshot: DashboardSnapshot) {
 
 /** The four scheduling states as a proportional bar. */
 @Composable
-private fun DistributionCard(progress: Progress) {
-    DashboardCard(modifier = Modifier.testTag("dashboard_distribution")) {
+internal fun DistributionCard(progress: Progress) {
+    AppCard(modifier = Modifier.testTag("dashboard_distribution")) {
         SectionHeader("Where your words are")
-        Spacer(modifier = Modifier.height(12.dp))
+        VSpace(Dimens.md)
 
         if (progress.enrolled == 0) {
             // An empty progress bar is indistinguishable from a full one to a learner who is
             // looking at it quickly, and "0%" would claim a measurement nobody took.
             Text(
                 text = "Nothing in your collection yet.",
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
                 modifier = Modifier.testTag("dashboard_distribution_empty")
             )
@@ -413,7 +470,7 @@ private fun DistributionCard(progress: Progress) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
+            VSpace(Dimens.md)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -422,13 +479,12 @@ private fun DistributionCard(progress: Progress) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = "${share.count}",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.titleMedium,
                             color = srsStateColor(share.state)
                         )
                         Text(
                             text = share.state.name.lowercase().replaceFirstChar { it.uppercase() },
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )
                     }
@@ -446,15 +502,15 @@ private fun DistributionCard(progress: Progress) {
  * quietly compressed out of the chart.
  */
 @Composable
-private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
-    DashboardCard(modifier = Modifier.testTag("dashboard_week")) {
+internal fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
+    AppCard(modifier = Modifier.testTag("dashboard_week")) {
         SectionHeader("This week")
-        Spacer(modifier = Modifier.height(12.dp))
+        VSpace(Dimens.md)
 
         if (!days.any { it.reviewsCompleted > 0 }) {
             Text(
                 text = "No reviews recorded yet.",
-                fontSize = 13.sp,
+                style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
                 modifier = Modifier.testTag("dashboard_week_empty")
             )
@@ -466,8 +522,8 @@ private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(84.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .height(96.dp),
+                horizontalArrangement = Arrangement.spacedBy(Dimens.sm),
                 verticalAlignment = Alignment.Bottom
             ) {
                 window.forEach { epochDay ->
@@ -479,13 +535,10 @@ private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                         if (count > 0) {
                             Text(
                                 text = "$count",
-                                // 11sp, the floor. The count on a bar is the number the
-                                // whole chart exists to communicate, so it is the last
-                                // thing that should have been rendered at 10sp.
-                                fontSize = 11.sp,
+                                style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(Modifier.height(Dimens.xxs))
                         }
                         // A minimum height keeps an empty day visible as a day rather than as
                         // an absence, which is the whole point of charting the gaps.
@@ -497,18 +550,14 @@ private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height((4 + 52 * animated).dp)
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(if (count > 0) LilacPrimary else DarkSurfaceElevated)
+                                .height((4 + 58 * animated).dp)
+                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+                                .background(if (count > 0) AccentPrimary else DarkSurfaceElevated)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(Modifier.height(Dimens.xs))
                         Text(
                             text = weekdayLabel(epochDay),
-                            // 11sp, and the first thing to overflow if a week ever grew
-                            // past seven: `maxLines = 1` plus a single letter is what
-                            // keeps a three-letter weekday abbreviation from becoming a
-                            // three-line column under its own bar.
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
                             color = TextSubtle
                         )
@@ -521,46 +570,48 @@ private fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
 
 /** The words that actually gave this learner trouble. */
 @Composable
-private fun DifficultCardList(
+internal fun DifficultCardList(
     cards: List<DifficultCard>,
     onOpenWord: (Long) -> Unit
 ) {
-    DashboardCard(modifier = Modifier.testTag("dashboard_difficult")) {
-        SectionHeader("Worth another look")
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Words you have missed before, worst first.",
-            fontSize = 12.sp,
-            color = TextMuted
-        )
-        Spacer(modifier = Modifier.height(10.dp))
+    AppCard(modifier = Modifier.testTag("dashboard_difficult")) {
+        SectionHeader("Worth another look", subtitle = "Words you have missed before, worst first.")
+        VSpace(Dimens.md)
 
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
             items(cards, key = { it.userVocabularyId }) { card ->
                 Column(
                     modifier = Modifier
-                        .width(132.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .width(140.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(DarkSurfaceElevated)
                         .clickable { onOpenWord(card.userVocabularyId) }
-                        .padding(12.dp)
+                        .padding(Dimens.md)
                 ) {
-                    Text(text = card.character, fontSize = 30.sp, color = TextLight)
+                    Text(
+                        text = card.character,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = TextLight
+                    )
                     if (card.pinyin.isNotEmpty()) {
-                        Text(text = card.pinyin, fontSize = 12.sp, color = LilacPrimaryDark)
+                        Text(
+                            text = card.pinyin,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = AccentCyan
+                        )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(Modifier.height(Dimens.xs))
                     Text(
                         text = card.meaning,
-                        fontSize = 11.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = TextMuted,
                         maxLines = 2
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(Modifier.height(Dimens.sm))
                     Text(
                         text = "${card.lapses} ${if (card.lapses == 1) "miss" else "misses"}",
-                        fontSize = 11.sp,
-                        color = SrsAgainDark
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AccentRed
                     )
                 }
             }
@@ -568,26 +619,15 @@ private fun DifficultCardList(
     }
 }
 
-// ---- shared pieces --------------------------------------------------------------------------------
+// ---- shared pieces --------------------------------------------------------------------------
 
+/** A card. Delegates to the design-system surface so every panel matches. */
 @Composable
 internal fun DashboardCard(
     modifier: Modifier = Modifier,
-    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), content = content)
-    }
-}
-
-@Composable
-internal fun SectionHeader(text: String) {
-    Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
+    AppCard(modifier = modifier, content = content)
 }
 
 /**
@@ -606,98 +646,17 @@ internal fun MiniStat(
     Column(modifier = modifier) {
         Text(
             text = value,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.SemiBold,
+            style = MaterialTheme.typography.titleMedium,
             color = TextLight
         )
         // Wraps rather than clips. A truncated "Accuracy" reads as a different word; a
         // two-line label inside a card that has already been sized to fit is fine.
-        Text(text = label, fontSize = 11.sp, color = TextMuted, maxLines = 2)
-    }
-}
-
-/** Progress toward the learner's own daily limit, with the numbers stated. */
-@Composable
-private fun GoalBar(done: Int, goal: Int, caption: String) {
-    val safeGoal = goal.coerceAtLeast(1)
-    val fraction = (done.toFloat() / safeGoal).coerceIn(0f, 1f)
-    val animated by animateFloatAsState(targetValue = fraction, label = "goalBar")
-
-    Column(modifier = Modifier.testTag("dashboard_goal")) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(text = caption, fontSize = 12.sp, color = TextMuted)
-            Text(
-                text = "$done / $goal",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextLight
-            )
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(DarkSurfaceElevated)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(animated)
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(if (animated >= 1f) SrsGoodDark else LilacPrimary)
-            )
-        }
-    }
-}
-
-@Composable
-private fun PrimaryButton(
-    text: String,
-    onClick: () -> Unit,
-    tag: String,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = LilacPrimary,
-            contentColor = LilacPrimaryDark
-        ),
-        modifier = modifier
-            .height(48.dp)
-            .testTag(tag)
-    ) {
-        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = LilacPrimaryDark)
-        Spacer(modifier = Modifier.width(6.dp))
-        Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun SecondaryButton(
-    text: String,
-    onClick: () -> Unit,
-    tag: String,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = DarkSurfaceElevated,
-            contentColor = TextLight
-        ),
-        modifier = modifier
-            .height(48.dp)
-            .testTag(tag)
-    ) {
-        Text(text = text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextMuted,
+            maxLines = 2
+        )
     }
 }
 
@@ -705,22 +664,13 @@ private fun SecondaryButton(
  * Shown while the snapshot is being read.
  *
  * [label] names what is loading. It was hardcoded to "Loading your progress", and this
- * component is used for the dashboard as well as the progress tab — so a dashboard read that
+ * component is used for the dashboard as well as the progress tab - so a dashboard read that
  * took a moment told the learner their *progress* was loading, naming a different surface than
  * the one they were looking at.
  */
 @Composable
 fun DashboardLoading(label: String = "your progress", modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = LilacPrimary)
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(text = "Loading $label", fontSize = 13.sp, color = TextMuted)
-        }
-    }
+    com.example.ui.components.LoadingState(label = "Loading $label", modifier = modifier)
 }
 
 /**
@@ -737,30 +687,12 @@ fun DashboardError(
     label: String = "progress",
     modifier: Modifier = Modifier
 ) {
-    Box(
+    com.example.ui.components.ErrorState(
+        message = message,
+        title = label.replaceFirstChar { it.uppercase() } + " could not be loaded",
+        onRetry = onRetry,
         modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = label.replaceFirstChar { it.uppercase() } + " could not be loaded",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextLight
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = message,
-                fontSize = 13.sp,
-                color = TextMuted,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            SecondaryButton(text = "Try again", onClick = onRetry, tag = "dashboard_retry")
-        }
-    }
+    )
 }
 
 /** Short weekday label for the week chart. */

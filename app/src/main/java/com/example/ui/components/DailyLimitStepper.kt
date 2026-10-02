@@ -21,7 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.LilacPrimary
+import com.example.ui.theme.AccentPrimary
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.util.plural
@@ -102,7 +102,7 @@ fun DailyLimitStepper(
                 Icon(
                     imageVector = Icons.Default.Remove,
                     contentDescription = null,
-                    tint = if (canDecrease) LilacPrimary else TextMuted.copy(alpha = 0.4f),
+                    tint = if (canDecrease) AccentPrimary else TextMuted.copy(alpha = 0.4f),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -134,7 +134,7 @@ fun DailyLimitStepper(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = if (canIncrease) LilacPrimary else TextMuted.copy(alpha = 0.4f),
+                    tint = if (canIncrease) AccentPrimary else TextMuted.copy(alpha = 0.4f),
                     modifier = Modifier.size(18.dp)
                 )
             }

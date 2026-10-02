@@ -9,33 +9,19 @@ import androidx.compose.ui.unit.sp
 /**
  * The type scale, sized for a phone.
  *
- * This was previously a single `bodyLarge` override with every other role left at the M3
- * desktop baseline, and nothing in the app used it: 159 call sites across 10 files
- * hardcoded `fontSize = N.sp` directly. The practical consequences were that the app could
- * not honour the system font-size setting, and that the smallest text in the app had
- * drifted to 9sp — below the legibility floor, and marginal on a 6.1" phone at arm's
- * length.
+ * These are Material 3's roles, tightened by roughly half a step where the
+ * desktop baseline is generous, because a phone is read at arm's length on a
+ * 360dp-wide surface rather than at desk distance on a monitor. `labelSmall` is
+ * the floor at 11sp and is where the 9sp and 10sp outliers are meant to land.
  *
- * The values below are Material 3's roles, tightened by roughly half a step where the
- * desktop baseline is generous, because a phone is read at arm's length on a 360dp-wide
- * surface rather than at desk distance on a monitor. `labelSmall` is the floor at 11sp and
- * is where the 9sp and 10sp outliers are meant to land.
+ * **11sp is the floor for any text a learner has to read, not a preference.** The
+ * smallest text in the app is a badge carrying information — a difficulty level, a
+ * review state, a source — and below 11sp those are not reliably distinguishable
+ * on a 6.1" phone at arm's length.
  *
- * Migrating the remaining call sites onto these roles is deliberate incremental work, not
- * a scripted find-and-replace: a mechanical rewrite of `fontSize = 12.sp` to
- * `style = MaterialTheme.typography.bodySmall` can silently change the weight of a label
- * that already sets `fontWeight`, and the screenshot tests are the only thing that would
- * notice.
- *
- * **11sp is the floor for any text a learner has to read, not a preference.** Four labels
- * were sitting at 9sp — the home pillar subtitles, the HSK badge in the library, and the
- * profile badge in settings — and two more at 10sp. On a 6.1" phone at arm's length those
- * are below the point where the glyphs are reliably distinguishable, and every one of them
- * is a badge carrying information: a difficulty level, a review state, a source. They are
- * all now at 11sp, which is what `labelSmall` holds. There is no constant enforcing this,
- * because a constant nothing reads is documentation wearing a type — the rule lives here
- * and is checked by reading the call sites, which is why the audit is in
- * `docs/MOBILE_UX_AUDIT.md` rather than in a lint rule.
+ * The scales below the M3 roles are the product's own: Chinese display sizes,
+ * pinyin, and the tabular number style used by the statistics cards. They live here
+ * rather than inline so that the size of a hero character is decided in one place.
  */
 private val Default = FontFamily.Default
 
@@ -142,3 +128,86 @@ val Typography = Typography(
     )
 )
 
+// ── Chinese display scale ────────────────────────────────────────────────────
+//
+// Chinese characters are the primary learning element, so they get their own scale
+// and are always laid out with room to breathe. The family is the platform default,
+// which resolves to Noto Sans CJK on every device this app supports; bundling a
+// display face is a deliberate future step, not something to fake with a font that
+// may not contain the glyphs.
+
+/** The hero character on the review deck and the character screen. */
+val HanziHero = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 88.sp,
+    lineHeight = 96.sp
+)
+
+/** A large character: card headers, the character detail sheet. */
+val HanziLarge = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 56.sp,
+    lineHeight = 64.sp
+)
+
+/** A medium character: list leaders and inline emphasis. */
+val HanziMedium = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 36.sp,
+    lineHeight = 44.sp
+)
+
+/** A small character: compact rows. */
+val HanziSmall = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 24.sp,
+    lineHeight = 30.sp
+)
+
+// ── Pinyin ───────────────────────────────────────────────────────────────────
+//
+// Pinyin sits directly under the character and above the translation. It is set a
+// step smaller than the character and a step larger than the meaning, so the three
+// read as a single stack rather than three unrelated labels.
+
+val PinyinLarge = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.Medium,
+    fontSize = 22.sp,
+    lineHeight = 28.sp,
+    letterSpacing = 0.6.sp
+)
+
+val PinyinText = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.Medium,
+    fontSize = 16.sp,
+    lineHeight = 22.sp,
+    letterSpacing = 0.5.sp
+)
+
+// ── Statistics ───────────────────────────────────────────────────────────────
+
+/**
+ * Numbers that get compared across a row — streak, accuracy, counts — are set with
+ * tabular figures so the digits do not shift width as the value changes.
+ */
+val StatNumber = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 28.sp,
+    lineHeight = 34.sp,
+    fontFeatureSettings = "tnum"
+)
+
+val StatNumberSmall = TextStyle(
+    fontFamily = Default,
+    fontWeight = FontWeight.Bold,
+    fontSize = 20.sp,
+    lineHeight = 26.sp,
+    fontFeatureSettings = "tnum"
+)

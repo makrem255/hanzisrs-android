@@ -100,9 +100,9 @@ import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
-import com.example.ui.theme.LilacSecondary
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
+import com.example.ui.theme.AccentCyan
 import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.SrsEasyDark
@@ -247,7 +247,7 @@ fun SwipeDeckReviewScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = LilacPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AccentPrimary)
                     }
                 },
                 actions = {
@@ -263,7 +263,7 @@ fun SwipeDeckReviewScreen(
                             } else {
                                 "Slow pronunciation off"
                             },
-                            tint = if (isSlowTts) LilacPrimary else TextMuted
+                            tint = if (isSlowTts) AccentPrimary else TextMuted
                         )
                     }
                 },
@@ -362,7 +362,7 @@ fun SwipeDeckReviewScreen(
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp)),
-                        color = LilacPrimary,
+                        color = AccentPrimary,
                         trackColor = DarkSurfaceContainer
                     )
 
@@ -486,7 +486,7 @@ fun SwipeDeckReviewScreen(
                                         text = "HSK ${currentWordWithSrs.word.hskLevel}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = LilacPrimary,
+                                        color = AccentPrimary,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
@@ -569,8 +569,8 @@ fun SwipeDeckReviewScreen(
                                     onClick = viewModel::flipCard,
                                     shape = RoundedCornerShape(22.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = LilacPrimary,
-                                        contentColor = LilacPrimaryDark
+                                        containerColor = AccentPrimary,
+                                        contentColor = AccentPrimaryInk
                                     )
                                 ) {
                                     Icon(Icons.Default.Flip, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -586,7 +586,7 @@ fun SwipeDeckReviewScreen(
                                         text = currentWordWithSrs.word.pinyin,
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = LilacPrimary,
+                                        color = AccentPrimary,
                                         textAlign = TextAlign.Center
                                     )
 
@@ -679,7 +679,7 @@ fun SwipeDeckReviewScreen(
                                             text = currentWordWithSrs.word.radical,
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = LilacPrimary
+                                            color = AccentPrimary
                                         )
                                     }
 
@@ -716,7 +716,7 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             "Example sentence",
                                             fontSize = 12.sp,
-                                            color = LilacPrimary,
+                                            color = AccentPrimary,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         // `forSentenceOfWord` rather than `forSentence`: the
@@ -750,7 +750,7 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             text = currentWordWithSrs.word.examplePy,
                                             fontSize = 13.sp,
-                                            color = LilacPrimary,
+                                            color = AccentPrimary,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -916,7 +916,7 @@ private fun RowScope.PillarTab(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                tint = if (selected) LilacPrimaryDark else TextSubtle
+                tint = if (selected) AccentPrimaryInk else TextSubtle
             )
             Spacer(modifier = Modifier.width(5.dp))
             Text(
@@ -924,7 +924,7 @@ private fun RowScope.PillarTab(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                color = if (selected) LilacPrimaryDark else TextSubtle
+                color = if (selected) AccentPrimaryInk else TextSubtle
             )
         }
     }
@@ -1054,7 +1054,7 @@ private fun ReviewSessionCompletedView(
 
                 Button(
                     onClick = onBack,
-                    colors = ButtonDefaults.buttonColors(containerColor = LilacPrimary, contentColor = LilacPrimaryDark),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary, contentColor = AccentPrimaryInk),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1101,6 +1101,6 @@ private fun ReviewSessionCompletedView(
 @Composable
 private fun ReviewSessionLoadingView(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.CircularProgressIndicator(color = LilacPrimary)
+        androidx.compose.material3.CircularProgressIndicator(color = AccentPrimary)
     }
 }

@@ -65,8 +65,8 @@ import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
 import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.SrsGoodContainer
 import com.example.ui.theme.SrsGoodDark
@@ -194,7 +194,7 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                     text = "Stroke guide",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected == 0) LilacPrimaryDark else TextSubtle
+                    color = if (selected == 0) AccentPrimaryInk else TextSubtle
                 )
             }
             SegmentedOption(
@@ -208,7 +208,7 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                     text = "Practise tracing",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected == 1) LilacPrimaryDark else TextSubtle
+                    color = if (selected == 1) AccentPrimaryInk else TextSubtle
                 )
             }
         }
@@ -330,7 +330,7 @@ fun AnimatedStrokeOrderPlayer(
             // The current stroke's name, in the corner, where it cannot be mistaken for part
             // of the character.
             Surface(
-                color = LilacPrimary,
+                color = AccentPrimary,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -339,7 +339,7 @@ fun AnimatedStrokeOrderPlayer(
             ) {
                 Text(
                     text = "${currentStep + 1}/${strokes.size}",
-                    color = LilacPrimaryDark,
+                    color = AccentPrimaryInk,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -363,7 +363,7 @@ fun AnimatedStrokeOrderPlayer(
                 Text(
                     text = "Stroke ${currentStep + 1} of ${strokes.size}",
                     fontWeight = FontWeight.Bold,
-                    color = LilacPrimary,
+                    color = AccentPrimary,
                     fontSize = 13.sp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -398,15 +398,15 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.FastRewind,
                     contentDescription = "Previous stroke",
-                    tint = LilacPrimary
+                    tint = AccentPrimary
                 )
             }
 
             Button(
                 onClick = { isPlaying = !isPlaying },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = LilacPrimary,
-                    contentColor = LilacPrimaryDark
+                    containerColor = AccentPrimary,
+                    contentColor = AccentPrimaryInk
                 ),
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
@@ -442,7 +442,7 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.FastForward,
                     contentDescription = "Next stroke",
-                    tint = LilacPrimary
+                    tint = AccentPrimary
                 )
             }
         }
@@ -506,7 +506,7 @@ fun UserTracingCanvas(
 
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val finished = TextLight
-                val drawing = LilacPrimary
+                val drawing = AccentPrimary
 
                 strokes.forEach { userStroke ->
                     drawTracedStroke(userStroke.points, finished)

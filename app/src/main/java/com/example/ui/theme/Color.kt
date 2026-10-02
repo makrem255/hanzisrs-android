@@ -3,78 +3,123 @@ package com.example.ui.theme
 import androidx.compose.ui.graphics.Color
 import com.example.data.model.StorageValues
 
-// Dark surfaces. A neutral ramp: Material 3's own surface roles are purple-tinted, and
-// these greys are what the cards, containers and elevations in the app were drawn against.
-val DarkBg = Color(0xFF1C1B1F)
-val DarkSurfaceCard = Color(0xFF2B2930)
-val DarkSurfaceContainer = Color(0xFF211F26)
-val DarkSurfaceElevated = Color(0xFF36343B)
+// ─────────────────────────────────────────────────────────────────────────────
+// HanziSRS palette
+//
+// The surface ramp is a single midnight-navy family, taken from the product's
+// visual reference, which is overwhelmingly deep navy (#001028 and neighbours).
+// The steps below stay inside that hue family rather than drifting toward
+// neutral grey, so every screen shares one atmosphere instead of looking like a
+// set of unrelated panels.
+//
+// Accents are used to communicate function, never for decoration: blue means
+// "interactive", cyan means "sound", violet means "AI", amber means "review
+// outstanding", mint means "mastered / earned", red means "needs attention".
+// A colour that carries no meaning does not belong on screen.
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Primary accent
-val LilacPrimary = Color(0xFFD0BCFF)
-val LilacPrimaryDark = Color(0xFF381E72)
-val LilacPrimaryVariant = Color(0xFF4F378B)
-val LilacSecondary = Color(0xFFCCC2DC)
-val LilacSecondaryContainer = Color(0xFF4A4458)
-val LilacTertiary = Color(0xFFEFB8C8)
+// ── Surface ramp ────────────────────────────────────────────────────────────
 
-// Text and outlines
-val TextLight = Color(0xFFE6E1E5)
-val TextMuted = Color(0xFF938F99)
-val TextSubtle = Color(0xFFCAC4D0)
-val OutlineBorder = Color(0xFF49454F)
+/** The deepest step, painted behind everything. */
+val DarkBg = Color(0xFF050B16)
 
-// Rice grid, drawn behind a character in the stroke guide and the tracing canvas.
-val GridLineDark = Color(0xFF49454F)
-val GridCenterDark = Color(0xFF6750A4)
-val GhostTextDark = Color(0x33CAC4D0)
-// Named for what the grid is, not for the theme it happens to sit on. The drawing code
-// imports these; it has no business knowing that the grid is currently drawn dark.
+/** Grouped sections sitting directly on the background. */
+val DarkSurfaceContainer = Color(0xFF081324)
+
+/** The standard card. */
+val DarkSurfaceCard = Color(0xFF0D1B2F)
+
+/** A raised card, a selected row, a text field. */
+val DarkSurfaceElevated = Color(0xFF13253F)
+
+/** The top of the ramp: chips, selected segments, small controls. */
+val DarkSurfaceHighest = Color(0xFF1B3150)
+
+// ── Accents ─────────────────────────────────────────────────────────────────
+
+/** Primary accent. Electric blue: "this is interactive, this is now". */
+val AccentPrimary = Color(0xFF2E7BF6)
+
+/** Ink that sits on top of [AccentPrimary]. Near-white; the blue is mid-tone. */
+val AccentPrimaryInk = Color(0xFFF4F8FF)
+
+/** A dimmed blue for borders and tracks that should read as the accent. */
+val AccentPrimaryDim = Color(0xFF1C4DA6)
+
+/** Cyan: pronunciation and audio energy. */
+val AccentCyan = Color(0xFF2BD4EE)
+val AccentCyanContainer = Color(0xFF062A36)
+
+/** Violet: the AI surface, kept in its own hue so the tutor never reads as chrome. */
+val AccentViolet = Color(0xFF9B7BFF)
+val AccentVioletContainer = Color(0xFF1E1745)
+
+/** Amber: reviews outstanding, warnings, the "Hard" rating. */
+val AccentAmber = Color(0xFFF5B942)
+val AccentAmberContainer = Color(0xFF33240A)
+
+/** Mint: success, mastery, streaks. */
+val AccentMint = Color(0xFF2AD9A4)
+val AccentMintContainer = Color(0xFF07301F)
+
+/** Soft red: errors and the "Again" rating. Never decorative. */
+val AccentRed = Color(0xFFFF7A86)
+val AccentRedContainer = Color(0xFF3A1220)
+
+// ── Text and lines ──────────────────────────────────────────────────────────
+
+val TextLight = Color(0xFFEAF0FA)
+val TextMuted = Color(0xFF8CA2C2)
+val TextSubtle = Color(0xFFB8C8E0)
+val TextFaint = Color(0xFF5C7396)
+val OutlineBorder = Color(0xFF213551)
+val OutlineSubtle = Color(0xFF16273E)
+
+// ── Rice grid ───────────────────────────────────────────────────────────────
+//
+// Drawn behind a character in the stroke guide and the tracing canvas. Named for
+// what the grid is, not for the theme it happens to sit on: the drawing code has
+// no business knowing the grid is currently drawn dark.
+val GridLineDark = Color(0xFF213551)
+val GridCenterDark = Color(0xFF3F6BA8)
+val GhostTextDark = Color(0x33B8C8E0)
 val TianGridLine = GridLineDark
 val TianGridCenter = GridCenterDark
 
-// The four scheduling states. These carry meaning: a rating button, a badge dot, a bar
-// segment and the legend beside it all have to agree, so the four are the four and they
-// are not interchangeable with the accent colours.
-val SrsAgainDark = Color(0xFFF2B8B5)
-val SrsAgainContainer = Color(0xFF601410)
-val SrsHardDark = Color(0xFFFFB786)
-val SrsHardContainer = Color(0xFF4F2500)
-val SrsGoodDark = Color(0xFFA6D3A0)
-val SrsGoodContainer = Color(0xFF0D3B18)
-val SrsEasyDark = Color(0xFFD0BCFF)
-val SrsEasyContainer = Color(0xFF381E72)
-
-// Tone contours.
+// ── The four scheduling states ──────────────────────────────────────────────
 //
-// The names matter more than the colours here. These were labelled "High Flat", "Rising",
-// "Falling-Rising" and "Falling", which reads as though tone 1 is a falling tone; Mandarin
-// tone 1 is high and level. A learner shown "High Flat" next to a flat contour has been
-// given a term that describes something else. The names below are the standard four.
-val Tone1Color = Color(0xFFF2B8B5) // Tone 1 — high level
-val Tone2Color = Color(0xFFFFB786) // Tone 2 — rising
-val Tone3Color = Color(0xFFA6D3A0) // Tone 3 — dipping
-val Tone4Color = Color(0xFFB5C4FF) // Tone 4 — falling
-val ToneNeutralColor = Color(0xFF938F99) // Neutral, e.g. the particle "ma"
+// These carry meaning: a rating button, a badge dot, a bar segment and the legend
+// beside it all have to agree, so the four are the four and they are not
+// interchangeable with the accent colours.
+val SrsAgainDark = Color(0xFFFF7A86)
+val SrsAgainContainer = Color(0xFF3A1220)
+val SrsHardDark = Color(0xFFF5B942)
+val SrsHardContainer = Color(0xFF33240A)
+val SrsGoodDark = Color(0xFF2AD9A4)
+val SrsGoodContainer = Color(0xFF07301F)
+val SrsEasyDark = Color(0xFF5B9DFF)
+val SrsEasyContainer = Color(0xFF102A5C)
+
+// ── Tone contours ───────────────────────────────────────────────────────────
+//
+// The names matter more than the colours. Mandarin tone 1 is high and level; the
+// standard four names are used rather than "High Flat / Rising / Falling-Rising /
+// Falling", which reads as though tone 1 falls.
+val Tone1Color = Color(0xFFFF7A86) // Tone 1 — high level
+val Tone2Color = Color(0xFFF5B942) // Tone 2 — rising
+val Tone3Color = Color(0xFF2AD9A4) // Tone 3 — dipping
+val Tone4Color = Color(0xFF5B9DFF) // Tone 4 — falling
+val ToneNeutralColor = Color(0xFF8CA2C2) // Neutral, e.g. the particle "ma"
 
 /**
  * The one mapping from a card's scheduling state to the colour that means it.
  *
- * This existed twice. The library screen compared a raw `String` with an `else` branch, and the
- * dashboard compared the parsed enum with no `else` — so the two answers could not both be
- * exhaustive, and only the dashboard's would fail to compile when a state was added. The copy
- * the compiler does *not* check is the dangerous one: a fifth state would have rendered as
- * [SrsAgainDark], which is the colour that means "you failed this word again", on every row in
- * the library. It would look like data, not like a missing branch.
- *
- * So the `when` below is over the enum and has no `else`. Adding a state is now a compile error
- * here, which is the property the enum exists to provide. The unrecognised case is handled at
- * the boundary by [srsStateColor] returning `null` for a value that is not a declared state,
- * which the caller renders as [TextMuted] — grey, "state not recognised", rather than a colour
- * that asserts a scheduling judgement the data does not support.
- *
- * That is the same policy `StorageValues.fromStorage` states for itself: an unrecognised stored
- * value is reported, not disguised as a valid one.
+ * The `when` below is over the enum and has no `else`. Adding a state is a compile
+ * error here, which is the property the enum exists to provide. The unrecognised
+ * case is handled at the boundary by [srsStateColorOrNull] returning `null` for a
+ * value that is not a declared state, which the caller renders as [TextMuted] —
+ * grey, "state not recognised", rather than a colour that asserts a scheduling
+ * judgement the data does not support.
  */
 fun srsStateColor(state: StorageValues.CardState): Color = when (state) {
     StorageValues.CardState.NEW -> SrsAgainDark
@@ -86,8 +131,9 @@ fun srsStateColor(state: StorageValues.CardState): Color = when (state) {
 /**
  * As [srsStateColor], for a state still held as its stored `String`.
  *
- * Returns `null` for a value that is not a declared state, so the caller has to decide what an
- * unknown state looks like rather than inheriting a default by accident.
+ * Returns `null` for a value that is not a declared state, so the caller has to
+ * decide what an unknown state looks like rather than inheriting a default by
+ * accident.
  */
 fun srsStateColorOrNull(storedState: String?): Color? =
     StorageValues.CardState.fromStorage(storedState)?.let(::srsStateColor)

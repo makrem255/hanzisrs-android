@@ -86,9 +86,9 @@ import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
-import com.example.ui.theme.LilacSecondary
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
+import com.example.ui.theme.AccentCyan
 import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.SrsEasyDark
@@ -105,7 +105,8 @@ import com.example.util.plural
 @Composable
 fun LibraryScreen(
     viewModel: MainViewModel,
-    onWordSelected: (WordWithSrs) -> Unit = {}
+    onWordSelected: (WordWithSrs) -> Unit = {},
+    onNavigateToAddWord: () -> Unit = {}
 ) {
     val allWords by viewModel.userWords.collectAsStateWithLifecycle()
     // Without this the screen cannot tell "you have no words" from "the query has not come back
@@ -179,9 +180,9 @@ fun LibraryScreen(
                         // `List` flow, so a full disk rendered as "Vocabulary Library (0)" above
                         // a card inviting the learner to re-enter everything they had.
                         text = if (wordsLoaded && libraryError == null) {
-                            "Vocabulary Library (${allWords.size})"
+                            "Learn (${allWords.size})"
                         } else {
-                            "Vocabulary Library"
+                            "Learn"
                         },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -214,7 +215,7 @@ fun LibraryScreen(
                     onValueChange = { searchQuery = it },
                     label = { Text("Search") },
                     placeholder = { Text("Hanzi, pinyin or English", color = TextSubtle) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = LilacPrimary) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AccentPrimary) },
                     singleLine = true,
                     // Search key on a live-filtered list. The action key used to do nothing
                     // at all, so on a phone the only way to get the keyboard out of the
@@ -237,11 +238,11 @@ fun LibraryScreen(
                     ),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LilacPrimary,
+                        focusedBorderColor = AccentPrimary,
                         unfocusedBorderColor = OutlineBorder,
                         focusedTextColor = TextLight,
                         unfocusedTextColor = TextLight,
-                        cursorColor = LilacPrimary,
+                        cursorColor = AccentPrimary,
                         focusedContainerColor = DarkSurfaceContainer,
                         unfocusedContainerColor = DarkSurfaceContainer
                     ),
@@ -262,10 +263,10 @@ fun LibraryScreen(
                         val selected = selectedFilter == filter
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) LilacPrimary else DarkSurfaceContainer,
+                            color = if (selected) AccentPrimary else DarkSurfaceContainer,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (selected) LilacPrimary else OutlineBorder
+                                if (selected) AccentPrimary else OutlineBorder
                             ),
                             modifier = Modifier
                                 .selectable(
@@ -285,7 +286,7 @@ fun LibraryScreen(
                                 text = filter.label,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (selected) LilacPrimaryDark else TextMuted,
+                                color = if (selected) AccentPrimaryInk else TextMuted,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                             )
                         }
@@ -428,7 +429,7 @@ fun LibraryScreen(
                 ) { Text("Remove") }
             },
             dismissButton = {
-                TextButton(onClick = { wordPendingDeletion = null }) { Text("Keep word", color = LilacPrimary) }
+                TextButton(onClick = { wordPendingDeletion = null }) { Text("Keep word", color = AccentPrimary) }
             },
             containerColor = DarkSurfaceCard,
             shape = RoundedCornerShape(24.dp)
@@ -485,7 +486,7 @@ fun WordLibraryRow(
                         text = wordWithSrs.word.pinyin,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = LilacPrimary
+                        color = AccentPrimary
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
@@ -500,7 +501,7 @@ fun WordLibraryRow(
                             // important thing on the row.
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = LilacPrimary,
+                            color = AccentPrimary,
                             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
@@ -641,7 +642,7 @@ fun WordDetailSheet(
                         text = wordWithSrs.word.pinyin,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = LilacPrimary
+                        color = AccentPrimary
                     )
                 }
                 PronunciationButton(
@@ -751,7 +752,7 @@ fun WordDetailSheet(
                 if (wordWithSrs.word.radical.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text("Radical", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TextMuted)
-                    Text(wordWithSrs.word.radical, fontSize = 15.sp, color = LilacPrimary)
+                    Text(wordWithSrs.word.radical, fontSize = 15.sp, color = AccentPrimary)
                 }
 
                 if (wordWithSrs.word.exampleCn.isNotBlank()) {
@@ -784,7 +785,7 @@ fun WordDetailSheet(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(wordWithSrs.word.exampleCn, fontSize = 15.sp, fontWeight = FontWeight.Normal, color = TextLight)
                     if (wordWithSrs.word.examplePy.isNotBlank()) {
-                        Text(wordWithSrs.word.examplePy, fontSize = 12.sp, color = LilacPrimary)
+                        Text(wordWithSrs.word.examplePy, fontSize = 12.sp, color = AccentPrimary)
                     }
                     if (wordWithSrs.word.exampleEn.isNotBlank()) {
                         Text(wordWithSrs.word.exampleEn, fontSize = 12.sp, color = TextMuted)

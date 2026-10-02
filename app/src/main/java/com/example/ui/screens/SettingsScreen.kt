@@ -69,9 +69,9 @@ import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
-import com.example.ui.theme.LilacSecondary
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
+import com.example.ui.theme.AccentCyan
 import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.TextLight
@@ -126,7 +126,7 @@ fun SettingsScreen(
                     windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(
-                        text = "Settings & Preferences",
+                        text = "Profile",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextLight
@@ -163,12 +163,12 @@ fun SettingsScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(LilacPrimary),
+                            .background(AccentPrimary),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = currentUser?.displayName?.firstOrNull()?.toString()?.uppercase() ?: "U",
-                            color = LilacPrimaryDark,
+                            color = AccentPrimaryInk,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -204,7 +204,7 @@ fun SettingsScreen(
                                 text = "Local profile · this device",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = LilacPrimary,
+                                color = AccentPrimary,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -233,7 +233,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = LilacPrimary)
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = AccentPrimary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Daily Workload",
@@ -304,7 +304,7 @@ fun SettingsScreen(
                                 text = "No new words will be introduced. Words you already " +
                                     "have still come up for review.",
                                 fontSize = 11.sp,
-                                color = LilacPrimary
+                                color = AccentPrimary
                             )
                         }
                     }
@@ -323,7 +323,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = LilacPrimary)
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = AccentPrimary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                         text = "Review Alert Preview",
@@ -365,8 +365,8 @@ fun SettingsScreen(
                             // also claim the tap or the state change would be handled twice.
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = LilacPrimaryDark,
-                                checkedTrackColor = LilacPrimary,
+                                checkedThumbColor = AccentPrimaryInk,
+                                checkedTrackColor = AccentPrimary,
                                 uncheckedThumbColor = TextSubtle,
                                 uncheckedTrackColor = DarkSurfaceContainer
                             )
@@ -379,7 +379,7 @@ fun SettingsScreen(
                         onClick = requestNotification,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = DarkSurfaceContainer,
-                            contentColor = LilacPrimary
+                            contentColor = AccentPrimary
                         ),
                         shape = RoundedCornerShape(12.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
@@ -419,7 +419,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = LilacPrimary)
+                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = AccentPrimary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Mandarin Speech Synthesis (TTS)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
                     }
@@ -444,8 +444,8 @@ fun SettingsScreen(
                             checked = isSlowTts,
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = LilacPrimaryDark,
-                                checkedTrackColor = LilacPrimary,
+                                checkedThumbColor = AccentPrimaryInk,
+                                checkedTrackColor = AccentPrimary,
                                 uncheckedThumbColor = TextSubtle,
                                 uncheckedTrackColor = DarkSurfaceContainer
                             )
@@ -464,7 +464,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LilacPrimary)
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentPrimary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("AI Content Generation Engine", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
                     }
@@ -530,7 +530,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmSignOut = false }) {
-                    Text("Cancel", color = LilacPrimary)
+                    Text("Cancel", color = AccentPrimary)
                 }
             },
             containerColor = DarkSurfaceCard,

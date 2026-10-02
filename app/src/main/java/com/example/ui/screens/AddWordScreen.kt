@@ -87,9 +87,9 @@ import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
-import com.example.ui.theme.LilacPrimaryDark
-import com.example.ui.theme.LilacSecondary
+import com.example.ui.theme.AccentPrimary
+import com.example.ui.theme.AccentPrimaryInk
+import com.example.ui.theme.AccentCyan
 import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.SrsGoodContainer
 import com.example.ui.theme.SrsGoodDark
@@ -114,13 +114,13 @@ fun AddWordScreen(
     var searchInput by rememberSaveable { mutableStateOf("") }
 
     val customTextFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = LilacPrimary,
+        focusedBorderColor = AccentPrimary,
         unfocusedBorderColor = OutlineBorder,
         focusedTextColor = TextLight,
         unfocusedTextColor = TextLight,
-        focusedLabelColor = LilacPrimary,
+        focusedLabelColor = AccentPrimary,
         unfocusedLabelColor = TextMuted,
-        cursorColor = LilacPrimary,
+        cursorColor = AccentPrimary,
         focusedContainerColor = DarkSurfaceContainer,
         unfocusedContainerColor = DarkSurfaceContainer
     )
@@ -168,7 +168,7 @@ fun AddWordScreen(
                             } else {
                                 "Back"
                             },
-                            tint = LilacPrimary
+                            tint = AccentPrimary
                         )
                     }
                 },
@@ -203,7 +203,7 @@ fun AddWordScreen(
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = LilacPrimary)
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentPrimary)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "AI Chinese Word Enrichment",
@@ -276,20 +276,20 @@ fun AddWordScreen(
                                     .height(48.dp)
                                     .testTag("generate_word_button"),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = LilacPrimary,
-                                    contentColor = LilacPrimaryDark
+                                    containerColor = AccentPrimary,
+                                    contentColor = AccentPrimaryInk
                                 ),
                                 shape = RoundedCornerShape(24.dp),
                                 enabled = searchInput.isNotBlank() && state !is AiGenerationState.Loading
                             ) {
                                 if (state is AiGenerationState.Loading) {
                                     CircularProgressIndicator(
-                                        color = LilacPrimaryDark,
+                                        color = AccentPrimaryInk,
                                         modifier = Modifier.size(20.dp),
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Generating SRS Learning Data...", color = LilacPrimaryDark)
+                                    Text("Generating SRS Learning Data...", color = AccentPrimaryInk)
                                 } else {
                                     Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -373,7 +373,7 @@ fun AddWordScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDiscard = false }) {
-                    Text("Keep editing", color = LilacPrimary)
+                    Text("Keep editing", color = AccentPrimary)
                 }
             },
             containerColor = DarkSurfaceCard,
@@ -448,7 +448,7 @@ fun WordReviewAndApprovalView(
                 modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = LilacPrimary)
+                Icon(Icons.Default.Edit, contentDescription = null, tint = AccentPrimary)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = if (generatedData.origin == WordDataOrigin.GEMINI) {
@@ -660,10 +660,10 @@ fun WordReviewAndApprovalView(
                         val selected = hskLevel == level
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) LilacPrimary else DarkSurfaceContainer,
+                            color = if (selected) AccentPrimary else DarkSurfaceContainer,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (selected) LilacPrimary else OutlineBorder
+                                if (selected) AccentPrimary else OutlineBorder
                             ),
                             modifier = Modifier
                                 .minimumTouchTarget()
@@ -678,7 +678,7 @@ fun WordReviewAndApprovalView(
                                 text = "HSK $level",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (selected) LilacPrimaryDark else TextMuted,
+                                color = if (selected) AccentPrimaryInk else TextMuted,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                             )
                         }
@@ -837,15 +837,15 @@ fun WordReviewAndApprovalView(
                         .height(50.dp)
                         .testTag("approve_word_button"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = LilacPrimary,
-                        contentColor = LilacPrimaryDark
+                        containerColor = AccentPrimary,
+                        contentColor = AccentPrimaryInk
                     ),
                     shape = RoundedCornerShape(24.dp),
                     enabled = !isSaving
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
-                            color = LilacPrimaryDark,
+                            color = AccentPrimaryInk,
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )

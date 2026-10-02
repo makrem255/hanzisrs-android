@@ -37,8 +37,9 @@ import com.example.data.progress.LevelProgress
 import com.example.data.progress.Milestone
 import com.example.data.progress.SessionSummary
 import com.example.data.progress.UnlockedAward
+import com.example.ui.components.SectionHeader
 import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.LilacPrimary
+import com.example.ui.theme.AccentPrimary
 import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.SrsEasyDark
@@ -156,7 +157,7 @@ internal fun LevelBar(
                 .fillMaxWidth(animated)
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(LilacPrimary)
+                .background(AccentPrimary)
         )
     }
 }

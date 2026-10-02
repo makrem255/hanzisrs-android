@@ -23,7 +23,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.IconTarget
-import com.example.ui.theme.LilacPrimary
+import com.example.ui.theme.AccentPrimary
 import com.example.ui.theme.SrsAgainDark
 import com.example.ui.theme.TextMuted
 
@@ -110,7 +110,7 @@ fun PronunciationButton(
     // is the one worth recognising at a glance instead of reading. A transient playback error
     // leaves the icon alone: a red button that means "try again" is a different message from
     // a red button that means "this will never work".
-    val tint: Color = if (deviceFailure != null) SrsAgainDark else LilacPrimary
+    val tint: Color = if (deviceFailure != null) SrsAgainDark else AccentPrimary
     val icon = if (deviceFailure != null) Icons.Default.ErrorOutline else Icons.Default.VolumeUp
 
     val caption = when {

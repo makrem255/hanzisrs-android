@@ -61,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -132,8 +133,8 @@ fun SwipeDeckReviewScreen(
     // the navigation layer — two places to change and no test covering either. The keys stay as
     // they are: this re-runs when a query lands, so a screen opened before `userWords` resolved
     // still settles once it has.
-    LaunchedEffect(reviewSessionWordIds, dueWords, allWords) {
-        if (reviewSessionWordIds == null) {
+    LaunchedEffect(reviewSessionWordIds, wordsLoaded, dueWords, allWords) {
+        if (reviewSessionWordIds == null && wordsLoaded) {
             viewModel.ensureReviewSession()
         }
     }
@@ -162,6 +163,10 @@ fun SwipeDeckReviewScreen(
     val nothingLeftToReview by viewModel.nothingLeftToReview.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    // An utterance started here must not follow the learner onto the next screen.
+    DisposableEffect(Unit) {
+        onDispose { viewModel.pronunciationService.stop() }
+    }
     LaunchedEffect(reviewError) {
         reviewError?.let { message ->
             snackbarHostState.showSnackbar(message)

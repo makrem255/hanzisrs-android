@@ -57,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,6 +130,11 @@ fun LibraryScreen(
     val focusManager = LocalFocusManager.current
     var selectedWordForModal by remember { mutableStateOf<WordWithSrs?>(null) }
     var wordPendingDeletion by remember { mutableStateOf<WordWithSrs?>(null) }
+
+    // An utterance started here must not follow the learner onto the next screen.
+    DisposableEffect(Unit) {
+        onDispose { viewModel.pronunciationService.stop() }
+    }
 
     val filteredWords = remember(allWords, searchQuery, selectedFilter) {
         allWords.filter { item ->

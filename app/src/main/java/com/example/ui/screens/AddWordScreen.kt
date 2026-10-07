@@ -53,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -128,6 +129,11 @@ fun AddWordScreen(
     // generation and a set of corrections to a mis-tap with no confirmation is the kind of
     // thing a learner stops trusting an app over, so the destructive direction now asks.
     var confirmDiscard by remember { mutableStateOf(false) }
+
+    // An utterance started here must not follow the learner onto the next screen.
+    DisposableEffect(Unit) {
+        onDispose { viewModel.pronunciationService.stop() }
+    }
 
     Scaffold(
         topBar = {

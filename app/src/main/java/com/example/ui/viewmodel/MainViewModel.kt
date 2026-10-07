@@ -660,6 +660,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun logout() {
         userRepository.logout()
+        // Snapshot flows do not re-derive from currentUser the way the collection queries do
+        // (flatMapLatest), so without this the next account to open the deck would see the
+        // previous account's cards, summary and awards.
+        _reviewDeck.value = emptyList()
+        _reviewDeckState.value = ReviewDeckState(emptyList())
+        _reviewSessionWordIds.value = null
+        _sessionSummary.value = null
+        _sessionAwards.value = emptyList()
+        _nothingLeftToReview.value = false
+        _reviewError.value = null
+        _randomReviewSession.value = null
+        pronunciationService.stop()
     }
 
     /**
@@ -1210,6 +1222,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun ensureReviewSession() {
         if (_reviewSessionWordIds.value != null) return
+        // The collection flows start as empty before the first database emission. Resolving
+        // "nothing" into an empty session here would latch `reviewSessionWordIds = []` and the
+        // screen would report "nothing left" to a learner whose words had simply not loaded yet,
+        // with no retry because ids are no longer null. Wait for the load instead.
+        if (!wordsLoaded.value) return
         val words = wordsForReview()
         if (words.isNotEmpty()) {
             startReviewSession(words)

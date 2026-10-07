@@ -6,6 +6,14 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!--
+        Random Review listens to the learner saying a word. `normal` is enough because speech
+        recognition runs while the app is in the foreground - there is no background listening in
+        this app, and adding `microphone` to the foreground-service types would be an escape hatch
+        for a capability that does not exist here.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!--
         Required for TextToSpeech to discover an engine on Android 11 (API 30) and
         above. Without this, package-visibility filtering hides every TTS service,
         TextToSpeech.onInit never reports success, and TextToSpeechHelper.speak()

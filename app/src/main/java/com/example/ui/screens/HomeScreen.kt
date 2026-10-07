@@ -19,12 +19,14 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,7 +86,8 @@ fun HomeScreen(
     onNavigateToAddWord: () -> Unit,
     onNavigateToLibrary: () -> Unit,
     onNavigateToProgress: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToRandomReview: () -> Unit
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val allWords by viewModel.userWords.collectAsStateWithLifecycle()
@@ -243,6 +246,46 @@ fun HomeScreen(
                             accent = AccentMint,
                             onClick = onNavigateToProgress,
                             modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+
+            // An alternative to a graded sitting rather than a fifth destination, so it gets one
+            // full-width row instead of a slot in the four-tile grid above - the grid answers
+            // "where do I go", this answers "or what else can I do right now", and mixing the two
+            // would have made the same tile mean two different kinds of place.
+            item(key = "random_review") {
+                AppCard(
+                    onClick = onNavigateToRandomReview,
+                    contentPadding = PaddingValues(Dimens.md),
+                    modifier = Modifier.testTag("random_review_entry")
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconBadge(
+                            icon = Icons.Default.Shuffle,
+                            tint = AccentAmber,
+                            background = AccentAmber.copy(alpha = 0.14f),
+                            size = 34.dp,
+                            cornerRadius = 11.dp
+                        )
+                        Spacer(Modifier.width(Dimens.md))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                text = "Random Review",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = TextLight
+                            )
+                            Text(
+                                text = "Open practice · nothing gets rescheduled",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = TextMuted
                         )
                     }
                 }

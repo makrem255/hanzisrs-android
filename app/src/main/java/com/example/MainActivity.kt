@@ -28,6 +28,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,6 +55,7 @@ import com.example.ui.screens.AuthScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.ProgressScreen
+import com.example.ui.screens.RandomReviewScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SwipeDeckReviewScreen
 import com.example.ui.theme.AccentPrimary
@@ -104,8 +111,28 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
     object Profile : Screen("settings", "Profile", { Icon(Icons.Default.Person, contentDescription = "Profile") })
     object AddWord : Screen("add_word", "Add Word", { Icon(Icons.Default.AddCircle, contentDescription = "Add Word") })
     object Deck : Screen("deck", "Review", {})
+
+    /**
+     * Open practice, deliberately not in the bottom bar.
+     *
+     * It is an alternative to a graded sitting rather than a fourth place to be, and adding it to
+     * the navigation rail would have made four destinations carry a fifth that does a version of
+     * what "Review" already does. Reached from Home, like "Review" is, and left off the rail for
+     * the same reason the rail has no entry for it.
+     */
+    object RandomReview : Screen("random_review", "Practice", {})
     object Auth : Screen("auth", "Auth", {})
 }
+
+/**
+ * The easing every screen change in the app shares.
+ *
+ * Named once because four transitions have to agree on it: if forward eases out and back eases
+ * in, the app feels like it changes its mind depending on which way you went. `0.2f, 0f, 0f, 1f`
+ * is the platform's own "decelerate" curve, so these transitions feel like the rest of Android
+ * rather than like something invented here.
+ */
+private val NavEase = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
 fun MainAppContainer(
@@ -239,7 +266,31 @@ fun MainAppContainer(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            // Stated rather than inherited, so the app's transitions are one decision made here
+            // instead of whatever the navigation library's default happens to be.
+            //
+            // Deliberately shallow: a quarter of the width and a 60/240ms fade. Enough that a
+            // screen arrival has direction - you can tell whether you went forward or back - and
+            // not enough that a learner tapping through four destinations waits for any of them.
+            // The outgoing and incoming screens overlap rather than queue, so there is never a
+            // frame where the app looks empty.
+            enterTransition = {
+                fadeIn(tween(260)) +
+                    slideInHorizontally(tween(340, easing = NavEase)) { it / 4 }
+            },
+            exitTransition = {
+                fadeOut(tween(200)) +
+                    slideOutHorizontally(tween(260, easing = NavEase)) { -it / 6 }
+            },
+            popEnterTransition = {
+                fadeIn(tween(260)) +
+                    slideInHorizontally(tween(340, easing = NavEase)) { -it / 4 }
+            },
+            popExitTransition = {
+                fadeOut(tween(200)) +
+                    slideOutHorizontally(tween(260, easing = NavEase)) { it / 6 }
+            }
         ) {
             composable(Screen.Auth.route) {
                 AuthScreen(
@@ -263,7 +314,8 @@ fun MainAppContainer(
                     onNavigateToAddWord = { navController.navigate(Screen.AddWord.route) },
                     onNavigateToLibrary = { navController.navigate(Screen.Learn.route) },
                     onNavigateToProgress = { navController.navigate(Screen.Progress.route) },
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
+                    onNavigateToRandomReview = { navController.navigate(Screen.RandomReview.route) }
                 )
             }
 
@@ -276,6 +328,13 @@ fun MainAppContainer(
 
             composable(Screen.Deck.route) {
                 SwipeDeckReviewScreen(
+                    viewModel = viewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(Screen.RandomReview.route) {
+                RandomReviewScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )

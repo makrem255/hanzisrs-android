@@ -1,8 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,19 +63,21 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -96,6 +96,7 @@ import com.example.ui.components.IconTarget
 import com.example.ui.components.InteractiveStrokeSection
 import com.example.ui.components.MinTouchTarget
 import com.example.ui.components.SegmentedOption
+import com.example.ui.components.rememberHaptics
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
 import com.example.ui.theme.DarkSurfaceContainer
@@ -113,20 +114,7 @@ import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.MainViewModel
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-
-/**
- * How far a card has to travel sideways before the gesture counts as a grade.
- *
- * Roughly a fifth of a phone's width. Below it, a drag that turns out to be a scroll or a
- * mis-tap returns to centre, and the learner has to say what they meant with the four buttons -
- * which is the point, because the swipe is a shortcut to a choice the buttons make explicit.
- */
-private const val SWIPE_COMMIT_THRESHOLD = 250f
-
-/** How far past the threshold a card is thrown once the gesture has committed. */
-private const val FLY_OUT = 900f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -183,24 +171,24 @@ fun SwipeDeckReviewScreen(
         }
     }
 
-    val coroutineScope = rememberCoroutineScope()
-    // A plain float, not an `Animatable`. Drag used to write the offset through
-    // `coroutineScope.launch { snapTo(...) }`, which is one coroutine per touch event for the whole
-    // length of a swipe; those launches are queued, not ordered, so a fast drag applied its deltas
-    // out of order and the card could lag behind or jump. Reading and writing the value directly
-    // is both cheaper and impossible to reorder.
-    // Saveable, so a rotation mid-sitting does not snap the card back to centre or drop the
-    // pillar the learner had opened. These are `remember`, not `rememberSaveable`, which
-    // meant that turning the phone sideways in the middle of a drag threw the drag away and
-    // reset the card — the learner lost their place because the OS changed a dimension.
-    // `isFlipped` and the card index already live in the view model and survive correctly;
-    // these two are the gap.
-    var offsetX by rememberSaveable { mutableFloatStateOf(0f) }
+    // The card's horizontal offset, and everything that decides when it may move.
+    //
+    // This used to be a bare `Float` written by both the drag handler and a fling launched on
+    // its own coroutine that nothing ever cancelled - see `CardSwipeState` for the three defects
+    // that produced, all of them intermittent because they depended on whether the rating's
+    // database write landed before or after the spring. One owner, one settle at a time, and
+    // cancellation before every write is what makes a swipe reliable rather than usually right.
+    val swipe = rememberCardSwipeState(currentDeckIndex)
 
-    // Recentre for each new card. Flinging the card off-screen and waiting for it to come back
-    // meant the learner watched a blank rectangle for however long the database write took; the
-    // fling is now independent of the write, so the reset is keyed on the card changing.
-    LaunchedEffect(currentDeckIndex) { offsetX = 0f }
+    // The single bridge from the deck machine to the card's position.
+    //
+    // Keyed on the whole state rather than on the index alone, because the refused-grade case is
+    // `isRating` falling *without* the index ever moving - the one path the old index-keyed reset
+    // could never reach, and therefore the one that left a card parked off-screen with no card
+    // behind it.
+    LaunchedEffect(deckState) {
+        swipe.onDeckStateChanged(deckState.index, deckState.isRating)
+    }
     // Meaning first. The question a learner brings to a review card is what the character means,
     // and it was the answer - behind a second tap on a tab that opened on stroke order.
     var selectedPillarTab by rememberSaveable { mutableIntStateOf(1) } // 0 = Writing & Strokes, 1 = Meaning & Radical, 2 = Context Sentence
@@ -414,44 +402,85 @@ fun SwipeDeckReviewScreen(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
+                // Everything the swipe gesture needs that has to be resolved in composition
+                // rather than inside `pointerInput`, which is not composable.
+                //
+                // The threshold is converted from dp once, here, so the same physical distance
+                // commits on every screen density; the fly-out distance is derived from the
+                // display so a card always leaves it, rather than travelling a fixed 900px that
+                // was short of the edge on a 1440px display.
+                val density = LocalDensity.current.density
+                val thresholdPx = swipeThresholdPx(density)
+                val flyOutPx = flyOutDistancePx(LocalConfiguration.current.screenWidthDp * density)
+                val velocityTracker = remember { VelocityTracker() }
+                val haptics = rememberHaptics()
+
+                // A live read of the deck. Hoisted because `rememberUpdatedState` is composable
+                // and the gesture lambda is not; delegating with `by` means every read inside the
+                // lambda still resolves to the current value rather than the one captured when
+                // the detector started.
+                val latestDeckState by rememberUpdatedState(deckState)
+
                 // The Swipable Flashcard Box
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .offset { IntOffset(offsetX.roundToInt(), 0) }
-                        .rotate(offsetX / 40f)
-                        .pointerInput(currentDeckIndex, isFlipped, currentWordWithSrs.word.id) {
+                        .offset { IntOffset(swipe.offsetX.roundToInt(), 0) }
+                        .rotate(swipeTiltDegrees(swipe.offsetX))
+                        // `isFlipped` is deliberately not a key: the handler reads reveal state
+                        // through `latestDeckState` above, so restarting the detector on reveal
+                        // would buy nothing and would cancel any gesture in progress without
+                        // `onDragCancel` ever being called. The keys are only what the lambda
+                        // reads directly and cannot hoist.
+                        .pointerInput(currentDeckIndex, currentWordWithSrs.word.id) {
                             detectHorizontalDragGestures(
+                                onDragStart = { velocityTracker.resetTracking() },
                                 onDragEnd = {
-                                    // Only a revealed card can be rated. A swipe used to record a
-                                    // grade whether the learner had read the answer or not, so a
-                                    // deck could be cleared without a single recall - writing a
-                                    // real review, moving a real due date and paying real XP for
-                                    // a question that was never asked of anyone.
-                                    val rating = when {
-                                        !isFlipped -> null
-                                        offsetX > SWIPE_COMMIT_THRESHOLD -> SrsRating.GOOD
-                                        offsetX < -SWIPE_COMMIT_THRESHOLD -> SrsRating.HARD
-                                        else -> null
-                                    }
-                                    val target = when {
-                                        offsetX > SWIPE_COMMIT_THRESHOLD -> FLY_OUT
-                                        offsetX < -SWIPE_COMMIT_THRESHOLD -> -FLY_OUT
-                                        else -> 0f
-                                    }
-                                    // The write is not awaited. It used to be, so the card stayed
-                                    // parked off-screen for the length of the database round trip
-                                    // with nothing on it; the fling runs on its own clock and the
-                                    // deck advances when the write lands.
-                                    rating?.let { viewModel.submitRating(currentWordWithSrs, it) }
-                                    coroutineScope.launch {
-                                        val proxy = Animatable(offsetX)
-                                        proxy.animateTo(target, spring()) { offsetX = value }
+                                    // Read through `rememberUpdatedState`, because this block is
+                                    // not composable and the keys above do not restart it when
+                                    // `isRating` changes underneath a gesture. `canRate` is the
+                                    // deck's own predicate - the same one `beginRating()` refuses
+                                    // on - so the swipe and the four buttons can never disagree
+                                    // about whether a grade may be written.
+                                    val outcome = decideSwipe(
+                                        offsetPx = swipe.offsetX,
+                                        velocityPxPerSec = velocityTracker.calculateVelocity().x,
+                                        canCommit = latestDeckState.canRate,
+                                        thresholdPx = thresholdPx
+                                    )
+
+                                    when (outcome) {
+                                        SwipeOutcome.ReturnToCentre -> swipe.springBack()
+
+                                        SwipeOutcome.CommitRight,
+                                        SwipeOutcome.CommitLeft -> {
+                                            val right = outcome == SwipeOutcome.CommitRight
+                                            val rating = if (right) SrsRating.GOOD else SrsRating.HARD
+
+                                            // Claimed before the card is thrown, so the deck's
+                                            // in-flight flag and this state's `Committed` phase
+                                            // move together. The write is not awaited: it used to
+                                            // be, which parked the card off-screen for the length
+                                            // of a database round trip with nothing on it. The
+                                            // fling runs on its own clock and the deck advances
+                                            // when the write lands - and if it never does,
+                                            // `onDeckStateChanged` springs the card back.
+                                            viewModel.submitRating(currentWordWithSrs, rating)
+                                            swipe.flingOut(if (right) flyOutPx else -flyOutPx)
+                                            haptics.confirm()
+                                        }
                                     }
                                 },
-                                onHorizontalDrag = { _, dragAmount ->
-                                    offsetX += dragAmount
+                                // The pointer being taken away mid-drag - a swipe-from-edge
+                                // navigation gesture, the notification shade, the system
+                                // cancelling the touch - used to leave the card wherever the
+                                // drag happened to stop, because nothing was listening for it.
+                                // It goes home now.
+                                onDragCancel = { swipe.springBack() },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    velocityTracker.addPosition(change.uptimeMillis, change.position)
+                                    swipe.dragBy(dragAmount)
                                 }
                             )
                         }
@@ -1032,7 +1061,7 @@ private fun ReviewSessionCompletedView(
                     textAlign = TextAlign.Center
                 )
 
-                if (studied && summary != null) {
+                if (studied) {
                     Spacer(modifier = Modifier.height(18.dp))
                     SessionSummaryCard(
                         summary = summary,

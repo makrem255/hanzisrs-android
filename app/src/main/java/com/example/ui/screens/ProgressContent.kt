@@ -1,6 +1,11 @@
 package com.example.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +27,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -208,13 +217,45 @@ private fun MilestoneStrip(milestones: List<Milestone>) {
  */
 @Composable
 internal fun AchievementGrid(achievements: List<AchievementState>, columns: Int = 2) {
-    AdaptiveGrid(columns = columns, children = achievements.map { achievement ->
-        { AchievementTile(achievement) }
+    AdaptiveGrid(columns = columns, children = achievements.mapIndexed { index, achievement ->
+        { AchievementTile(achievement, entranceIndex = index) }
     })
 }
 
+/**
+ * One badge, rising into place as the grid appears.
+ *
+ * The cascade is capped at [ENTRANCE_STAGGER_MS] apart and [ENTRANCE_MAX_DELAY_MS] in total, so a
+ * screen full of badges resolves in well under a second. Beyond that it stops reading as a group
+ * arriving and starts reading as a list being typed out, and a learner who opens Progress every
+ * day would be waiting on a flourish they have already seen.
+ *
+ * The flag starts false and is flipped once by [LaunchedEffect]: [AnimatedVisibility] animates on
+ * a *change* in `visible`, so composing it already true would show the enter transition never
+ * running at all.
+ */
 @Composable
-private fun AchievementTile(achievement: AchievementState) {
+private fun AchievementTile(achievement: AchievementState, entranceIndex: Int = 0) {
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+
+    val delay = (entranceIndex * ENTRANCE_STAGGER_MS).coerceAtMost(ENTRANCE_MAX_DELAY_MS)
+
+    AnimatedVisibility(
+        visible = entered,
+        enter = fadeIn(tween(280, delayMillis = delay)) +
+            slideInVertically(tween(360, delayMillis = delay)) { it / 3 },
+        exit = fadeOut(tween(0))
+    ) {
+        AchievementBody(achievement)
+    }
+}
+
+private const val ENTRANCE_STAGGER_MS = 45
+private const val ENTRANCE_MAX_DELAY_MS = 320
+
+@Composable
+private fun AchievementBody(achievement: AchievementState) {
     val earned = achievement.isUnlocked
     DashboardCard(
         modifier = Modifier

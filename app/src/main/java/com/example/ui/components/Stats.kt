@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +88,11 @@ fun StatTile(
  *
  * Used for the daily goal, where the number belongs *inside* the shape that measures
  * it rather than beside it.
+ *
+ * The sweep eases to its new value rather than jumping. A ring that jumps reads as a number
+ * changing; a ring that travels reads as progress being made, which is the entire thing the
+ * shape is there to communicate. Long enough to be legible (600ms), short enough that a learner
+ * waiting on the next screen does not notice it.
  */
 @Composable
 fun ProgressRing(
@@ -95,12 +103,18 @@ fun ProgressRing(
     strokeWidth: Dp = 8.dp,
     content: @Composable () -> Unit
 ) {
+    val sweep by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 600, easing = EaseOutQuint),
+        label = "progressRing"
+    )
+
     Box(
         modifier = modifier.size(diameter),
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
-            progress = { progress.coerceIn(0f, 1f) },
+            progress = { sweep },
             modifier = Modifier.size(diameter),
             color = accent,
             trackColor = DarkSurfaceHighest,
@@ -111,7 +125,13 @@ fun ProgressRing(
     }
 }
 
-/** A rounded progress bar. Used for goals and per-topic completion. */
+/**
+ * A rounded progress bar. Used for goals and per-topic completion.
+ *
+ * Animated for the same reason as [ProgressRing], and because the bar is usually one of several
+ * that arrive together, they share one curve so a screen of them settles as a group instead of
+ * each stopping at a different moment.
+ */
 @Composable
 fun GoalBar(
     progress: Float,
@@ -120,6 +140,12 @@ fun GoalBar(
     trackColor: Color = DarkSurfaceHighest,
     height: Dp = 10.dp
 ) {
+    val sweep by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(durationMillis = 600, easing = EaseOutQuint),
+        label = "goalBar"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -129,13 +155,22 @@ fun GoalBar(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(progress.coerceIn(0f, 1f))
+                .fillMaxWidth(sweep)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(50))
                 .background(accent)
         )
     }
 }
+
+/**
+ * The shared settle for every measured quantity on screen.
+ *
+ * Declared once so the ring and the bars agree: `0.25f, 0.1f, 0.25f, 1f` starts quickly, holds
+ * through the middle where the value is actually being read, and lands without an overshoot.
+ * An overshoot on a progress bar would briefly report more progress than exists.
+ */
+private val EaseOutQuint = androidx.compose.animation.core.CubicBezierEasing(0.25f, 0.1f, 0.25f, 1f)
 
 /** A label/value row used in compact stat groups. */
 @Composable

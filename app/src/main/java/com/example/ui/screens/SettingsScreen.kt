@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.RecordVoiceOver
@@ -88,6 +89,11 @@ fun SettingsScreen(
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val isSlowTts by viewModel.isSlowTts.collectAsStateWithLifecycle()
+
+    // Deliberately its own switch rather than a third row in the TTS card above: these are
+    // different settings about different sounds, and a learner who wants words read aloud but no
+    // clicks - or clicks but no words - is describing a real preference, not a contradictory one.
+    val soundEffectsEnabled by viewModel.soundEffectsEnabled.collectAsStateWithLifecycle()
     val dueCount by viewModel.dueCount.collectAsStateWithLifecycle()
 
     // Saveable so turning the phone sideways does not silently re-enable a setting the
@@ -442,6 +448,64 @@ fun SettingsScreen(
                     ) {
                         Switch(
                             checked = isSlowTts,
+                            onCheckedChange = null,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = AccentPrimaryInk,
+                                checkedTrackColor = AccentPrimary,
+                                uncheckedThumbColor = TextSubtle,
+                                uncheckedTrackColor = DarkSurfaceContainer
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Interface sounds. Held apart from the synthesis card above because it is a
+            // different control over a different thing: that one decides how words are spoken,
+            // this one decides whether the interface makes noise at all.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
+                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AccentPrimary)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Sound Effects", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Short taps and chimes for taps, reveals and finished sessions. " +
+                            "Synthesised for this app, always optional, and never played over " +
+                            "your pronunciation audio.",
+                        fontSize = 12.sp,
+                        color = TextMuted,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // The whole row is the switch, as everywhere else in this screen.
+                    SwitchRow(
+                        checked = soundEffectsEnabled,
+                        onCheckedChange = { viewModel.setSoundEffectsEnabled(it) },
+                        label = "Sound Effects",
+                        supporting = if (soundEffectsEnabled) {
+                            "On — taps, reveals and completions"
+                        } else {
+                            "Off — the interface stays quiet"
+                        },
+                        labelColor = TextLight,
+                        supportingColor = TextMuted,
+                        modifier = Modifier.testTag("sound_effects_switch")
+                    ) {
+                        Switch(
+                            checked = soundEffectsEnabled,
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = AccentPrimaryInk,

@@ -27,11 +27,16 @@ import com.example.data.repository.WordRepository
 import com.example.data.progress.LearnerProgress
 import com.example.data.progress.SessionSummary
 import com.example.data.progress.UnlockedAward
+import com.example.data.review.RandomWordChoice
+import com.example.data.review.pickRandomWord
+import com.example.data.settings.UiPreferencesStore
 import com.example.data.srs.ReviewDeckState
 import com.example.data.srs.SrsRating
 import com.example.util.NotificationHelper
 import com.example.audio.AndroidTtsPronunciationProvider
 import com.example.audio.PronunciationService
+import com.example.audio.UiSound
+import com.example.audio.UiSoundPlayer
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -42,6 +47,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -85,6 +91,40 @@ sealed class AiGenerationState {
     object Loading : AiGenerationState()
     data class ReadyForReview(val wordData: GeneratedWordData) : AiGenerationState()
     data class Error(val message: String) : AiGenerationState()
+}
+
+
+/**
+ * What Random Review can be showing.
+ *
+ * The same sealed shape as [DashboardUiState] and [ProgressUiState], for the same reason: a
+ * screen that is handed a nullable word and a separate `isLoading` flag has to invent the
+ * difference between "nothing yet" and "nothing at all", and the two failure modes look
+ * identical to a learner who is waiting - one of which tells them they have no vocabulary when
+ * in fact the query has not answered.
+ *
+ * There is deliberately no "no learned vocabulary" member. When nothing has been graded yet the
+ * selection falls back to the learner's whole collection and [Showing] arrives carrying
+ * [com.example.data.review.RandomWordPool.AllEnrolled], which the screen reports as a note on a
+ * working feature. Sending a learner with twenty enrolled words to an empty state about studying
+ * first would be accurate, unhelpful, and the answer to a question they did not ask.
+ */
+sealed class RandomReviewUiState {
+    /** The vocabulary collection has not resolved yet, or a pick has not been made from it. */
+    object Loading : RandomReviewUiState()
+
+    /** The learner is not enrolled in any word, so there is nothing to draw from. */
+    object NoVocabulary : RandomReviewUiState()
+
+    /** The word on screen. */
+    data class Showing(
+        val choice: RandomWordChoice,
+        val revealed: Boolean,
+        val wordsShown: Int,
+    ) : RandomReviewUiState()
+
+    /** The read failed. The message is fixed and safe to show; it is never a thrown message. */
+    data class Failed(val message: String) : RandomReviewUiState()
 }
 
 // flatMapLatest is used below to re-scope the word queries to the signed-in learner.
@@ -1222,6 +1262,157 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         pronunciationService.setSlow(!pronunciationService.isSlowTts)
     }
 
+    // ---- interface sounds -------------------------------------------------------------------------
+
+    /**
+     * The app's short interaction sounds.
+     *
+     * Held beside [pronunciationService] rather than created by the screens that play them, for
+     * the same reason that service is: two screens playing a chime at the same time would be two
+     * [android.media.SoundPool]s decoding six files each, and a setting that had to be re-read by
+     * every call site would be a setting that some call sites forgot.
+     *
+     * A screen should reach this through [playSound], which applies the learner's preference.
+     */
+    val uiSounds = UiSoundPlayer(application)
+
+    private val uiPreferences = UiPreferencesStore(application)
+
+    /**
+     * Whether interface sounds may play.
+     *
+     * Backed by [UiPreferencesStore] rather than by the `user_preferences` table, and held as a
+     * flow so the settings switch and the player cannot disagree: the write goes to preferences,
+     * then the flow, then the player's own flag, so anyone reading the flow always sees a player
+     * that has already been told.
+     *
+     * Kept separate from [isSlowTts] on purpose. Those control different things - one is about
+     * how words sound, the other about whether the interface makes noise at all - and a learner
+     * who wants pronunciation audio but no clicks is describing a real preference, not a
+     * contradictory one.
+     */
+    private val _soundEffectsEnabled = MutableStateFlow(uiPreferences.soundEffectsEnabled)
+    val soundEffectsEnabled: StateFlow<Boolean> = _soundEffectsEnabled.asStateFlow()
+
+    init {
+        uiSounds.isEnabled = _soundEffectsEnabled.value
+    }
+
+    /** Persists and applies the sound-effect preference immediately. */
+    fun setSoundEffectsEnabled(enabled: Boolean) {
+        uiPreferences.setSoundEffectsEnabled(enabled)
+        _soundEffectsEnabled.value = enabled
+        uiSounds.isEnabled = enabled
+    }
+
+    /**
+     * Plays [sound] if the learner has sounds enabled.
+     *
+     * The only way a screen should reach the player, so "is it enabled?" is decided in one place
+     * instead of at every button.
+     */
+    fun playSound(sound: UiSound) {
+        uiSounds.play(sound)
+    }
+
+    // ---- random review ----------------------------------------------------------------------------
+
+    /**
+     * The open Random Review sitting, if there is one.
+     *
+     * A snapshot rather than a derived query, for the reason [reviewDeck] is: the word under the
+     * learner's finger must not change identity between being shown and being answered, and
+     * re-deriving it from a live collection flow would let a background write swap the card
+     * mid-pronunciation.
+     *
+     * This never touches the scheduler. Nothing in this section writes `srs_state`, `review_log`
+     * or a due date: Random Review is practice, and recording a review for a word the learner was
+     * never asked to rate would quietly change the study plan of a feature that exists to give
+     * them a break from it.
+     */
+    private data class RandomReviewSession(
+        val choice: RandomWordChoice,
+        val revealed: Boolean,
+        val wordsShown: Int,
+    )
+
+    private val _randomReviewSession = MutableStateFlow<RandomReviewSession?>(null)
+
+    /**
+     * What Random Review is showing, derived from the same [userWords] every other screen reads.
+     *
+     * Combined rather than held separately so this feature could not grow its own copy of the
+     * vocabulary query: one collection, one error flag, one loader, and a surface that agrees
+     * with the library about what the learner has, simply because it is looking at the same rows.
+     */
+    val randomReviewState: StateFlow<RandomReviewUiState> =
+        combine(userWords, wordsLoaded, libraryError, _randomReviewSession) { words, loaded, error, session ->
+            when {
+                error != null -> RandomReviewUiState.Failed(error)
+                !loaded -> RandomReviewUiState.Loading
+                session != null -> RandomReviewUiState.Showing(
+                    choice = session.choice,
+                    revealed = session.revealed,
+                    wordsShown = session.wordsShown,
+                )
+                words.isEmpty() -> RandomReviewUiState.NoVocabulary
+                // Loaded, non-empty, not yet picked: the first pick is in flight. Drawing the
+                // empty state here would report "no vocabulary" on the frame before the pick
+                // lands, which a learner reads as the feature being broken rather than as slow.
+                else -> RandomReviewUiState.Loading
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RandomReviewUiState.Loading)
+
+    /**
+     * Opens Random Review, picking a word if there is not already one on screen.
+     *
+     * Waits for the collection instead of racing it. [userWords] is a `StateFlow` and therefore
+     * reads as empty before its first database emission, so picking immediately would show "no
+     * vocabulary" to a learner who has some - and because [SharingStarted.WhileSubscribed] keeps
+     * that value warm, it would do it on every open rather than never.
+     */
+    fun startRandomReview() {
+        viewModelScope.launch {
+            wordsLoaded.first { it }
+            if (_randomReviewSession.value == null) pickNextRandomWord(null)
+        }
+    }
+
+    /** Uncovers the word on screen. A no-op when it is already showing. */
+    fun revealRandomWord() {
+        _randomReviewSession.update { session ->
+            if (session == null || session.revealed) session else session.copy(revealed = true)
+        }
+    }
+
+    /** Moves to another word, avoiding an immediate repeat when the collection allows one. */
+    fun nextRandomWord() {
+        val current = _randomReviewSession.value ?: return
+        pickNextRandomWord(current.choice.word.word.id, current.wordsShown)
+    }
+
+    /** Ends the sitting. The next entry starts fresh rather than resuming a half-answered word. */
+    fun endRandomReview() {
+        _randomReviewSession.value = null
+    }
+
+    /**
+     * Picks a word and puts it on screen.
+     *
+     * One private function for the three ways of arriving here - opening, moving on - so they
+     * cannot diverge about what counts as a shown word. Selection itself is
+     * [com.example.data.review.pickRandomWord], a pure function, so the policy about preferring
+     * learned words and avoiding repeats is tested without any of this.
+     */
+    private fun pickNextRandomWord(excludeId: Long?, shownSoFar: Int = 0) {
+        val choice = pickRandomWord(userWords.value, excludeId) ?: return
+        _randomReviewSession.value = RandomReviewSession(
+            choice = choice,
+            revealed = false,
+            wordsShown = shownSoFar + 1,
+        )
+    }
+
     // ---- daily study limits -----------------------------------------------------------------------------
 
     /**
@@ -1303,5 +1494,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         pronunciationService.shutdown()
+        // The SoundPool is native memory held for the life of the process otherwise. A later
+        // play would simply rebuild it, so releasing here costs nothing but the first tap's
+        // decode on the unlikely path where a cleared view model is asked for a sound again.
+        uiSounds.release()
     }
 }

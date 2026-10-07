@@ -16,7 +16,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -103,8 +107,12 @@ fun ProgressRing(
     strokeWidth: Dp = 8.dp,
     content: @Composable () -> Unit
 ) {
+    // Starts at zero and travels to the value, including on first composition: without the
+    // indirection the initial value equals the target and there is nothing to animate.
+    var shown by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(progress) { shown = progress.coerceIn(0f, 1f) }
     val sweep by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
+        targetValue = shown,
         animationSpec = tween(durationMillis = 600, easing = EaseOutQuint),
         label = "progressRing"
     )
@@ -140,8 +148,10 @@ fun GoalBar(
     trackColor: Color = DarkSurfaceHighest,
     height: Dp = 10.dp
 ) {
+    var shown by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(progress) { shown = progress.coerceIn(0f, 1f) }
     val sweep by animateFloatAsState(
-        targetValue = progress.coerceIn(0f, 1f),
+        targetValue = shown,
         animationSpec = tween(durationMillis = 600, easing = EaseOutQuint),
         label = "goalBar"
     )

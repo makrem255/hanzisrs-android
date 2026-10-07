@@ -68,7 +68,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -81,6 +80,7 @@ import com.example.data.model.StorageValues
 import com.example.data.model.WordWithSrs
 import com.example.ui.components.IconTarget
 import com.example.ui.components.InteractiveStrokeSection
+import com.example.ui.components.PrimaryButton
 import com.example.ui.components.minimumTouchTarget
 import com.example.ui.theme.DarkBg
 import com.example.ui.theme.DarkSurfaceCard
@@ -370,12 +370,23 @@ fun LibraryScreen(
                                     text = libraryError
                                         ?: when {
                                             !wordsLoaded -> ""
-                                            allWords.isEmpty() -> "Add a Hanzi from the Routine tab to begin your review deck."
+                                            allWords.isEmpty() -> "Add your first Hanzi and start building your personal language library."
                                             else -> "Try another search term or clear a filter."
                                         },
                                     color = TextMuted,
                                     fontSize = 12.sp
                                 )
+                                // The tab previously had no way forward: adding a word required
+                                // leaving for Home. The empty library is the one place a
+                                // creation action is the primary action, not a shortcut.
+                                if (libraryError == null && wordsLoaded && allWords.isEmpty()) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    PrimaryButton(
+                                        text = "Add word",
+                                        onClick = onNavigateToAddWord,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
                             }
                         }
                     }

@@ -37,6 +37,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -56,7 +57,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -151,6 +151,13 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Group headers keep six full-width cards scannable: account, the daily
+            // workload being learned, and the experience controls each read as one group.
+            Text(
+                text = "Account",
+                style = MaterialTheme.typography.titleSmall,
+                color = TextMuted
+            )
             // User Account Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -218,6 +225,11 @@ fun SettingsScreen(
                 }
             }
 
+            Text(
+                text = "Learning",
+                style = MaterialTheme.typography.titleSmall,
+                color = TextMuted
+            )
             // Daily workload --------------------------------------------------------------------------------
             //
             // These two numbers decide what the app asks the learner to study each day.
@@ -460,6 +472,11 @@ fun SettingsScreen(
                 }
             }
 
+            Text(
+                text = "Experience",
+                style = MaterialTheme.typography.titleSmall,
+                color = TextMuted
+            )
             // Interface sounds. Held apart from the synthesis card above because it is a
             // different control over a different thing: that one decides how words are spoken,
             // this one decides whether the interface makes noise at all.
@@ -518,6 +535,11 @@ fun SettingsScreen(
                 }
             }
 
+            Text(
+                text = "AI",
+                style = MaterialTheme.typography.titleSmall,
+                color = TextMuted
+            )
             // AI Model Configuration
             Card(
                 modifier = Modifier.fillMaxWidth(),

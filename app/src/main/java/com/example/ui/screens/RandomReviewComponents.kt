@@ -37,7 +37,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -210,8 +214,10 @@ private fun RippleRings(tint: Color) {
  */
 @Composable
 fun RecognisedBadge(modifier: Modifier = Modifier) {
+    var shown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { shown = true }
     val overshoot by animateFloatAsState(
-        targetValue = 1f,
+        targetValue = if (shown) 1f else 0.6f,
         animationSpec = spring(dampingRatio = 0.45f, stiffness = 320f),
         label = "recognisedOvershoot"
     )

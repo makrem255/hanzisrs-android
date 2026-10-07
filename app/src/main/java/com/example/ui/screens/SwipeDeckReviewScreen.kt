@@ -61,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,17 +73,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -114,7 +113,6 @@ import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.MainViewModel
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -178,15 +176,16 @@ fun SwipeDeckReviewScreen(
     // that produced, all of them intermittent because they depended on whether the rating's
     // database write landed before or after the spring. One owner, one settle at a time, and
     // cancellation before every write is what makes a swipe reliable rather than usually right.
-    val swipe = rememberCardSwipeState(currentDeckIndex)
+    // Keyed on the sitting: a new session starting at the same index must not inherit the
+    // previous sitting's offset, and rememberCardSwipeState only takes an initial index once.
+    val swipe = key(reviewSessionWordIds) { rememberCardSwipeState(currentDeckIndex) }
 
     // The single bridge from the deck machine to the card's position.
     //
-    // Keyed on the whole state rather than on the index alone, because the refused-grade case is
-    // `isRating` falling *without* the index ever moving - the one path the old index-keyed reset
-    // could never reach, and therefore the one that left a card parked off-screen with no card
-    // behind it.
-    LaunchedEffect(deckState) {
+    // Keyed on the index and the in-flight flag rather than the whole state, so answer-map
+    // growth does not restart it. The refused-grade case (isRating falling without the index
+    // moving) is still covered, which the old index-only key could never reach.
+    LaunchedEffect(deckState.index, deckState.isRating) {
         swipe.onDeckStateChanged(deckState.index, deckState.isRating)
     }
     // Meaning first. The question a learner brings to a review card is what the character means,
@@ -207,6 +206,7 @@ fun SwipeDeckReviewScreen(
     LaunchedEffect(isFinished, reviewDeck.size) {
         if (isFinished && reviewDeck.isNotEmpty()) {
             viewModel.finishSession()
+            viewModel.playSound(com.example.audio.UiSound.Complete)
         }
     }
 
@@ -290,7 +290,14 @@ fun SwipeDeckReviewScreen(
                 modifier = Modifier.padding(padding)
             )
         } else {
-            val currentWordWithSrs = reviewDeck[currentDeckIndex]
+            // Resolved by id, not by position: an AGAIN re-queue grows the session id list,
+            // so positional indexing would drift after the first failure.
+            val currentId = deckState.currentWordId
+            val currentWordWithSrs = reviewDeck.firstOrNull { it.word.id == currentId } ?: reviewDeck.getOrNull(currentDeckIndex) ?: reviewDeck.firstOrNull()
+            if (currentWordWithSrs == null) {
+                ReviewSessionLoadingView(modifier = Modifier.padding(padding))
+                return@Scaffold
+            }
             val nextIntervals = remember(currentWordWithSrs.srs) {
                 SrsRating.entries.associateWith { rating ->
                     // Through the repository, so the interval this button promises is the interval
@@ -421,13 +428,17 @@ fun SwipeDeckReviewScreen(
                 // the detector started.
                 val latestDeckState by rememberUpdatedState(deckState)
 
-                // The Swipable Flashcard Box
+                // The Swipable Flashcard Box. Positioned through graphicsLayer so the card
+                // follows the finger without recomposing the whole card (scroll state,
+                // audio button, stroke canvas) on every pixel.
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .offset { IntOffset(swipe.offsetX.roundToInt(), 0) }
-                        .rotate(swipeTiltDegrees(swipe.offsetX))
+                        .graphicsLayer {
+                            translationX = swipe.offsetX
+                            rotationZ = swipeTiltDegrees(swipe.offsetX)
+                        }
                         // `isFlipped` is deliberately not a key: the handler reads reveal state
                         // through `latestDeckState` above, so restarting the detector on reveal
                         // would buy nothing and would cancel any gesture in progress without
@@ -595,7 +606,10 @@ fun SwipeDeckReviewScreen(
                                 )
                                 Spacer(modifier = Modifier.height(14.dp))
                                 Button(
-                                    onClick = viewModel::flipCard,
+                                    onClick = {
+                                        viewModel.flipCard()
+                                        viewModel.playSound(com.example.audio.UiSound.Tap)
+                                    },
                                     shape = RoundedCornerShape(22.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = AccentPrimary,

@@ -935,7 +935,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val claimed = _reviewDeckState.updateAndGet { it.beginRating() ?: it }
         if (!claimed.isRating || before.isRating) return
 
-        val currentId = deck.currentWordId
+        val currentId = claimed.currentWordId
         if (currentId != null && wordWithSrs.word.id != currentId) {
             // A stale card from a deck that has since been replaced. Recorded as a failure rather
             // than rated, because rating it would write a review for a card nobody is looking at.
@@ -995,6 +995,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         // used to be three further writes here, which is how they came to
                         // disagree with the machine tracking them.
                         _reviewDeckState.update { it.completeRating(rating) }
+                        // An AGAIN rating re-queues the card at the end of the session inside
+                        // ReviewDeckState.wordIds. The word snapshot must grow with it, otherwise
+                        // the screen indexes reviewDeck[position] past its end or shows the wrong
+                        // card after the first re-queue.
+                        if (rating == SrsRating.AGAIN) {
+                            _reviewDeck.update { deck -> deck + wordWithSrs }
+                        }
                     }
                     is ReviewOutcome.Rejected -> {
                         Log.w(

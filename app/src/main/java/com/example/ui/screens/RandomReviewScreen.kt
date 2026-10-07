@@ -408,6 +408,10 @@ private fun RandomReviewSession(
         revealed = revealed
     )
     if (status.isNotBlank()) {
+        if (verdict == RecognitionVerdict.Recognised) {
+            RecognisedBadge(modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(Dimens.md))
+        }
         Text(
             text = status,
             style = MaterialTheme.typography.bodyMedium,

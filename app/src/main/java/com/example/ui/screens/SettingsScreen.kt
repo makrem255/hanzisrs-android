@@ -148,7 +148,8 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .padding(16.dp)
+                .testTag("profile_screen"),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Group headers keep six full-width cards scannable: account, the daily

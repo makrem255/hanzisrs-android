@@ -1,0 +1,44 @@
+[
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Review" }]
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Reveal answer" }]
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Good" }]
+  },
+  {
+    "eventType": "GO_BACK"
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Random Review" }]
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Reveal the answer" }]
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Next word" }]
+  },
+  {
+    "eventType": "GO_BACK"
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Learn" }]
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Profile" }]
+  },
+  {
+    "eventType": "VIEW_TEXT",
+    "elementDescriptors": [{ "text": "Sound Effects" }]
+  }
+]

@@ -144,7 +144,8 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .testTag("home_screen"),
             contentPadding = PaddingValues(
                 start = Dimens.screenH,
                 end = Dimens.screenH,
@@ -264,7 +265,7 @@ fun HomeScreen(
                                 viewModel.resetDeckSession()
                                 onStartReview()
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).testTag("review_start_button")
                         )
                         QuickAction(
                             icon = Icons.Default.AutoAwesome,

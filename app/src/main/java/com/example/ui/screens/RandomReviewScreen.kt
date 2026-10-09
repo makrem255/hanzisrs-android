@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -238,6 +239,7 @@ fun RandomReviewScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .testTag("random_review_screen")
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Dimens.screenH, vertical = Dimens.lg),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -425,6 +427,7 @@ private fun RandomReviewSession(
     if (!revealed) {
         AnimatedMicButton(
             onClick = onListen,
+            modifier = Modifier.testTag("random_review_listen"),
             listening = listening,
             enabled = !listening,
             icon = Icons.Default.Mic,
@@ -434,7 +437,7 @@ private fun RandomReviewSession(
         SecondaryButton(
             text = if (listening) "Listening…" else "Reveal the answer",
             onClick = onReveal,
-            modifier = Modifier.fillMaxWidth(0.85f),
+            modifier = Modifier.fillMaxWidth(0.85f).testTag("random_review_reveal"),
             enabled = !listening
         )
     } else {
@@ -472,7 +475,11 @@ private fun RandomReviewSession(
             )
         }
         Spacer(Modifier.height(Dimens.lg))
-        PrimaryButton(text = "Next word", onClick = onNext)
+        PrimaryButton(
+            text = "Next word",
+            onClick = onNext,
+            modifier = Modifier.testTag("random_review_next")
+        )
     }
 }
 
@@ -493,7 +500,7 @@ private fun WordCard(
     val word = entry.word.word
 
     AppCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().testTag("random_review_card"),
         containerColor = DarkSurfaceCard,
         borderColor = OutlineBorder,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(

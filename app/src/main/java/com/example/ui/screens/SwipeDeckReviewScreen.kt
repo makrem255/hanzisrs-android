@@ -440,6 +440,7 @@ fun SwipeDeckReviewScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .testTag("review_card")
                         .graphicsLayer {
                             translationX = swipe.offsetX
                             rotationZ = swipeTiltDegrees(swipe.offsetX)
@@ -615,6 +616,7 @@ fun SwipeDeckReviewScreen(
                                         viewModel.flipCard()
                                         viewModel.playSound(com.example.audio.UiSound.Tap)
                                     },
+                                    modifier = Modifier.testTag("reveal_answer_button"),
                                     shape = RoundedCornerShape(22.dp),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = AccentPrimary,

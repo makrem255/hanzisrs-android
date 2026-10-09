@@ -52,7 +52,8 @@ fun ProgressScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .testTag("progress_screen"),
             contentPadding = PaddingValues(
                 start = Dimens.screenH,
                 end = Dimens.screenH,

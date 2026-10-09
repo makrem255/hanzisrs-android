@@ -204,6 +204,7 @@ fun LibraryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .testTag("learn_screen")
                 // The search field is the first thing on this screen, so what the keyboard
                 // covers is the *results* of typing — the reason the field is there. The app
                 // runs edge to edge, so the window does not resize for the IME; without

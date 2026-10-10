@@ -222,7 +222,8 @@ fun AuthScreen(
                             onClick = { inputMode = 0 },
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("auth_mode_email")
+                                .testTag("auth_mode_email"),
+                            selectedFill = AppTheme.colors.button
                         ) {
                             Text(
                                 text = "Email",
@@ -237,7 +238,8 @@ fun AuthScreen(
                             onClick = { inputMode = 1 },
                             modifier = Modifier
                                 .weight(1f)
-                                .testTag("auth_mode_phone")
+                                .testTag("auth_mode_phone"),
+                            selectedFill = AppTheme.colors.button
                         ) {
                             Text(
                                 text = "Phone",

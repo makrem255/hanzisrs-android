@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -175,7 +176,8 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                 onClick = { onSelect(0) },
                 modifier = Modifier
                     .weight(1f)
-                    .testTag("stroke_mode_guide")
+                    .testTag("stroke_mode_guide"),
+                selectedFill = AppTheme.colors.button
             ) {
                 Text(
                     text = "Stroke guide",
@@ -189,7 +191,8 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                 onClick = { onSelect(1) },
                 modifier = Modifier
                     .weight(1f)
-                    .testTag("stroke_mode_practice")
+                    .testTag("stroke_mode_practice"),
+                selectedFill = AppTheme.colors.button
             ) {
                 Text(
                     text = "Practise tracing",
@@ -369,10 +372,35 @@ fun AnimatedStrokeOrderPlayer(
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        // Where the demonstration stands: one dot per stroke, filled through the
+        // current one. The count and the order are authored data, so showing
+        // position-in-sequence is honest in a way per-stroke geometry would not be -
+        // the app has names, not paths, and a dot claims nothing about shapes.
+        StepDots(
+            total = strokes.size,
+            current = currentStep,
+            modifier = Modifier.testTag("stroke_progress")
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            IconTarget(
+                onClick = {
+                    isPlaying = false
+                    currentStep = 0
+                },
+                modifier = Modifier.testTag("stroke_reset")
+            ) {
+                Icon(
+                    Icons.Default.Refresh,
+                    contentDescription = "Restart demonstration",
+                    tint = AppTheme.colors.button
+                )
+            }
             IconTarget(
                 onClick = {
                     isPlaying = false
@@ -441,6 +469,37 @@ fun AnimatedStrokeOrderPlayer(
                     currentStep = (currentStep + 1) % strokes.size
                 }
             }
+        }
+    }
+}
+
+/**
+ * Position dots for the demonstration: one per stroke, filled through the current one.
+ *
+ * Dots rather than a fraction bar because the unit being shown is discrete - stroke 3
+ * of 9 is a place in a sequence, and a bar would imply a continuous quantity the app
+ * does not have.
+ */
+@Composable
+private fun StepDots(total: Int, current: Int, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(total) { index ->
+            Box(
+                modifier = Modifier
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            index < current -> AppTheme.colors.textPrimary
+                            index == current -> AppTheme.colors.button
+                            else -> AppTheme.colors.border
+                        }
+                    )
+            )
         }
     }
 }

@@ -149,6 +149,36 @@ fun swipeTiltDegrees(offsetPx: Float): Float =
  */
 fun flyOutDistancePx(screenWidthPx: Float): Float = screenWidthPx * 1.15f
 
+/**
+ * Minimum gap between two accepted tap-to-advance taps, in milliseconds.
+ *
+ * One tap advances one card; without a floor, a double-tap's second tap lands on the *next*
+ * card and advances again before the learner has seen it. 350ms is above a deliberate
+ * double-tap interval and below anything that makes single taps feel gated.
+ */
+const val TAP_ADVANCE_WINDOW_MS = 350L
+
+/**
+ * Whether a tap at [nowMs] may advance the deck given the last accepted tap at [lastTapMs].
+ *
+ * Pure so the guard is unit-tested rather than trusted: time passes as arguments. A tap is
+ * accepted when no tap has ever been accepted ([lastTapMs] still its initial
+ * [Long.MIN_VALUE]) or when the window has elapsed since the last one. The never-tapped
+ * case is explicit rather than derived from the subtraction, because `nowMs -
+ * Long.MIN_VALUE` overflows to a negative and would refuse the very first tap.
+ */
+fun shouldAcceptTap(lastTapMs: Long, nowMs: Long, windowMs: Long = TAP_ADVANCE_WINDOW_MS): Boolean =
+    lastTapMs == Long.MIN_VALUE || nowMs - lastTapMs >= windowMs
+
+/**
+ * Whether a tap has anywhere to go: anywhere before the final card.
+ *
+ * Tapping the last card is a no-op, not an advance - and a no-op must not vibrate, or the
+ * learner is told something happened when nothing did. The deck is empty or finished when
+ * there is no index below the end.
+ */
+fun canTapAdvance(index: Int, size: Int): Boolean = size > 0 && index < size - 1
+
 /** Where the top card is in its lifecycle. */
 enum class SwipePhase {
     /** At rest, or after a settle has finished. Drags are accepted. */

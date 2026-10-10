@@ -180,7 +180,7 @@ class ComponentRoboTest {
         }
         composeTestRule.runOnIdle {
             assertEquals(
-                androidx.compose.ui.graphics.Color(0xFF0A0A0A),
+                androidx.compose.ui.graphics.Color(0xFF000000),
                 darkBg
             )
         }

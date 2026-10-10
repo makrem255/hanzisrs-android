@@ -68,12 +68,13 @@ class MonoContrastTest {
 
     @Test
     fun `light and dark palettes are actually different themes`() {
-        val black = androidx.compose.ui.graphics.Color(0xFF0A0A0A)
+        val trueBlack = androidx.compose.ui.graphics.Color(0xFF000000)
         val white = androidx.compose.ui.graphics.Color(0xFFFFFFFF)
         val ink = androidx.compose.ui.graphics.Color(0xFF111111)
 
         assertTrue(DarkAppColors != LightAppColors)
-        assertEquals(black, DarkAppColors.background)
+        // The dark ground is genuine OLED black, not charcoal.
+        assertEquals(trueBlack, DarkAppColors.background)
         assertEquals(white, LightAppColors.background)
         assertEquals(white, DarkAppColors.textPrimary)
         assertEquals(ink, LightAppColors.textPrimary)

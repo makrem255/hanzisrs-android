@@ -66,6 +66,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -169,6 +170,11 @@ fun SwipeDeckReviewScreen(
     // Keyed on the sitting: a new session starting at the same index must not inherit the
     // previous sitting's offset, and rememberCardSwipeState only takes an initial index once.
     val swipe = key(reviewSessionWordIds) { rememberCardSwipeState(currentDeckIndex) }
+
+    // When the last tap-to-advance was accepted. Guards rapid taps: the second tap of a
+    // double-tap lands on the next card, and without a floor it would advance again before
+    // the learner has read it. See `shouldAcceptTap`.
+    var lastCardTapMs by remember { mutableLongStateOf(Long.MIN_VALUE) }
 
     // The single bridge from the deck machine to the card's position.
     //
@@ -421,6 +427,16 @@ fun SwipeDeckReviewScreen(
                 // The Swipable Flashcard Box. Positioned through graphicsLayer so the card
                 // follows the finger without recomposing the whole card (scroll state,
                 // audio button, stroke canvas) on every pixel.
+                //
+                // A tap on the card background advances one card, through the same
+                // `goToNextCard` the Skip control uses - one shared advancement, so tap
+                // and skip cannot disagree about what "next" means, and neither of them
+                // grades: this is navigation, not an answer. The tap detector sits *after*
+                // the drag detector in the chain, and the two do not compete: a drag
+                // past the touch slop cancels the tap, and a tap never reaches the
+                // slop, so the drag callbacks never fire for it. Taps on buttons and
+                // other interactive children are consumed by those children and never
+                // reach this handler.
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -430,6 +446,34 @@ fun SwipeDeckReviewScreen(
                             translationX = swipe.offsetX
                             rotationZ = swipeTiltDegrees(swipe.offsetX)
                         }
+                        .clickable(
+                            onClickLabel = "Next card",
+                            onClick = {
+                                // Monotonic: a wall-clock jump must never gate taps.
+                                val now = android.os.SystemClock.uptimeMillis()
+                                if (!shouldAcceptTap(lastCardTapMs, now)) return@clickable
+                                // A grade in flight owns the deck: advancing under it would
+                                // land `completeRating` on the wrong card. A card mid-fly-out
+                                // is likewise not grabbable, for the same reason a drag on
+                                // it is refused.
+                                if (latestDeckState.isRating || swipe.phase != SwipePhase.Idle) {
+                                    return@clickable
+                                }
+                                // The last card has nowhere to go. Staying silent here is
+                                // deliberate: vibrating for a tap that moved nothing would
+                                // report an advance that never happened.
+                                if (!canTapAdvance(
+                                        latestDeckState.index,
+                                        latestDeckState.wordIds.size
+                                    )
+                                ) {
+                                    return@clickable
+                                }
+                                lastCardTapMs = now
+                                haptics.lightTick()
+                                viewModel.goToNextCard()
+                            }
+                        )
                         // `isFlipped` is deliberately not a key: the handler reads reveal state
                         // through `latestDeckState` above, so restarting the detector on reveal
                         // would buy nothing and would cancel any gesture in progress without
@@ -944,7 +988,10 @@ private fun RowScope.PillarTab(
     SegmentedOption(
         selected = selected,
         onClick = onClick,
-        modifier = modifier.weight(1f)
+        modifier = modifier.weight(1f),
+        // The selected label reads in the on-button colour, which needs the button
+        // fill behind it in both themes. See `SegmentedOption.selectedFill`.
+        selectedFill = AppTheme.colors.button
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(

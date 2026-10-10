@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -8,12 +9,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
@@ -57,18 +60,34 @@ fun Modifier.minimumTouchTarget(): Modifier = this.minimumInteractiveComponentSi
  *
  * The caller keeps its own colours and content; this owns only the target and the
  * semantics.
+ *
+ * [selectedFill] paints the selected option's pill. It exists because selected content
+ * in these rows reads in the on-button colour, which is only legible on a button fill:
+ * selected text without the fill is white-on-light in the light theme and
+ * near-black-on-dark in the dark theme. A caller that wants a fill-free selected
+ * state must not use the on-button colour for its content.
  */
 @Composable
 fun SegmentedOption(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedFill: Color? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(
         modifier = modifier
             .minimumTouchTarget()
-            .selectable(selected = selected, onClick = onClick, role = Role.Tab),
+            .selectable(selected = selected, onClick = onClick, role = Role.Tab)
+            .then(
+                if (selected && selectedFill != null) {
+                    Modifier
+                        .clip(CircleShape)
+                        .background(selectedFill)
+                } else {
+                    Modifier
+                }
+            ),
         contentAlignment = Alignment.Center,
         content = content
     )

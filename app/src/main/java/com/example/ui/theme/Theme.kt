@@ -1,50 +1,91 @@
 package com.example.ui.theme
 
+import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import com.example.data.model.StorageValues
 
 /**
- * The midnight-navy scheme. The app's only scheme.
+ * The monochrome schemes, derived from the same tokens the screens read.
  *
- * The `surfaceContainer` family is set explicitly. Material 3's own defaults are
- * purple-tinted (they assume a dynamic-colour seed), and the navy ramp in
- * `Color.kt` is a deliberate step ramp, so letting the library derive the
- * mid-tones would shift every card in the app by a visible amount.
+ * Only the stock Material components take their colours from here (navigation
+ * bar, switches, text fields, dialogs, progress indicators); everything custom
+ * reads [AppTheme] directly. The two must agree, so both schemes are built
+ * from the resolved [AppColors] rather than carrying a second set of values
+ * that could drift.
  */
-private val MidnightNavyColorScheme = darkColorScheme(
-    primary = AccentPrimary,
-    onPrimary = AccentPrimaryInk,
-    primaryContainer = AccentPrimaryDim,
-    onPrimaryContainer = TextLight,
-    secondary = AccentCyan,
-    onSecondary = DarkBg,
-    secondaryContainer = AccentCyanContainer,
-    onSecondaryContainer = TextLight,
-    tertiary = AccentViolet,
-    onTertiary = DarkBg,
-    tertiaryContainer = AccentVioletContainer,
-    onTertiaryContainer = TextLight,
-    error = AccentRed,
-    onError = DarkBg,
-    errorContainer = AccentRedContainer,
-    onErrorContainer = AccentRed,
-    background = DarkBg,
-    onBackground = TextLight,
-    surface = DarkSurfaceCard,
-    onSurface = TextLight,
-    surfaceVariant = DarkSurfaceContainer,
-    onSurfaceVariant = TextMuted,
-    surfaceContainerLowest = DarkBg,
-    surfaceContainerLow = DarkSurfaceContainer,
-    surfaceContainer = DarkSurfaceContainer,
-    surfaceContainerHigh = DarkSurfaceElevated,
-    surfaceContainerHighest = DarkSurfaceHighest,
-    outline = OutlineBorder,
-    outlineVariant = OutlineSubtle
+private fun lightScheme(colors: AppColors) = lightColorScheme(
+    primary = colors.button,
+    onPrimary = colors.onButton,
+    primaryContainer = colors.elevated,
+    onPrimaryContainer = colors.textPrimary,
+    secondary = colors.textSecondary,
+    onSecondary = colors.background,
+    secondaryContainer = colors.elevated,
+    onSecondaryContainer = colors.textPrimary,
+    tertiary = colors.textSecondary,
+    onTertiary = colors.background,
+    tertiaryContainer = colors.elevated,
+    onTertiaryContainer = colors.textPrimary,
+    error = colors.error,
+    onError = colors.background,
+    errorContainer = colors.errorContainer,
+    onErrorContainer = colors.error,
+    background = colors.background,
+    onBackground = colors.textPrimary,
+    surface = colors.card,
+    onSurface = colors.textPrimary,
+    surfaceVariant = colors.elevated,
+    onSurfaceVariant = colors.textSecondary,
+    surfaceContainerLowest = colors.background,
+    surfaceContainerLow = colors.surfaceAlt,
+    surfaceContainer = colors.elevated,
+    surfaceContainerHigh = colors.elevated,
+    surfaceContainerHighest = colors.highest,
+    outline = colors.border,
+    outlineVariant = colors.borderSubtle,
+)
+
+private fun darkScheme(colors: AppColors) = darkColorScheme(
+    primary = colors.button,
+    onPrimary = colors.onButton,
+    primaryContainer = colors.elevated,
+    onPrimaryContainer = colors.textPrimary,
+    secondary = colors.textSecondary,
+    onSecondary = colors.background,
+    secondaryContainer = colors.elevated,
+    onSecondaryContainer = colors.textPrimary,
+    tertiary = colors.textSecondary,
+    onTertiary = colors.background,
+    tertiaryContainer = colors.elevated,
+    onTertiaryContainer = colors.textPrimary,
+    error = colors.error,
+    onError = colors.background,
+    errorContainer = colors.errorContainer,
+    onErrorContainer = colors.error,
+    background = colors.background,
+    onBackground = colors.textPrimary,
+    surface = colors.card,
+    onSurface = colors.textPrimary,
+    surfaceVariant = colors.elevated,
+    onSurfaceVariant = colors.textSecondary,
+    surfaceContainerLowest = colors.background,
+    surfaceContainerLow = colors.surfaceAlt,
+    surfaceContainer = colors.elevated,
+    surfaceContainerHigh = colors.elevated,
+    surfaceContainerHighest = colors.highest,
+    outline = colors.border,
+    outlineVariant = colors.borderSubtle,
 )
 
 /**
@@ -62,38 +103,46 @@ private val AppShapes = Shapes(
 /**
  * Applies the app's theme.
  *
- * There is no `darkTheme` and no `dynamicColor` parameter, and that is a decision
- * rather than an omission.
+ * @param themeMode the learner's choice: explicit light or dark, or the system setting.
+ * Defaults to system so previews and tests render without naming a mode.
  *
- * **Honouring `darkTheme` does not work today, and shipping it would have broken the app.**
- * The screens do not read their colours from `MaterialTheme.colorScheme` — they name
- * `DarkBg`, `DarkSurfaceCard`, `TextLight` and so on directly. Swapping in
- * `lightColorScheme` therefore changes only the components that *do* use the scheme:
- * `NavigationBar`, `TopAppBar`, `Switch`, `OutlinedTextField`, `LinearProgressIndicator`.
- * A phone set to light mode would have got a white bottom bar and pale text fields sitting
- * on a navy screen. That is worse than ignoring the parameter, because it looks like
- * a theme and is not one.
- *
- * **What a light theme would actually require:** every one of those call sites replaced with
- * a `MaterialTheme.colorScheme` token, plus a second value per token for the light case.
- * That is a tokenisation pass over the whole UI, not a colour-scheme swap, and doing it
- * as one line here would only have hidden the work.
- *
- * **`dynamicColor` is the same argument with a second problem.** Wallpaper-derived accents
- * would replace the blues that carry meaning: the four SRS rating buttons are the one
- * place in the app where a colour is a *label*, and they sit next to a legend that names
- * them. If those four could change hue to match someone's wallpaper, the legend would stop
- * being true.
- *
- * Both parameters belong in the signature of the first commit that has tokenised the
- * screens, and not before. `isSystemInDarkTheme` is deliberately not consulted.
+ * The mode resolves to one boolean, and everything below it - the token palette, the
+ * Material scheme, the status- and navigation-bar icon colours - follows from that
+ * boolean. There is deliberately no other input: a theme that read three sources could
+ * disagree with itself, and the failure would be a screen that is half light.
  */
 @Composable
-fun MyApplicationTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = MidnightNavyColorScheme,
-        typography = Typography,
-        shapes = AppShapes,
-        content = content
-    )
+fun MyApplicationTheme(
+    themeMode: StorageValues.ThemeMode = StorageValues.ThemeMode.SYSTEM,
+    content: @Composable () -> Unit
+) {
+    val dark = when (themeMode) {
+        StorageValues.ThemeMode.LIGHT -> false
+        StorageValues.ThemeMode.DARK -> true
+        StorageValues.ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+    val colors = if (dark) DarkAppColors else LightAppColors
+
+    // Edge-to-edge is enabled in MainActivity, so the system bars sit over app content.
+    // Their icon colours must follow the theme or white icons vanish on the light
+    // background and black icons vanish on the dark one.
+    val context = LocalContext.current
+    SideEffect {
+        val activity = context as? Activity ?: return@SideEffect
+        val controller = WindowCompat.getInsetsController(
+            activity.window,
+            activity.window.decorView
+        )
+        controller.isAppearanceLightStatusBars = !dark
+        controller.isAppearanceLightNavigationBars = !dark
+    }
+
+    CompositionLocalProvider(LocalAppColors provides colors) {
+        MaterialTheme(
+            colorScheme = if (dark) darkScheme(colors) else lightScheme(colors),
+            typography = Typography,
+            shapes = AppShapes,
+            content = content
+        )
+    }
 }

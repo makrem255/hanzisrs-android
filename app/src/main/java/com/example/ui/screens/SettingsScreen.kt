@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Notifications
@@ -62,22 +63,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.MinTouchTarget
+import com.example.data.model.StorageValues
 import com.example.data.repository.UserRepository
 import com.example.ui.components.DailyLimitStepper
+import com.example.ui.components.SegmentedSelector
 import com.example.ui.components.SwitchRow
 import com.example.ui.components.rememberNotificationRequest
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.DarkSurfaceContainer
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsAgainDark
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
+import com.example.ui.theme.AppTheme
 import com.example.ui.viewmodel.MainViewModel
 import com.example.util.plural
 
@@ -94,6 +86,7 @@ fun SettingsScreen(
     // different settings about different sounds, and a learner who wants words read aloud but no
     // clicks - or clicks but no words - is describing a real preference, not a contradictory one.
     val soundEffectsEnabled by viewModel.soundEffectsEnabled.collectAsStateWithLifecycle()
+    val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dueCount by viewModel.dueCount.collectAsStateWithLifecycle()
 
     // Saveable so turning the phone sideways does not silently re-enable a setting the
@@ -135,13 +128,13 @@ fun SettingsScreen(
                         text = "Profile",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.background)
             )
         },
-        containerColor = DarkBg
+        containerColor = AppTheme.colors.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -157,14 +150,14 @@ fun SettingsScreen(
             Text(
                 text = "Account",
                 style = MaterialTheme.typography.titleSmall,
-                color = TextMuted
+                color = AppTheme.colors.textSecondary
             )
             // User Account Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Row(
@@ -177,12 +170,12 @@ fun SettingsScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(AccentPrimary),
+                            .background(AppTheme.colors.button),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = currentUser?.displayName?.firstOrNull()?.toString()?.uppercase() ?: "U",
-                            color = AccentPrimaryInk,
+                            color = AppTheme.colors.onButton,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -196,7 +189,7 @@ fun SettingsScreen(
                                 ?: "Chinese learner",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextLight
+                            color = AppTheme.colors.textPrimary
                         )
                         Text(
                             // No invented fallback address. It used to be a literal
@@ -206,19 +199,19 @@ fun SettingsScreen(
                             text = currentUser?.identifier?.takeIf { it.isNotBlank() }
                                 ?: "Signed out",
                             fontSize = 12.sp,
-                            color = TextMuted
+                            color = AppTheme.colors.textSecondary
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Surface(
-                            color = DarkSurfaceElevated,
+                            color = AppTheme.colors.elevated,
                             shape = RoundedCornerShape(6.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                         ) {
                             Text(
                                 text = "Local profile · this device",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = AccentPrimary,
+                                color = AppTheme.colors.button,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -229,7 +222,7 @@ fun SettingsScreen(
             Text(
                 text = "Learning",
                 style = MaterialTheme.typography.titleSmall,
-                color = TextMuted
+                color = AppTheme.colors.textSecondary
             )
             // Daily workload --------------------------------------------------------------------------------
             //
@@ -246,19 +239,19 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = AccentPrimary)
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = AppTheme.colors.button)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Daily Workload",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextLight
+                            color = AppTheme.colors.textPrimary
                         )
                     }
 
@@ -268,7 +261,7 @@ fun SettingsScreen(
                         text = "How much the app offers you each day. Reviews come first; new " +
                             "words fill whatever room is left.",
                         fontSize = 12.sp,
-                        color = TextMuted
+                        color = AppTheme.colors.textSecondary
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -283,7 +276,7 @@ fun SettingsScreen(
                         Text(
                             text = "Loading your limits…",
                             fontSize = 13.sp,
-                            color = TextMuted
+                            color = AppTheme.colors.textSecondary
                         )
                     } else {
                         DailyLimitStepper(
@@ -323,7 +316,7 @@ fun SettingsScreen(
                                 text = "No new words will be introduced. Words you already " +
                                     "have still come up for review.",
                                 fontSize = 11.sp,
-                                color = AccentPrimary
+                                color = AppTheme.colors.button
                             )
                         }
                     }
@@ -336,19 +329,19 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = AccentPrimary)
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = AppTheme.colors.button)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                         text = "Review Alert Preview",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = TextLight
+                            color = AppTheme.colors.textPrimary
                         )
                     }
 
@@ -357,7 +350,7 @@ fun SettingsScreen(
                     Text(
                         text = "Preview the alert shown when you choose to review. Scheduled daily reminders are not configured in this local-only version.",
                         fontSize = 12.sp,
-                        color = TextMuted
+                        color = AppTheme.colors.textSecondary
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -374,8 +367,8 @@ fun SettingsScreen(
                         onCheckedChange = { notificationPreviewsEnabled = it },
                         label = "Enable alert previews",
                         supporting = "Android may ask for notification permission",
-                        labelColor = TextLight,
-                        supportingColor = TextMuted,
+                        labelColor = AppTheme.colors.textPrimary,
+                        supportingColor = AppTheme.colors.textSecondary,
                         modifier = Modifier.testTag("notification_previews_switch")
                     ) {
                         Switch(
@@ -384,10 +377,10 @@ fun SettingsScreen(
                             // also claim the tap or the state change would be handled twice.
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = AccentPrimaryInk,
-                                checkedTrackColor = AccentPrimary,
-                                uncheckedThumbColor = TextSubtle,
-                                uncheckedTrackColor = DarkSurfaceContainer
+                                checkedThumbColor = AppTheme.colors.onButton,
+                                checkedTrackColor = AppTheme.colors.button,
+                                uncheckedThumbColor = AppTheme.colors.textSecondary,
+                                uncheckedTrackColor = AppTheme.colors.surfaceAlt
                             )
                         )
                     }
@@ -397,11 +390,11 @@ fun SettingsScreen(
                     Button(
                         onClick = requestNotification,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = DarkSurfaceContainer,
-                            contentColor = AccentPrimary
+                            containerColor = AppTheme.colors.surfaceAlt,
+                            contentColor = AppTheme.colors.button
                         ),
                         shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("test_notification_btn"),
@@ -423,7 +416,7 @@ fun SettingsScreen(
 
                     if (notificationMessage != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(notificationMessage ?: "", color = SrsAgainDark, fontSize = 11.sp)
+                        Text(notificationMessage ?: "", color = AppTheme.colors.error, fontSize = 11.sp)
                     }
                 }
             }
@@ -432,15 +425,15 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = AccentPrimary)
+                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = AppTheme.colors.button)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Mandarin Speech Synthesis (TTS)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
+                        Text("Mandarin Speech Synthesis (TTS)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
@@ -455,18 +448,18 @@ fun SettingsScreen(
                         } else {
                             "0.90× — natural speed"
                         },
-                        labelColor = TextLight,
-                        supportingColor = TextMuted,
+                        labelColor = AppTheme.colors.textPrimary,
+                        supportingColor = AppTheme.colors.textSecondary,
                         modifier = Modifier.testTag("slow_tts_switch")
                     ) {
                         Switch(
                             checked = isSlowTts,
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = AccentPrimaryInk,
-                                checkedTrackColor = AccentPrimary,
-                                uncheckedThumbColor = TextSubtle,
-                                uncheckedTrackColor = DarkSurfaceContainer
+                                checkedThumbColor = AppTheme.colors.onButton,
+                                checkedTrackColor = AppTheme.colors.button,
+                                uncheckedThumbColor = AppTheme.colors.textSecondary,
+                                uncheckedTrackColor = AppTheme.colors.surfaceAlt
                             )
                         )
                     }
@@ -476,7 +469,7 @@ fun SettingsScreen(
             Text(
                 text = "Experience",
                 style = MaterialTheme.typography.titleSmall,
-                color = TextMuted
+                color = AppTheme.colors.textSecondary
             )
             // Interface sounds. Held apart from the synthesis card above because it is a
             // different control over a different thing: that one decides how words are spoken,
@@ -484,15 +477,15 @@ fun SettingsScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AccentPrimary)
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AppTheme.colors.button)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Sound Effects", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
+                        Text("Sound Effects", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -502,7 +495,7 @@ fun SettingsScreen(
                             "Synthesised for this app, always optional, and never played over " +
                             "your pronunciation audio.",
                         fontSize = 12.sp,
-                        color = TextMuted,
+                        color = AppTheme.colors.textSecondary,
                         lineHeight = 16.sp
                     )
 
@@ -518,42 +511,96 @@ fun SettingsScreen(
                         } else {
                             "Off — the interface stays quiet"
                         },
-                        labelColor = TextLight,
-                        supportingColor = TextMuted,
+                        labelColor = AppTheme.colors.textPrimary,
+                        supportingColor = AppTheme.colors.textSecondary,
                         modifier = Modifier.testTag("sound_effects_switch")
                     ) {
                         Switch(
                             checked = soundEffectsEnabled,
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = AccentPrimaryInk,
-                                checkedTrackColor = AccentPrimary,
-                                uncheckedThumbColor = TextSubtle,
-                                uncheckedTrackColor = DarkSurfaceContainer
+                                checkedThumbColor = AppTheme.colors.onButton,
+                                checkedTrackColor = AppTheme.colors.button,
+                                uncheckedThumbColor = AppTheme.colors.textSecondary,
+                                uncheckedTrackColor = AppTheme.colors.surfaceAlt
                             )
                         )
                     }
                 }
             }
 
+            // Appearance. The theme is device-global - it applies before sign-in and
+            // survives an account switch - so it lives with the other experience
+            // controls rather than in the account card.
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Contrast,
+                            contentDescription = null,
+                            tint = AppTheme.colors.button
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "Appearance",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppTheme.colors.textPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "Light, dark, or your phone's setting. " +
+                            "Applies everywhere immediately and is remembered.",
+                        fontSize = 12.sp,
+                        color = AppTheme.colors.textSecondary,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    SegmentedSelector(
+                        options = StorageValues.ThemeMode.entries,
+                        selected = themeMode,
+                        onSelect = { viewModel.setThemeMode(it) },
+                        label = { mode ->
+                            when (mode) {
+                                StorageValues.ThemeMode.SYSTEM -> "System"
+                                StorageValues.ThemeMode.LIGHT -> "Light"
+                                StorageValues.ThemeMode.DARK -> "Dark"
+                            }
+                        },
+                        modifier = Modifier.testTag("theme_mode_selector")
+                    )
+                }
+            }
+
             Text(
                 text = "AI",
                 style = MaterialTheme.typography.titleSmall,
-                color = TextMuted
+                color = AppTheme.colors.textSecondary
             )
             // AI Model Configuration
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentPrimary)
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.button)
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("AI Content Generation Engine", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
+                        Text("AI Content Generation Engine", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -561,7 +608,7 @@ fun SettingsScreen(
                     Text(
                         text = "Generates editable word details when a Gemini key is configured; otherwise, the app uses its built-in starter dictionary and character fallback.",
                         fontSize = 12.sp,
-                        color = TextMuted,
+                        color = AppTheme.colors.textSecondary,
                         lineHeight = 16.sp
                     )
                 }
@@ -576,8 +623,8 @@ fun SettingsScreen(
             OutlinedButton(
                 onClick = { confirmSignOut = true },
                 shape = RoundedCornerShape(24.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = SrsAgainDark),
-                border = androidx.compose.foundation.BorderStroke(1.dp, SrsAgainDark.copy(alpha = 0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.error),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.error.copy(alpha = 0.5f)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = MinTouchTarget)
@@ -595,12 +642,12 @@ fun SettingsScreen(
     if (confirmSignOut) {
         AlertDialog(
             onDismissRequest = { confirmSignOut = false },
-            title = { Text("Sign out?", color = TextLight, fontWeight = FontWeight.SemiBold) },
+            title = { Text("Sign out?", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold) },
             text = {
                 Text(
                     "Your words and review history stay on this device. You will need to " +
                         "sign in again to study.",
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             },
             confirmButton = {
@@ -612,16 +659,17 @@ fun SettingsScreen(
                     },
                     modifier = Modifier.testTag("confirm_sign_out")
                 ) {
-                    Text("Sign out", color = SrsAgainDark, fontWeight = FontWeight.SemiBold)
+                    Text("Sign out", color = AppTheme.colors.error, fontWeight = FontWeight.SemiBold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmSignOut = false }) {
-                    Text("Cancel", color = AccentPrimary)
+                    Text("Cancel", color = AppTheme.colors.button)
                 }
             },
-            containerColor = DarkSurfaceCard,
+            containerColor = AppTheme.colors.card,
             shape = RoundedCornerShape(24.dp)
         )
     }
 }
+

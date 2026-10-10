@@ -2,7 +2,9 @@ package com.example
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.model.StorageValues
 import com.example.data.settings.UiPreferencesStore
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -72,5 +74,45 @@ class UiPreferencesStoreTest {
             "the screen and the audio player read the same setting and cannot disagree",
             player.soundEffectsEnabled,
         )
+    }
+
+    // ---- theme mode --------------------------------------------------------------------------
+
+    @Test
+    fun `a learner who has never chosen otherwise follows the system`() {
+        assertEquals(
+            "the only default that respects a phone the app has never seen",
+            StorageValues.ThemeMode.SYSTEM,
+            UiPreferencesStore(context).themeMode,
+        )
+    }
+
+    @Test
+    fun `choosing a theme is recorded`() {
+        val store = UiPreferencesStore(context)
+        try {
+            store.setThemeMode(StorageValues.ThemeMode.DARK)
+
+            assertEquals(StorageValues.ThemeMode.DARK, store.themeMode)
+        } finally {
+            // The file is shared with every other test in this sandbox; leaving DARK
+            // behind would make the default test below order-dependent.
+            store.setThemeMode(StorageValues.ThemeMode.SYSTEM)
+        }
+    }
+
+    @Test
+    fun `the theme choice survives a fresh handle on the same file`() {
+        try {
+            UiPreferencesStore(context).setThemeMode(StorageValues.ThemeMode.LIGHT)
+
+            assertEquals(
+                "a theme that only lives in one instance resets on every restart",
+                StorageValues.ThemeMode.LIGHT,
+                UiPreferencesStore(context).themeMode,
+            )
+        } finally {
+            UiPreferencesStore(context).setThemeMode(StorageValues.ThemeMode.SYSTEM)
+        }
     }
 }

@@ -29,12 +29,9 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.DarkSurfaceHighest
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
 import com.example.ui.theme.StatNumber
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 
 /**
  * A single metric.
@@ -68,13 +65,13 @@ fun StatTile(
         Text(
             text = value,
             style = StatNumber,
-            color = TextLight
+            color = AppTheme.colors.textPrimary
         )
         Spacer(Modifier.height(Dimens.xxs))
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
         if (caption != null) {
             Spacer(Modifier.height(Dimens.xxs))
@@ -102,11 +99,13 @@ fun StatTile(
 fun ProgressRing(
     progress: Float,
     modifier: Modifier = Modifier,
-    accent: Color = AccentPrimary,
+    accent: Color? = null,
     diameter: Dp = Dimens.ring,
     strokeWidth: Dp = 8.dp,
     content: @Composable () -> Unit
 ) {
+    val colors = AppTheme.colors
+    val ink = accent ?: colors.button
     // Starts at zero and travels to the value, including on first composition: without the
     // indirection the initial value equals the target and there is nothing to animate.
     var shown by remember { mutableFloatStateOf(0f) }
@@ -124,8 +123,8 @@ fun ProgressRing(
         CircularProgressIndicator(
             progress = { sweep },
             modifier = Modifier.size(diameter),
-            color = accent,
-            trackColor = DarkSurfaceHighest,
+            color = ink,
+            trackColor = colors.highest,
             strokeWidth = strokeWidth,
             strokeCap = StrokeCap.Round
         )
@@ -144,10 +143,13 @@ fun ProgressRing(
 fun GoalBar(
     progress: Float,
     modifier: Modifier = Modifier,
-    accent: Color = AccentPrimary,
-    trackColor: Color = DarkSurfaceHighest,
+    accent: Color? = null,
+    trackColor: Color? = null,
     height: Dp = 10.dp
 ) {
+    val colors = AppTheme.colors
+    val ink = accent ?: colors.button
+    val track = trackColor ?: colors.highest
     var shown by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(progress) { shown = progress.coerceIn(0f, 1f) }
     val sweep by animateFloatAsState(
@@ -161,14 +163,14 @@ fun GoalBar(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(50))
-            .background(trackColor)
+            .background(track)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(sweep)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(50))
-                .background(accent)
+                .background(ink)
         )
     }
 }
@@ -188,8 +190,10 @@ fun MetricRow(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    accent: Color = TextLight
+    accent: Color? = null
 ) {
+    val colors = AppTheme.colors
+    val ink = accent ?: colors.textPrimary
     androidx.compose.foundation.layout.Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -197,13 +201,13 @@ fun MetricRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = TextMuted,
+            color = colors.textSecondary,
             modifier = Modifier.weight(1f)
         )
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
-            color = accent
+            color = ink
         )
     }
 }

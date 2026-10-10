@@ -21,9 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
+import com.example.ui.theme.AppTheme
 import com.example.util.plural
 
 /**
@@ -63,8 +61,10 @@ fun DailyLimitStepper(
     maxValue: Int,
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    valueColor: Color = TextLight
+    valueColor: Color? = null
 ) {
+    val colors = AppTheme.colors
+    val ink = valueColor ?: colors.textPrimary
     val canDecrease = value > minValue
     val canIncrease = value < maxValue
 
@@ -78,12 +78,12 @@ fun DailyLimitStepper(
                 text = label,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = TextLight
+                color = colors.textPrimary
             )
             Text(
                 text = supporting,
                 fontSize = 11.sp,
-                color = TextMuted
+                color = colors.textSecondary
             )
         }
 
@@ -102,7 +102,7 @@ fun DailyLimitStepper(
                 Icon(
                     imageVector = Icons.Default.Remove,
                     contentDescription = null,
-                    tint = if (canDecrease) AccentPrimary else TextMuted.copy(alpha = 0.4f),
+                    tint = if (canDecrease) colors.textPrimary else colors.textSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -114,7 +114,7 @@ fun DailyLimitStepper(
                 text = "$value",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
-                color = valueColor,
+                color = ink,
                 modifier = Modifier
                     .padding(horizontal = 8.dp)
                     .semantics { contentDescription = "$value" }
@@ -134,7 +134,7 @@ fun DailyLimitStepper(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = null,
-                    tint = if (canIncrease) AccentPrimary else TextMuted.copy(alpha = 0.4f),
+                    tint = if (canIncrease) colors.textPrimary else colors.textSecondary.copy(alpha = 0.4f),
                     modifier = Modifier.size(18.dp)
                 )
             }

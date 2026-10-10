@@ -97,35 +97,38 @@ fun countsAsAttempt(hypothesis: String?, forWordId: Long, currentWordId: Long): 
 fun helpRevealed(attempts: Int): Boolean = attempts >= RANDOM_REVIEW_MAX_ATTEMPTS
 
 // ---------------------------------------------------------------------------
-// The wheel palette: fifteen entries, white hanzi on top of every one.
+// The wheel palette: fifteen monochrome steps, white hanzi on top of every one.
 // ---------------------------------------------------------------------------
 //
-// White text on a light background is unreadable, so "light" here means vivid rather than
-// pale: saturated mid-dark hues that keep the wheel lively while holding contrast. Each entry
-// is verified by `RandomArcadeTest.palette_holds_contrast_against_white` - a colour that fails
-// does not ship, it gets darkened until it passes.
+// The wheel used to cycle fifteen hues. In the monochrome system the liveliness
+// comes from brightness steps instead: dark charcoal greys that keep the wheel
+// moving while holding contrast. Each entry is verified by
+// `RandomArcadeTest.palette_holds_contrast_against_white` - a step that fails
+// does not ship, it gets darkened until it passes. White text needs dark
+// ground; the variety is in the stepping, which the eye reads as motion
+// together with the cycling words.
 
 /** One wheel background, as ARGB. */
 @JvmInline
 value class WheelColor(val argb: Int)
 
-/** The fifteen wheel backgrounds, in cycle order. */
+/** The fifteen wheel backgrounds: charcoal greys in ascending steps. */
 val SELECTION_PALETTE: List<WheelColor> = listOf(
-    WheelColor(0xFF0F766E.toInt()), // teal
-    WheelColor(0xFF1D4ED8.toInt()), // royal blue
-    WheelColor(0xFF6D28D9.toInt()), // violet
-    WheelColor(0xFFBE185D.toInt()), // raspberry
-    WheelColor(0xFFB91C1C.toInt()), // crimson
-    WheelColor(0xFFC2410C.toInt()), // burnt orange
-    WheelColor(0xFF92400E.toInt()), // bronze
-    WheelColor(0xFF4D7C0F.toInt()), // leaf
-    WheelColor(0xFF15803D.toInt()), // emerald
-    WheelColor(0xFF0E7490.toInt()), // ocean
-    WheelColor(0xFF4338CA.toInt()), // indigo
-    WheelColor(0xFFA21CAF.toInt()), // magenta
-    WheelColor(0xFFBE123C.toInt()), // rose
-    WheelColor(0xFF334155.toInt()), // slate
-    WheelColor(0xFF7E22CE.toInt()), // plum: the cycle lands somewhere new, not where it opened
+    WheelColor(0xFF101010.toInt()),
+    WheelColor(0xFF161616.toInt()),
+    WheelColor(0xFF1C1C1C.toInt()),
+    WheelColor(0xFF212121.toInt()),
+    WheelColor(0xFF262626.toInt()),
+    WheelColor(0xFF2B2B2B.toInt()),
+    WheelColor(0xFF303030.toInt()),
+    WheelColor(0xFF343434.toInt()),
+    WheelColor(0xFF383838.toInt()),
+    WheelColor(0xFF3C3C3C.toInt()),
+    WheelColor(0xFF404040.toInt()),
+    WheelColor(0xFF444444.toInt()),
+    WheelColor(0xFF484848.toInt()),
+    WheelColor(0xFF4B4B4B.toInt()),
+    WheelColor(0xFF4E4E4E.toInt()),
 ).also {
     check(it.size == 15) { "the wheel palette must hold exactly 15 entries, found ${it.size}" }
 }

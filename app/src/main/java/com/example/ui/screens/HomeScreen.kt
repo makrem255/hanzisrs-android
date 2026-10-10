@@ -56,19 +56,10 @@ import com.example.ui.components.IconBadge
 import com.example.ui.components.ScreenTitle
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.rememberNotificationRequest
-import com.example.ui.theme.AccentAmber
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.AccentMint
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentViolet
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
 import com.example.ui.theme.HanziMedium
 import com.example.ui.theme.PinyinText
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.MainViewModel
 import com.example.ui.viewmodel.ProgressUiState
@@ -131,15 +122,15 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAddWord,
-                containerColor = AccentPrimary,
-                contentColor = AccentPrimaryInk,
+                containerColor = AppTheme.colors.button,
+                contentColor = AppTheme.colors.onButton,
                 shape = CircleShape,
                 modifier = Modifier.testTag("add_word_fab")
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add New Hanzi")
             }
         },
-        containerColor = DarkBg
+        containerColor = AppTheme.colors.background
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -168,7 +159,7 @@ fun HomeScreen(
                                 Icon(
                                     Icons.Default.Notifications,
                                     contentDescription = "Preview the due review alert",
-                                    tint = AccentPrimary
+                                    tint = AppTheme.colors.button
                                 )
                             }
                             ProfileAvatar(
@@ -225,8 +216,8 @@ fun HomeScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconBadge(
                             icon = Icons.Default.Shuffle,
-                            tint = AccentAmber,
-                            background = AccentAmber.copy(alpha = 0.14f),
+                            tint = AppTheme.colors.textPrimary,
+                            background = AppTheme.colors.textPrimary.copy(alpha = 0.14f),
                             size = 34.dp,
                             cornerRadius = 11.dp
                         )
@@ -235,18 +226,18 @@ fun HomeScreen(
                             Text(
                                 text = "Random Review",
                                 style = MaterialTheme.typography.titleSmall,
-                                color = TextLight
+                                color = AppTheme.colors.textPrimary
                             )
                             Text(
                                 text = "Open practice · nothing gets rescheduled",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
+                                color = AppTheme.colors.textSecondary
                             )
                         }
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = TextMuted
+                            tint = AppTheme.colors.textSecondary
                         )
                     }
                 }
@@ -260,7 +251,7 @@ fun HomeScreen(
                             icon = Icons.Default.PlayArrow,
                             title = "Review",
                             subtitle = "Due cards",
-                            accent = AccentPrimary,
+                            accent = AppTheme.colors.button,
                             onClick = {
                                 viewModel.resetDeckSession()
                                 onStartReview()
@@ -271,7 +262,7 @@ fun HomeScreen(
                             icon = Icons.Default.AutoAwesome,
                             title = "Add word",
                             subtitle = "Hanzi or pinyin",
-                            accent = AccentViolet,
+                            accent = AppTheme.colors.textPrimary,
                             onClick = onNavigateToAddWord,
                             modifier = Modifier.weight(1f).testTag("home_add_word")
                         )
@@ -281,7 +272,7 @@ fun HomeScreen(
                             icon = Icons.Default.School,
                             title = "Learn",
                             subtitle = "Your library",
-                            accent = AccentCyan,
+                            accent = AppTheme.colors.textPrimary,
                             onClick = onNavigateToLibrary,
                             modifier = Modifier.weight(1f)
                         )
@@ -289,7 +280,7 @@ fun HomeScreen(
                             icon = Icons.Default.Insights,
                             title = "Progress",
                             subtitle = "Streaks & badges",
-                            accent = AccentMint,
+                            accent = AppTheme.colors.success,
                             onClick = onNavigateToProgress,
                             modifier = Modifier.weight(1f)
                         )
@@ -321,7 +312,7 @@ fun HomeScreen(
                                 else -> "Nothing in your collection yet. Add a word to get started."
                             },
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted,
+                            color = AppTheme.colors.textSecondary,
                             modifier = Modifier.testTag("home_collection_state")
                         )
                     } else {
@@ -365,14 +356,14 @@ private fun ProfileAvatar(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
-            .background(DarkSurfaceElevated)
+            .background(AppTheme.colors.elevated)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = initial.toString(),
             style = MaterialTheme.typography.titleMedium,
-            color = AccentPrimary
+            color = AppTheme.colors.button
         )
     }
 }
@@ -402,12 +393,12 @@ private fun QuickAction(
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
-            color = TextLight
+            color = AppTheme.colors.textPrimary
         )
         Text(
             text = subtitle,
             style = MaterialTheme.typography.labelSmall,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
     }
 }
@@ -424,17 +415,17 @@ private fun PillarItem(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = icon, style = HanziMedium, color = TextLight)
+            Text(text = icon, style = HanziMedium, color = AppTheme.colors.textPrimary)
             Spacer(Modifier.height(Dimens.xs))
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
-                color = TextLight
+                color = AppTheme.colors.textPrimary
             )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted
+                color = AppTheme.colors.textSecondary
             )
         }
     }
@@ -457,7 +448,7 @@ private fun RecentWordCard(
             Text(
                 text = "HSK ${wordWithSrs.word.hskLevel}",
                 style = MaterialTheme.typography.labelSmall,
-                color = AccentPrimary
+                color = AppTheme.colors.button
             )
             PronunciationButton(
                 service = pronunciationService,
@@ -479,18 +470,19 @@ private fun RecentWordCard(
         Text(
             text = wordWithSrs.word.hanzi,
             style = HanziMedium,
-            color = TextLight
+            color = AppTheme.colors.textPrimary
         )
         Text(
             text = wordWithSrs.word.pinyin,
             style = PinyinText,
-            color = AccentCyan
+            color = AppTheme.colors.textPrimary
         )
         Text(
             text = wordWithSrs.word.meaning,
             style = MaterialTheme.typography.labelSmall,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             maxLines = 1
         )
     }
 }
+

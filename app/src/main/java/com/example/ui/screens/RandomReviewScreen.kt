@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -85,20 +86,10 @@ import com.example.ui.components.LoadingState
 import com.example.ui.components.PrimaryButton
 import com.example.ui.components.SecondaryButton
 import com.example.ui.components.rememberHaptics
-import com.example.ui.theme.AccentAmber
-import com.example.ui.theme.AccentAmberContainer
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.AccentMint
-import com.example.ui.theme.AccentRed
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
 import com.example.ui.theme.HanziHero
-import com.example.ui.theme.OutlineBorder
 import com.example.ui.theme.PinyinLarge
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.MainViewModel
 import com.example.ui.viewmodel.RandomReviewUiState
 import kotlinx.coroutines.delay
@@ -330,13 +321,13 @@ fun RandomReviewScreen(
                         Text(
                             text = "Random Review",
                             style = MaterialTheme.typography.titleLarge,
-                            color = TextLight,
+                            color = AppTheme.colors.textPrimary,
                         )
                         if (showing != null && phase == ReviewPhase.Word) {
                             Text(
                                 text = "Word ${showing.wordsShown} · practice only, nothing scheduled",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
+                                color = AppTheme.colors.textSecondary,
                             )
                         }
                     }
@@ -362,15 +353,15 @@ fun RandomReviewScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Exit Random Review",
-                                tint = TextMuted,
+                                tint = AppTheme.colors.textSecondary,
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.background),
             )
         },
-        containerColor = DarkBg,
+        containerColor = AppTheme.colors.background,
     ) { padding ->
         Column(
             modifier = Modifier
@@ -550,7 +541,7 @@ private fun WordPhase(
     }
 
     permissionNotice?.let { message ->
-        InlineNotice(text = message, tone = AccentAmber, icon = Icons.Default.MicOff)
+        InlineNotice(text = message, tone = AppTheme.colors.textPrimary, icon = Icons.Default.MicOff)
         Spacer(Modifier.height(Dimens.md))
     }
 
@@ -564,10 +555,10 @@ private fun WordPhase(
 
     val hanziColor by animateColorAsState(
         targetValue = when {
-            helpOpen -> TextLight
-            feedback == AttemptFeedback.Correct -> AccentMint
-            feedback == AttemptFeedback.Wrong -> AccentRed
-            else -> TextLight
+            helpOpen -> AppTheme.colors.textPrimary
+            feedback == AttemptFeedback.Correct -> AppTheme.colors.success
+            feedback == AttemptFeedback.Wrong -> AppTheme.colors.error
+            else -> AppTheme.colors.textPrimary
         },
         animationSpec = tween(180),
         label = "attemptTint",
@@ -632,14 +623,14 @@ private fun MicRationaleCard(
     onDismiss: () -> Unit,
 ) {
     AppCard(
-        containerColor = AccentAmberContainer,
-        borderColor = AccentAmber.copy(alpha = 0.4f),
+        containerColor = AppTheme.colors.elevated,
+        borderColor = AppTheme.colors.textPrimary.copy(alpha = 0.4f),
     ) {
         Text(
             text = "To check what you say, we need to use your microphone. The words are " +
                 "compared on this device - nothing is kept, scored or uploaded.",
             style = MaterialTheme.typography.bodyMedium,
-            color = TextSubtle,
+            color = AppTheme.colors.textSecondary,
         )
         Spacer(Modifier.height(Dimens.md))
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -706,7 +697,7 @@ private fun DuelControls(
             else -> "Attempt $attempts of $RANDOM_REVIEW_MAX_ATTEMPTS used"
         },
         style = MaterialTheme.typography.labelSmall,
-        color = TextMuted,
+        color = AppTheme.colors.textSecondary,
         textAlign = TextAlign.Center,
         modifier = Modifier.fillMaxWidth(),
     )
@@ -755,7 +746,7 @@ private fun HelpControls(
         Text(
             text = "Listen, then continue when ready.",
             style = MaterialTheme.typography.labelSmall,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
         )
     }
     Spacer(Modifier.height(Dimens.lg))
@@ -784,8 +775,8 @@ private fun WordCard(
 
     AppCard(
         modifier = Modifier.fillMaxWidth().testTag("random_review_card"),
-        containerColor = DarkSurfaceCard,
-        borderColor = OutlineBorder,
+        containerColor = AppTheme.colors.card,
+        borderColor = AppTheme.colors.border,
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             horizontal = Dimens.xl,
             vertical = Dimens.xxl,
@@ -798,13 +789,13 @@ private fun WordCard(
             Text(
                 text = if (revealed) "ANSWER" else "SAY IT OUT LOUD",
                 style = MaterialTheme.typography.labelSmall,
-                color = if (revealed) AccentMint else AccentCyan,
+                color = if (revealed) AppTheme.colors.success else AppTheme.colors.textPrimary,
             )
             Spacer(Modifier.weight(1f))
             Text(
                 text = if (word.hskLevel > 0) "HSK ${word.hskLevel}" else word.radical,
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
             )
         }
 
@@ -827,7 +818,7 @@ private fun WordCard(
                 label = "PINYIN",
                 value = word.pinyin.ifBlank { "—" },
                 valueStyle = PinyinLarge,
-                valueColor = AccentCyan,
+                valueColor = AppTheme.colors.textPrimary,
             )
             Spacer(Modifier.height(Dimens.md))
         }
@@ -849,13 +840,13 @@ private fun WordCard(
                         }
                     },
                     valueStyle = MaterialTheme.typography.bodyMedium,
-                    valueColor = TextSubtle,
+                    valueColor = AppTheme.colors.textSecondary,
                 )
             } else {
                 Text(
                     text = "No example sentence for this word yet.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted,
+                    color = AppTheme.colors.textSecondary,
                 )
             }
         }
@@ -865,7 +856,7 @@ private fun WordCard(
             Text(
                 text = "Say it out loud - three tries open the answer.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -905,14 +896,16 @@ private fun duelStatusText(
     else -> "Tap the microphone and say the word."
 }
 
+@Composable
+@ReadOnlyComposable
 private fun duelStatusColor(
     verdict: RecognitionVerdict,
     recognition: RecognitionState,
 ): androidx.compose.ui.graphics.Color = when {
-    verdict == RecognitionVerdict.Recognised -> AccentMint
-    verdict == RecognitionVerdict.Different -> AccentAmber
-    recognition is RecognitionState.Failed -> AccentAmber
-    else -> TextMuted
+    verdict == RecognitionVerdict.Recognised -> AppTheme.colors.success
+    verdict == RecognitionVerdict.Different -> AppTheme.colors.textPrimary
+    recognition is RecognitionState.Failed -> AppTheme.colors.textPrimary
+    else -> AppTheme.colors.textSecondary
 }
 
 /**
@@ -940,3 +933,4 @@ internal fun failureText(failure: RecognitionFailure): String = when (failure) {
     RecognitionFailure.Unknown ->
         "We couldn't listen just now. Try again, or wait for the help state."
 }
+

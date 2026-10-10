@@ -47,15 +47,7 @@ import com.example.data.progress.Milestone
 import com.example.data.progress.SessionSummary
 import com.example.data.progress.UnlockedAward
 import com.example.ui.components.SectionHeader
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsAgainDark
-import com.example.ui.theme.SrsEasyDark
-import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.SrsHardDark
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
+import com.example.ui.theme.AppTheme
 
 /**
  * A learner's level, their accumulated facts, and the badges they have earned.
@@ -109,19 +101,19 @@ internal fun LevelCard(level: LevelProgress) {
                     text = "Level ${level.level}",
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold,
-                    color = TextLight
+                    color = AppTheme.colors.textPrimary
                 )
                 Text(
                     text = "${level.totalXp} XP from graded reviews",
                     fontSize = 12.sp,
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             }
             Text(
                 text = "${level.xpIntoLevel} / ${level.xpForNextLevel}",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = TextMuted
+                color = AppTheme.colors.textSecondary
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -131,7 +123,7 @@ internal fun LevelCard(level: LevelProgress) {
         Text(
             text = "${level.xpForNextLevel - level.xpIntoLevel} XP to level ${level.level + 1}",
             fontSize = 11.sp,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             modifier = Modifier.testTag("progress_level_remaining")
         )
     }
@@ -158,7 +150,7 @@ internal fun LevelBar(
             .fillMaxWidth()
             .height(8.dp)
             .clip(RoundedCornerShape(4.dp))
-            .background(DarkSurfaceElevated)
+            .background(AppTheme.colors.elevated)
             .then(tag)
     ) {
         Box(
@@ -166,7 +158,7 @@ internal fun LevelBar(
                 .fillMaxWidth(animated)
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(AccentPrimary)
+                .background(AppTheme.colors.button)
         )
     }
 }
@@ -196,12 +188,12 @@ private fun MilestoneStrip(milestones: List<Milestone>) {
                     text = milestone.metric.describe(milestone.value),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextLight
+                    color = AppTheme.colors.textPrimary
                 )
                 Text(
                     text = milestone.metric.displayName,
                     fontSize = 11.sp,
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             }
         }
@@ -263,7 +255,7 @@ private fun AchievementBody(achievement: AchievementState) {
             .then(
                 if (earned) Modifier else Modifier.border(
                     width = 1.dp,
-                    color = OutlineBorder,
+                    color = AppTheme.colors.border,
                     shape = RoundedCornerShape(20.dp)
                 )
             )
@@ -272,13 +264,13 @@ private fun AchievementBody(achievement: AchievementState) {
             text = achievement.title,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (earned) TextLight else TextMuted
+            color = if (earned) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = achievement.description,
             fontSize = 11.sp,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
         Spacer(modifier = Modifier.height(8.dp))
         val measured = achievement.progressValue
@@ -287,14 +279,14 @@ private fun AchievementBody(achievement: AchievementState) {
                 text = "Earned",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = SrsGoodDark,
+                color = AppTheme.colors.success,
                 modifier = Modifier.testTag("badge_${achievement.code}_state")
             )
         } else {
             Text(
                 text = if (measured == null) "Progress not yet tracked" else "$measured / ${achievement.threshold}",
                 fontSize = 11.sp,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 modifier = Modifier.testTag("badge_${achievement.code}_progress")
             )
             if (measured != null) {
@@ -337,7 +329,7 @@ internal fun SessionSummaryCard(
             Text(
                 text = "No cards were answered in this session, so there is nothing to report.",
                 fontSize = 13.sp,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 modifier = Modifier.testTag("session_summary_empty")
             )
         } else {
@@ -360,7 +352,7 @@ internal fun SessionSummaryCard(
                 Text(
                     text = durationLabel(millis),
                     fontSize = 11.sp,
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             }
         }
@@ -371,7 +363,7 @@ internal fun SessionSummaryCard(
                 text = if (awards.size == 1) "Badge earned" else "Badges earned",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = TextLight,
+                color = AppTheme.colors.textPrimary,
                 modifier = Modifier.testTag("session_awards_header")
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -397,17 +389,17 @@ private fun RatingBreakdown(summary: SessionSummary) {
             // Inlined rather than extracted to a sub-composable because `weight` is a `RowScope`
             // member: a helper taking a plain `Modifier` has no row to be a fraction of, and a
             // segment silently sized to nothing is a bar that lies about its own proportions.
-            RatingShare(summary.again, total, SrsAgainDark)
-            RatingShare(summary.hard, total, SrsHardDark)
-            RatingShare(summary.good, total, SrsGoodDark)
-            RatingShare(summary.easy, total, SrsEasyDark)
+            RatingShare(summary.again, total, AppTheme.colors.error)
+            RatingShare(summary.hard, total, AppTheme.colors.hard)
+            RatingShare(summary.good, total, AppTheme.colors.success)
+            RatingShare(summary.easy, total, AppTheme.colors.easy)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            RatingLegend("Again", summary.again, SrsAgainDark)
-            RatingLegend("Hard", summary.hard, SrsHardDark)
-            RatingLegend("Good", summary.good, SrsGoodDark)
-            RatingLegend("Easy", summary.easy, SrsEasyDark)
+            RatingLegend("Again", summary.again, AppTheme.colors.error)
+            RatingLegend("Hard", summary.hard, AppTheme.colors.hard)
+            RatingLegend("Good", summary.good, AppTheme.colors.success)
+            RatingLegend("Easy", summary.easy, AppTheme.colors.easy)
         }
     }
 }
@@ -435,7 +427,7 @@ private fun RatingLegend(label: String, count: Int, color: Color) {
                 .background(color)
         )
         Spacer(modifier = Modifier.width(5.dp))
-        Text(text = "$label $count", fontSize = 11.sp, color = TextMuted)
+        Text(text = "$label $count", fontSize = 11.sp, color = AppTheme.colors.textSecondary)
     }
 }
 
@@ -447,12 +439,12 @@ private fun AwardRow(award: UnlockedAward, modifier: Modifier = Modifier) {
                 .padding(top = 3.dp)
                 .size(8.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(SrsGoodDark)
+                .background(AppTheme.colors.success)
         )
         Spacer(modifier = Modifier.width(8.dp))
         Column {
-            Text(text = award.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = TextLight)
-            Text(text = award.description, fontSize = 11.sp, color = TextMuted)
+            Text(text = award.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
+            Text(text = award.description, fontSize = 11.sp, color = AppTheme.colors.textSecondary)
         }
     }
 }
@@ -480,3 +472,4 @@ internal fun durationLabel(millis: Long): String {
         else -> "${minutes / 60} h ${minutes % 60} min"
     }
 }
+

@@ -18,13 +18,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.components.ScreenTitle
 import com.example.ui.components.StatTile
-import com.example.ui.theme.AccentAmber
-import com.example.ui.theme.AccentMint
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentViolet
-import com.example.ui.theme.DarkBg
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
-import com.example.ui.theme.TextMuted
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.MainViewModel
 import com.example.ui.viewmodel.ProgressUiState
@@ -48,7 +43,7 @@ fun ProgressScreen(
     val dashboardState by viewModel.dashboardState.collectAsStateWithLifecycle()
     val progressState by viewModel.progressState.collectAsStateWithLifecycle()
 
-    Scaffold(containerColor = DarkBg) { padding ->
+    Scaffold(containerColor = AppTheme.colors.background) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -93,13 +88,13 @@ fun ProgressScreen(
                                 StatTile(
                                     label = "Words learned",
                                     value = "${p.wordsLearned}",
-                                    accent = AccentPrimary,
+                                    accent = AppTheme.colors.button,
                                     modifier = Modifier.weight(1f).testTag("progress_stat_learned")
                                 )
                                 StatTile(
                                     label = "Mastered",
                                     value = p.masteryRate?.let { "${(it * 100).toInt()}%" } ?: NO_ACCURACY_GLYPH,
-                                    accent = AccentMint,
+                                    accent = AppTheme.colors.success,
                                     modifier = Modifier.weight(1f).testTag("progress_stat_mastered")
                                 )
                             }
@@ -109,14 +104,14 @@ fun ProgressScreen(
                                 StatTile(
                                     label = "Current streak",
                                     value = "${p.currentStreakDays}",
-                                    accent = AccentAmber,
+                                    accent = AppTheme.colors.textPrimary,
                                     caption = "Longest ${p.longestStreakDays}",
                                     modifier = Modifier.weight(1f).testTag("progress_stat_streak")
                                 )
                                 StatTile(
                                     label = "Reviews all time",
                                     value = "${p.lifetimeReviews}",
-                                    accent = AccentViolet,
+                                    accent = AppTheme.colors.textPrimary,
                                     modifier = Modifier.weight(1f).testTag("progress_stat_reviews")
                                 )
                             }
@@ -149,10 +144,11 @@ fun ProgressScreen(
                         text = "Badges are facts about study that has already happened and cannot " +
                             "be taken back. Nothing here decays when a day is missed.",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
+                        color = AppTheme.colors.textSecondary
                     )
                 }
             }
         }
     }
 }
+

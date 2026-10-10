@@ -14,7 +14,8 @@ import com.example.ui.components.StatTile
 import com.example.ui.screens.AnswerLine
 import com.example.ui.screens.MetaChip
 import com.example.ui.screens.RecognisedBadge
-import com.example.ui.theme.AccentPrimary
+import com.example.data.model.StorageValues
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import org.junit.Assert.assertEquals
@@ -73,7 +74,11 @@ class ComponentRoboTest {
     fun stat_tile_reads_value_then_label() {
         composeTestRule.setContent {
             MyApplicationTheme {
-                StatTile(label = "Current streak", value = "7", accent = AccentPrimary)
+                StatTile(
+                    label = "Current streak",
+                    value = "7",
+                    accent = AppTheme.colors.button
+                )
             }
         }
 
@@ -124,5 +129,60 @@ class ComponentRoboTest {
         composeTestRule.onNodeWithText("Meaning").assertIsDisplayed()
         composeTestRule.onNodeWithText("to study").assertIsDisplayed()
         composeTestRule.onNodeWithText("Word 3 · practice only").assertIsDisplayed()
+    }
+
+    @Test
+    fun buttons_render_in_system_theme() = buttons_render_in(StorageValues.ThemeMode.SYSTEM)
+
+    @Test
+    fun buttons_render_in_light_theme() = buttons_render_in(StorageValues.ThemeMode.LIGHT)
+
+    @Test
+    fun buttons_render_in_dark_theme() = buttons_render_in(StorageValues.ThemeMode.DARK)
+
+    private fun buttons_render_in(mode: StorageValues.ThemeMode) {
+        composeTestRule.setContent {
+            MyApplicationTheme(themeMode = mode) {
+                PrimaryButton(text = "Go $mode", onClick = {})
+                SecondaryButton(text = "Back $mode", onClick = {})
+            }
+        }
+
+        composeTestRule.onNodeWithText("Go $mode").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Back $mode").assertIsDisplayed()
+    }
+
+    @Test
+    fun theme_mode_reaches_composition() {
+        var lightBg: androidx.compose.ui.graphics.Color? = null
+
+        composeTestRule.setContent {
+            MyApplicationTheme(themeMode = StorageValues.ThemeMode.LIGHT) {
+                lightBg = AppTheme.colors.background
+            }
+        }
+        composeTestRule.runOnIdle {
+            assertEquals(
+                androidx.compose.ui.graphics.Color.White,
+                lightBg
+            )
+        }
+    }
+
+    @Test
+    fun dark_theme_mode_reaches_composition() {
+        var darkBg: androidx.compose.ui.graphics.Color? = null
+
+        composeTestRule.setContent {
+            MyApplicationTheme(themeMode = StorageValues.ThemeMode.DARK) {
+                darkBg = AppTheme.colors.background
+            }
+        }
+        composeTestRule.runOnIdle {
+            assertEquals(
+                androidx.compose.ui.graphics.Color(0xFF0A0A0A),
+                darkBg
+            )
+        }
     }
 }

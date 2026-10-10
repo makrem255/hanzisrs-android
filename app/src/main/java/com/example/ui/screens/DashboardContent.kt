@@ -47,19 +47,8 @@ import com.example.ui.components.IconBadge
 import com.example.ui.components.ProgressRing
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.VSpace
-import com.example.ui.theme.AccentAmber
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.AccentMint
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentRed
-import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
-import com.example.ui.theme.HeroSheen
-import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
 import com.example.ui.theme.srsStateColor
 
 /**
@@ -172,8 +161,7 @@ internal fun NextActionCard(
 ) {
     val action = snapshot.recommendation
     AppCard(
-        modifier = Modifier.testTag("dashboard_next_action"),
-        brush = HeroSheen
+        modifier = Modifier.testTag("dashboard_next_action")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
@@ -184,8 +172,8 @@ internal fun NextActionCard(
                     NextAction.Kind.CAUGHT_UP -> Icons.Default.TrendingUp
                     NextAction.Kind.NOTHING_ENROLLED -> Icons.Default.AutoAwesome
                 },
-                tint = AccentPrimary,
-                background = AccentPrimary.copy(alpha = 0.16f),
+                tint = AppTheme.colors.button,
+                background = AppTheme.colors.button.copy(alpha = 0.16f),
                 size = 44.dp
             )
             Spacer(Modifier.width(Dimens.md))
@@ -198,12 +186,12 @@ internal fun NextActionCard(
                         NextAction.Kind.NOTHING_ENROLLED -> "Get started"
                     },
                     style = MaterialTheme.typography.labelMedium,
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
                 Text(
                     text = action.headline,
                     style = MaterialTheme.typography.headlineSmall,
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                     modifier = Modifier.testTag("dashboard_next_headline")
                 )
             }
@@ -214,7 +202,7 @@ internal fun NextActionCard(
         Text(
             text = action.detail,
             style = MaterialTheme.typography.bodyMedium,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
 
         VSpace(Dimens.lg)
@@ -270,19 +258,19 @@ internal fun TodayCard(snapshot: DashboardSnapshot) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ProgressRing(
                 progress = if (goal > 0) done.toFloat() / goal.coerceAtLeast(1) else 0f,
-                accent = AccentPrimary,
+                accent = AppTheme.colors.button,
                 diameter = 84.dp
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "$done",
                         style = MaterialTheme.typography.titleLarge,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                     Text(
                         text = "of $goal",
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted
+                        color = AppTheme.colors.textSecondary
                     )
                 }
             }
@@ -302,13 +290,13 @@ internal fun TodayCard(snapshot: DashboardSnapshot) {
         VSpace(Dimens.md)
         GoalBar(
             progress = if (goal > 0) done.toFloat() / goal.coerceAtLeast(1) else 0f,
-            accent = if (done >= goal && goal > 0) SrsGoodDark else AccentPrimary
+            accent = if (done >= goal && goal > 0) AppTheme.colors.success else AppTheme.colors.button
         )
         VSpace(Dimens.xs)
         Text(
             text = "Reviews toward your daily goal",
             style = MaterialTheme.typography.labelSmall,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             modifier = Modifier.testTag("dashboard_goal")
         )
     }
@@ -342,8 +330,8 @@ internal fun StreakCard(snapshot: DashboardSnapshot) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = Icons.Default.LocalFireDepartment,
-                tint = if (p.currentStreakDays > 0) AccentAmber else TextMuted,
-                background = (if (p.currentStreakDays > 0) AccentAmber else TextMuted).copy(alpha = 0.14f),
+                tint = if (p.currentStreakDays > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary,
+                background = (if (p.currentStreakDays > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary).copy(alpha = 0.14f),
                 size = 36.dp
             )
             Spacer(Modifier.width(Dimens.sm))
@@ -355,13 +343,13 @@ internal fun StreakCard(snapshot: DashboardSnapshot) {
             Text(
                 text = "${p.currentStreakDays}",
                 style = MaterialTheme.typography.displaySmall,
-                color = if (p.currentStreakDays > 0) AccentAmber else TextSubtle
+                color = if (p.currentStreakDays > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
             )
             Spacer(Modifier.width(Dimens.xs))
             Text(
                 text = if (p.currentStreakDays == 1) "day" else "days",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 modifier = Modifier.padding(bottom = Dimens.sm)
             )
         }
@@ -374,14 +362,14 @@ internal fun StreakCard(snapshot: DashboardSnapshot) {
                 else -> "Start one by reviewing a card"
             },
             style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
         VSpace(Dimens.sm)
         Text(
             text = "Longest ${p.longestStreakDays} · ${p.activeDays} active " +
                 if (p.activeDays == 1) "day" else "days",
             style = MaterialTheme.typography.labelSmall,
-            color = TextSubtle
+            color = AppTheme.colors.textSecondary
         )
     }
 }
@@ -394,8 +382,8 @@ internal fun ProgressCard(snapshot: DashboardSnapshot) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = Icons.Default.TrendingUp,
-                tint = AccentMint,
-                background = AccentMint.copy(alpha = 0.14f),
+                tint = AppTheme.colors.success,
+                background = AppTheme.colors.success.copy(alpha = 0.14f),
                 size = 36.dp
             )
             Spacer(Modifier.width(Dimens.sm))
@@ -407,13 +395,13 @@ internal fun ProgressCard(snapshot: DashboardSnapshot) {
             Text(
                 text = "${p.wordsLearned}",
                 style = MaterialTheme.typography.displaySmall,
-                color = TextLight
+                color = AppTheme.colors.textPrimary
             )
             Spacer(Modifier.width(Dimens.xs))
             Text(
                 text = "of ${p.enrolled} learned",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 modifier = Modifier.padding(bottom = Dimens.sm)
             )
         }
@@ -424,13 +412,13 @@ internal fun ProgressCard(snapshot: DashboardSnapshot) {
             text = p.masteryRate?.let { "Mastered: ${(it * 100).toInt()}% of collection" }
                 ?: "Mastery appears once the collection has words",
             style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
         VSpace(Dimens.xs)
         Text(
             text = "${p.lifetimeReviews} reviews all time",
             style = MaterialTheme.typography.labelSmall,
-            color = TextSubtle
+            color = AppTheme.colors.textSecondary
         )
     }
 }
@@ -448,7 +436,7 @@ internal fun DistributionCard(progress: Progress) {
             Text(
                 text = "Nothing in your collection yet.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 modifier = Modifier.testTag("dashboard_distribution_empty")
             )
         } else {
@@ -485,7 +473,7 @@ internal fun DistributionCard(progress: Progress) {
                         Text(
                             text = share.state.name.lowercase().replaceFirstChar { it.uppercase() },
                             style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
+                            color = AppTheme.colors.textSecondary
                         )
                     }
                 }
@@ -511,7 +499,7 @@ internal fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
             Text(
                 text = "No reviews recorded yet.",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 modifier = Modifier.testTag("dashboard_week_empty")
             )
         } else {
@@ -536,7 +524,7 @@ internal fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                             Text(
                                 text = "$count",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted
+                                color = AppTheme.colors.textSecondary
                             )
                             Spacer(Modifier.height(Dimens.xxs))
                         }
@@ -552,14 +540,14 @@ internal fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                                 .fillMaxWidth()
                                 .height((4 + 58 * animated).dp)
                                 .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                .background(if (count > 0) AccentPrimary else DarkSurfaceElevated)
+                                .background(if (count > 0) AppTheme.colors.button else AppTheme.colors.elevated)
                         )
                         Spacer(Modifier.height(Dimens.xs))
                         Text(
                             text = weekdayLabel(epochDay),
                             style = MaterialTheme.typography.labelSmall,
                             maxLines = 1,
-                            color = TextSubtle
+                            color = AppTheme.colors.textSecondary
                         )
                     }
                 }
@@ -584,34 +572,34 @@ internal fun DifficultCardList(
                     modifier = Modifier
                         .width(140.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(DarkSurfaceElevated)
+                        .background(AppTheme.colors.elevated)
                         .clickable { onOpenWord(card.userVocabularyId) }
                         .padding(Dimens.md)
                 ) {
                     Text(
                         text = card.character,
                         style = MaterialTheme.typography.headlineMedium,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                     if (card.pinyin.isNotEmpty()) {
                         Text(
                             text = card.pinyin,
                             style = MaterialTheme.typography.bodySmall,
-                            color = AccentCyan
+                            color = AppTheme.colors.textPrimary
                         )
                     }
                     Spacer(Modifier.height(Dimens.xs))
                     Text(
                         text = card.meaning,
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextMuted,
+                        color = AppTheme.colors.textSecondary,
                         maxLines = 2
                     )
                     Spacer(Modifier.height(Dimens.sm))
                     Text(
                         text = "${card.lapses} ${if (card.lapses == 1) "miss" else "misses"}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AccentRed
+                        color = AppTheme.colors.error
                     )
                 }
             }
@@ -647,14 +635,14 @@ internal fun MiniStat(
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
-            color = TextLight
+            color = AppTheme.colors.textPrimary
         )
         // Wraps rather than clips. A truncated "Accuracy" reads as a different word; a
         // two-line label inside a card that has already been sized to fit is fine.
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             maxLines = 2
         )
     }
@@ -708,3 +696,4 @@ private fun weekdayLabel(epochDay: Int): String {
         else -> "S"
     }
 }
+

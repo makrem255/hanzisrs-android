@@ -30,12 +30,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.DarkSurfaceCard
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
-import com.example.ui.theme.OutlineSubtle
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 
 /**
  * The standard card.
@@ -49,22 +45,25 @@ import com.example.ui.theme.TextMuted
 fun AppCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    containerColor: Color = DarkSurfaceCard,
-    borderColor: Color = OutlineSubtle,
+    containerColor: Color? = null,
+    borderColor: Color? = null,
     brush: Brush? = null,
     contentPadding: PaddingValues = PaddingValues(Dimens.lg),
     cornerRadius: androidx.compose.ui.unit.Dp = 20.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val colors = AppTheme.colors
+    val fill = containerColor ?: colors.card
+    val line = borderColor ?: colors.borderSubtle
     val shape = RoundedCornerShape(cornerRadius)
     Surface(
         modifier = modifier
             .clip(shape)
             .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
         shape = shape,
-        color = if (brush == null) containerColor else Color.Transparent,
-        border = if (brush == null && borderColor != Color.Transparent) {
-            BorderStroke(1.dp, borderColor)
+        color = if (brush == null) fill else Color.Transparent,
+        border = if (brush == null && line != Color.Transparent) {
+            BorderStroke(1.dp, line)
         } else {
             null
         }
@@ -89,22 +88,25 @@ fun IconBadge(
     icon: ImageVector,
     contentDescription: String? = null,
     modifier: Modifier = Modifier,
-    tint: Color = AccentPrimary,
-    background: Color = AccentPrimary.copy(alpha = 0.14f),
+    tint: Color? = null,
+    background: Color? = null,
     size: androidx.compose.ui.unit.Dp = 40.dp,
     cornerRadius: androidx.compose.ui.unit.Dp = 14.dp
 ) {
+    val colors = AppTheme.colors
+    val ink = tint ?: colors.textPrimary
+    val wash = background ?: colors.textPrimary.copy(alpha = 0.10f)
     Box(
         modifier = modifier
             .size(size)
             .clip(RoundedCornerShape(cornerRadius))
-            .background(background),
+            .background(wash),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = tint,
+            tint = ink,
             modifier = Modifier.size(size * 0.5f)
         )
     }
@@ -132,14 +134,14 @@ fun SectionHeader(
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
-                color = TextLight
+                color = AppTheme.colors.textPrimary
             )
             if (subtitle != null) {
                 Spacer(Modifier.height(Dimens.xxs))
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             }
         }
@@ -148,7 +150,7 @@ fun SectionHeader(
                 Text(
                     text = actionLabel,
                     style = MaterialTheme.typography.labelLarge,
-                    color = AccentPrimary
+                    color = AppTheme.colors.textPrimary
                 )
             }
         }
@@ -174,7 +176,7 @@ fun ScreenTitle(
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineMedium,
-                color = TextLight,
+                color = AppTheme.colors.textPrimary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -183,7 +185,7 @@ fun ScreenTitle(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             }
         }
@@ -201,7 +203,7 @@ fun CardDivider(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(OutlineSubtle)
+            .background(AppTheme.colors.borderSubtle)
     )
 }
 

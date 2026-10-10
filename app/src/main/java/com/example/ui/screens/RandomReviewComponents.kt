@@ -54,15 +54,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.ui.components.IconBadge
-import com.example.ui.theme.AccentMint
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.DarkSurfaceElevated
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
-import com.example.ui.theme.OutlineSubtle
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 
 /** Milliseconds between successive items of a staggered reveal. */
 private const val STAGGER_MILLIS = 70
@@ -132,7 +125,7 @@ fun AnimatedMicButton(
     enabled: Boolean = true,
     icon: ImageVector,
     contentDescription: String,
-    tint: Color = AccentPrimary
+    tint: Color = AppTheme.colors.button
 ) {
     val scale by animateFloatAsState(
         targetValue = if (listening) 1.05f else 1f,
@@ -149,8 +142,8 @@ fun AnimatedMicButton(
         }
         Surface(
             shape = CircleShape,
-            color = if (listening) tint else DarkSurfaceElevated,
-            border = BorderStroke(1.dp, if (listening) tint else OutlineSubtle),
+            color = if (listening) tint else AppTheme.colors.elevated,
+            border = BorderStroke(1.dp, if (listening) tint else AppTheme.colors.borderSubtle),
             modifier = Modifier
                 .size(MIC_CORE_SIZE)
                 .scale(scale)
@@ -161,7 +154,7 @@ fun AnimatedMicButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = contentDescription,
-                    tint = if (listening) AccentPrimaryInk else tint,
+                    tint = if (listening) AppTheme.colors.onButton else tint,
                     modifier = Modifier.size(30.dp)
                 )
             }
@@ -230,8 +223,8 @@ fun RecognisedBadge(modifier: Modifier = Modifier) {
         IconBadge(
             icon = Icons.Default.CheckCircle,
             contentDescription = "Recognised",
-            tint = AccentMint,
-            background = AccentMint.copy(alpha = 0.16f),
+            tint = AppTheme.colors.success,
+            background = AppTheme.colors.success.copy(alpha = 0.16f),
             size = 48.dp,
             cornerRadius = 24.dp
         )
@@ -250,13 +243,13 @@ fun AnswerLine(
     value: String,
     modifier: Modifier = Modifier,
     valueStyle: TextStyle = MaterialTheme.typography.titleMedium,
-    valueColor: Color = TextLight
+    valueColor: Color = AppTheme.colors.textPrimary
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
         Spacer(Modifier.height(Dimens.xxs))
         Text(
@@ -275,7 +268,7 @@ fun CardRule(modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(OutlineSubtle)
+            .background(AppTheme.colors.borderSubtle)
     )
 }
 
@@ -284,13 +277,13 @@ fun CardRule(modifier: Modifier = Modifier) {
 fun MetaChip(
     text: String,
     modifier: Modifier = Modifier,
-    tint: Color = TextMuted,
+    tint: Color = AppTheme.colors.textSecondary,
     leading: ImageVector? = null
 ) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(DarkSurfaceCard)
+            .background(AppTheme.colors.card)
             .padding(horizontal = Dimens.md, vertical = Dimens.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -310,3 +303,4 @@ fun MetaChip(
         )
     }
 }
+

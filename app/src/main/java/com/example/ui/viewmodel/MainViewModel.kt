@@ -1342,6 +1342,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         uiSounds.isEnabled = enabled
     }
 
+    // ---- interface theme --------------------------------------------------------------------------
+
+    /**
+     * The interface theme: system, light or dark.
+     *
+     * The same shape as [soundEffectsEnabled] for the same reason: the write goes to
+     * preferences, then to the flow, so the settings control and the theme in
+     * `MainActivity` cannot disagree. Read once at startup from [UiPreferencesStore], which
+     * defaults to system; device-global, so it applies before sign-in and survives an
+     * account switch.
+     */
+    private val _themeMode =
+        MutableStateFlow<StorageValues.ThemeMode>(uiPreferences.themeMode)
+    val themeMode: StateFlow<StorageValues.ThemeMode> = _themeMode.asStateFlow()
+
+    /** Persists and applies the theme choice immediately. */
+    fun setThemeMode(mode: StorageValues.ThemeMode) {
+        uiPreferences.setThemeMode(mode)
+        _themeMode.value = mode
+    }
+
     /**
      * Plays [sound] if the learner has sounds enabled.
      *

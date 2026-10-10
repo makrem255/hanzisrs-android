@@ -39,14 +39,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentSweep
-import com.example.ui.theme.DarkSurfaceHighest
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 
 /**
  * The press feedback every button in the app shares: a short compress and release.
@@ -79,8 +73,11 @@ private fun pressScale(pressed: Boolean): State<Float> =
 /**
  * The primary action.
  *
- * A full-width, 54dp-tall pill filled with the brand sweep. When disabled it falls
+ * A full-width, 54dp-tall pill in the theme's button fill. When disabled it falls
  * back to a flat surface step so it still reads as a button rather than vanishing.
+ *
+ * The `brush` override exists for the rare surface that needs a gradient rather than
+ * the flat fill; every ordinary call leaves it null and gets the monochrome button.
  */
 @Composable
 fun PrimaryButton(
@@ -89,11 +86,16 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null,
-    brush: Brush = AccentSweep,
+    brush: Brush? = null,
     cornerRadius: Dp = 18.dp
 ) {
-    val fill: Brush = if (enabled) brush else SolidColor(DarkSurfaceHighest)
-    val ink = if (enabled) AccentPrimaryInk else TextMuted
+    val colors = AppTheme.colors
+    val fill: Brush = when {
+        !enabled -> SolidColor(colors.highest)
+        brush != null -> brush
+        else -> SolidColor(colors.button)
+    }
+    val ink = if (enabled) colors.onButton else colors.textSecondary
     val (pressSource, isPressed) = rememberPressState()
     val scale = pressScale(isPressed)
     Box(
@@ -143,9 +145,11 @@ fun SecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null,
-    accent: Color = AccentPrimary,
+    accent: Color? = null,
     cornerRadius: Dp = 18.dp
 ) {
+    val colors = AppTheme.colors
+    val tone = accent ?: colors.textPrimary
     val (pressSource, isPressed) = rememberPressState()
     val scale = pressScale(isPressed)
     Box(
@@ -157,7 +161,7 @@ fun SecondaryButton(
                 scaleY = scale.value
             }
             .clip(RoundedCornerShape(cornerRadius))
-            .border(BorderStroke(1.dp, accent.copy(alpha = if (enabled) 0.55f else 0.25f)), RoundedCornerShape(cornerRadius))
+            .border(BorderStroke(1.dp, tone.copy(alpha = if (enabled) 0.55f else 0.25f)), RoundedCornerShape(cornerRadius))
             .clickable(
                 interactionSource = pressSource,
                 indication = LocalIndication.current,
@@ -171,7 +175,7 @@ fun SecondaryButton(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    tint = accent,
+                    tint = tone,
                     modifier = Modifier.size(Dimens.icon)
                 )
                 Spacer(Modifier.width(Dimens.sm))
@@ -179,7 +183,7 @@ fun SecondaryButton(
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
-                color = accent
+                color = tone
             )
         }
     }
@@ -191,14 +195,17 @@ fun PillButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = DarkSurfaceHighest,
-    contentColor: Color = TextLight,
+    containerColor: Color? = null,
+    contentColor: Color? = null,
     leadingIcon: ImageVector? = null
 ) {
+    val colors = AppTheme.colors
+    val fill = containerColor ?: colors.highest
+    val ink = contentColor ?: colors.textPrimary
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(containerColor)
+            .background(fill)
             .clickable(onClick = onClick)
             .padding(horizontal = Dimens.md, vertical = Dimens.sm),
         verticalAlignment = Alignment.CenterVertically
@@ -207,7 +214,7 @@ fun PillButton(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = contentColor,
+                tint = ink,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(Modifier.width(Dimens.xs))
@@ -215,7 +222,7 @@ fun PillButton(
         Text(
             text = text,
             style = MaterialTheme.typography.labelMedium,
-            color = contentColor
+            color = ink
         )
     }
 }
@@ -273,10 +280,11 @@ fun <T> SegmentedSelector(
     label: (T) -> String,
     modifier: Modifier = Modifier
 ) {
+    val colors = AppTheme.colors
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(DarkSurfaceHighest.copy(alpha = 0.6f))
+            .background(colors.highest.copy(alpha = 0.6f))
             .padding(Dimens.xs),
         horizontalArrangement = Arrangement.spacedBy(Dimens.xs)
     ) {
@@ -286,7 +294,7 @@ fun <T> SegmentedSelector(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(50))
-                    .background(if (isSelected) AccentPrimary else Color.Transparent)
+                    .background(if (isSelected) colors.button else Color.Transparent)
                     .clickable { onSelect(option) }
                     .padding(vertical = Dimens.sm),
                 contentAlignment = Alignment.Center
@@ -294,7 +302,7 @@ fun <T> SegmentedSelector(
                 Text(
                     text = label(option),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) AccentPrimaryInk else TextMuted
+                    color = if (isSelected) colors.onButton else colors.textSecondary
                 )
             }
         }
@@ -315,21 +323,21 @@ fun CircleIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     diameter: Dp = Dimens.audioButton,
-    containerColor: Color = AccentPrimary.copy(alpha = 0.16f),
-    contentColor: Color = AccentPrimary,
-    borderColor: Color? = AccentPrimary.copy(alpha = 0.4f)
+    containerColor: Color? = null,
+    contentColor: Color? = null,
+    borderColor: Color? = null
 ) {
+    val colors = AppTheme.colors
+    val fill = containerColor ?: colors.textPrimary.copy(alpha = 0.10f)
+    val ink = contentColor ?: colors.textPrimary
+    val line = borderColor ?: colors.textPrimary.copy(alpha = 0.25f)
     Box(
         modifier = modifier
             .size(diameter)
             .clip(CircleShape)
-            .background(containerColor)
+            .background(fill)
             .then(
-                if (borderColor != null) {
-                    Modifier.border(BorderStroke(1.dp, borderColor), CircleShape)
-                } else {
-                    Modifier
-                }
+                Modifier.border(BorderStroke(1.dp, line), CircleShape)
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -337,7 +345,7 @@ fun CircleIconButton(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = contentColor,
+            tint = ink,
             modifier = Modifier.size(diameter * 0.42f)
         )
     }

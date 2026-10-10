@@ -28,13 +28,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.ui.theme.AccentAmber
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentRed
-import com.example.ui.theme.DarkSurfaceHighest
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 
 /**
  * The one loading treatment.
@@ -56,15 +51,15 @@ fun LoadingState(
     ) {
         CircularProgressIndicator(
             modifier = Modifier.size(32.dp),
-            color = AccentPrimary,
-            trackColor = DarkSurfaceHighest,
+            color = AppTheme.colors.textPrimary,
+            trackColor = AppTheme.colors.highest,
             strokeWidth = 3.dp
         )
         Spacer(Modifier.height(Dimens.md))
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = TextMuted
+            color = AppTheme.colors.textSecondary
         )
     }
 }
@@ -82,7 +77,7 @@ fun EmptyState(
     title: String,
     message: String,
     modifier: Modifier = Modifier,
-    accent: Color = AccentPrimary,
+    accent: Color? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
@@ -95,7 +90,7 @@ fun EmptyState(
         IconBadge(
             icon = icon,
             tint = accent,
-            background = accent.copy(alpha = 0.12f),
+            background = accent?.copy(alpha = 0.12f),
             size = 64.dp,
             cornerRadius = 20.dp
         )
@@ -103,14 +98,14 @@ fun EmptyState(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = TextLight,
+            color = AppTheme.colors.textPrimary,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(Dimens.sm))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             textAlign = TextAlign.Center
         )
         if (actionLabel != null && onAction != null) {
@@ -145,8 +140,8 @@ fun ErrorState(
     ) {
         IconBadge(
             icon = Icons.Default.Warning,
-            tint = AccentRed,
-            background = AccentRed.copy(alpha = 0.12f),
+            tint = AppTheme.colors.error,
+            background = AppTheme.colors.error.copy(alpha = 0.12f),
             size = 56.dp,
             cornerRadius = 18.dp
         )
@@ -154,14 +149,14 @@ fun ErrorState(
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = TextLight,
+            color = AppTheme.colors.textPrimary,
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.height(Dimens.sm))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyMedium,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             textAlign = TextAlign.Center
         )
         if (onRetry != null) {
@@ -183,14 +178,16 @@ fun ErrorState(
 fun InlineNotice(
     text: String,
     modifier: Modifier = Modifier,
-    tone: Color = AccentAmber,
+    tone: Color? = null,
     icon: ImageVector? = null
 ) {
+    val colors = AppTheme.colors
+    val ink = tone ?: colors.textSecondary
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(tone.copy(alpha = 0.10f))
+            .background(ink.copy(alpha = 0.10f))
             .padding(horizontal = Dimens.md, vertical = Dimens.sm)
     ) {
         androidx.compose.foundation.layout.Row(
@@ -200,7 +197,7 @@ fun InlineNotice(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = tone,
+                    tint = ink,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(Modifier.width(Dimens.sm))
@@ -208,7 +205,7 @@ fun InlineNotice(
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall,
-                color = tone,
+                color = ink,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis
             )

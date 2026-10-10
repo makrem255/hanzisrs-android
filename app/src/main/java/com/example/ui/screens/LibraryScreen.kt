@@ -83,22 +83,8 @@ import com.example.ui.components.IconTarget
 import com.example.ui.components.InteractiveStrokeSection
 import com.example.ui.components.PrimaryButton
 import com.example.ui.components.minimumTouchTarget
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.DarkSurfaceContainer
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsAgainDark
-import com.example.ui.theme.SrsEasyDark
-import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.SrsHardDark
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.srsStateColorOrNull
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
 import com.example.ui.viewmodel.MainViewModel
 import com.example.util.plural
 
@@ -192,13 +178,13 @@ fun LibraryScreen(
                         },
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.background)
             )
         },
-        containerColor = DarkBg
+        containerColor = AppTheme.colors.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -221,8 +207,8 @@ fun LibraryScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     label = { Text("Search") },
-                    placeholder = { Text("Hanzi, pinyin or English", color = TextSubtle) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AccentPrimary) },
+                    placeholder = { Text("Hanzi, pinyin or English", color = AppTheme.colors.textSecondary) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.button) },
                     singleLine = true,
                     // Search key on a live-filtered list. The action key used to do nothing
                     // at all, so on a phone the only way to get the keyboard out of the
@@ -245,13 +231,13 @@ fun LibraryScreen(
                     ),
                     shape = RoundedCornerShape(14.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentPrimary,
-                        unfocusedBorderColor = OutlineBorder,
-                        focusedTextColor = TextLight,
-                        unfocusedTextColor = TextLight,
-                        cursorColor = AccentPrimary,
-                        focusedContainerColor = DarkSurfaceContainer,
-                        unfocusedContainerColor = DarkSurfaceContainer
+                        focusedBorderColor = AppTheme.colors.button,
+                        unfocusedBorderColor = AppTheme.colors.border,
+                        focusedTextColor = AppTheme.colors.textPrimary,
+                        unfocusedTextColor = AppTheme.colors.textPrimary,
+                        cursorColor = AppTheme.colors.button,
+                        focusedContainerColor = AppTheme.colors.surfaceAlt,
+                        unfocusedContainerColor = AppTheme.colors.surfaceAlt
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -270,10 +256,10 @@ fun LibraryScreen(
                         val selected = selectedFilter == filter
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) AccentPrimary else DarkSurfaceContainer,
+                            color = if (selected) AppTheme.colors.button else AppTheme.colors.surfaceAlt,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (selected) AccentPrimary else OutlineBorder
+                                if (selected) AppTheme.colors.button else AppTheme.colors.border
                             ),
                             modifier = Modifier
                                 .selectable(
@@ -293,7 +279,7 @@ fun LibraryScreen(
                                 text = filter.label,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (selected) AccentPrimaryInk else TextMuted,
+                                color = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                             )
                         }
@@ -328,8 +314,8 @@ fun LibraryScreen(
                                 .fillMaxWidth()
                                 .padding(top = 28.dp),
                             shape = RoundedCornerShape(20.dp),
-                            colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
+                            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                         ) {
                             Column(
                                 modifier = Modifier.padding(24.dp),
@@ -344,7 +330,7 @@ fun LibraryScreen(
                                         modifier = Modifier
                                             .size(28.dp)
                                             .padding(bottom = 14.dp),
-                                        color = TextMuted,
+                                        color = AppTheme.colors.textSecondary,
                                         strokeWidth = 2.5.dp
                                     )
                                 }
@@ -368,7 +354,7 @@ fun LibraryScreen(
                                             allWords.isEmpty() -> "Your vocabulary library is ready for its first word."
                                             else -> "No words match these filters."
                                         },
-                                    color = TextLight,
+                                    color = AppTheme.colors.textPrimary,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 15.sp
                                 )
@@ -380,7 +366,7 @@ fun LibraryScreen(
                                             allWords.isEmpty() -> "Add your first Hanzi and start building your personal language library."
                                             else -> "Try another search term or clear a filter."
                                         },
-                                    color = TextMuted,
+                                    color = AppTheme.colors.textSecondary,
                                     fontSize = 12.sp
                                 )
                                 // The tab previously had no way forward: adding a word required
@@ -419,7 +405,7 @@ fun LibraryScreen(
     wordPendingDeletion?.let { wordWithSrs ->
         AlertDialog(
             onDismissRequest = { wordPendingDeletion = null },
-            title = { Text("Remove ${wordWithSrs.word.hanzi}?", color = TextLight, fontWeight = FontWeight.SemiBold) },
+            title = { Text("Remove ${wordWithSrs.word.hanzi}?", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold) },
             text = {
                 // "and its review history" was here, and it was the one false sentence in the app
                 // that pointed the wrong way. `LearnerProgress` documents the opposite as a
@@ -433,7 +419,7 @@ fun LibraryScreen(
                 Text(
                     "This removes the word, its schedule and its place in your review queue. " +
                         "Your past reviews of it are kept. This cannot be undone.",
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             },
             confirmButton = {
@@ -443,13 +429,13 @@ fun LibraryScreen(
                         if (selectedWordForModal?.word?.id == wordWithSrs.word.id) selectedWordForModal = null
                         wordPendingDeletion = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = SrsAgainDark, contentColor = DarkBg)
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.error, contentColor = AppTheme.colors.background)
                 ) { Text("Remove") }
             },
             dismissButton = {
-                TextButton(onClick = { wordPendingDeletion = null }) { Text("Keep word", color = AccentPrimary) }
+                TextButton(onClick = { wordPendingDeletion = null }) { Text("Keep word", color = AppTheme.colors.button) }
             },
-            containerColor = DarkSurfaceCard,
+            containerColor = AppTheme.colors.card,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -468,8 +454,8 @@ fun WordLibraryRow(
             .clickable { onClick() }
             .testTag("word_row_${wordWithSrs.word.id}"),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -483,15 +469,15 @@ fun WordLibraryRow(
                 modifier = Modifier
                     .size(54.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(DarkSurfaceContainer)
-                    .border(1.dp, OutlineBorder, RoundedCornerShape(12.dp)),
+                    .background(AppTheme.colors.surfaceAlt)
+                    .border(1.dp, AppTheme.colors.border, RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = wordWithSrs.word.hanzi,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Normal,
-                    color = TextLight
+                    color = AppTheme.colors.textPrimary
                 )
             }
 
@@ -504,13 +490,13 @@ fun WordLibraryRow(
                         text = wordWithSrs.word.pinyin,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = AccentPrimary
+                        color = AppTheme.colors.button
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
-                        color = DarkSurfaceElevated,
+                        color = AppTheme.colors.elevated,
                         shape = RoundedCornerShape(4.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                     ) {
                         Text(
                             text = "HSK ${wordWithSrs.word.hskLevel}",
@@ -519,7 +505,7 @@ fun WordLibraryRow(
                             // important thing on the row.
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = AccentPrimary,
+                            color = AppTheme.colors.button,
                             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
@@ -530,18 +516,18 @@ fun WordLibraryRow(
                 Text(
                     text = wordWithSrs.word.meaning,
                     fontSize = 13.sp,
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                     maxLines = 1
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // SRS Badge. Was a `when` over the raw stored `String` with an
-                // `else -> SrsAgainDark`, which is the colour that means "you failed this word
+                // `else -> AppTheme.colors.error`, which is the colour that means "you failed this word
                 // again" — so an unrecognised state told the learner their word had lapsed.
                 // `null` is now rendered as grey: a state this build does not know about is not
                 // the same claim as a state that says the learner failed.
-                val srsColor = srsStateColorOrNull(wordWithSrs.state) ?: TextMuted
+                val srsColor = srsStateColorOrNull(wordWithSrs.state) ?: AppTheme.colors.textSecondary
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -563,7 +549,7 @@ fun WordLibraryRow(
                                     plural(srs.intervalDays, "day", "days")
                             },
                         fontSize = 11.sp,
-                        color = TextMuted
+                        color = AppTheme.colors.textSecondary
                     )
                 }
             }
@@ -594,7 +580,7 @@ fun WordLibraryRow(
                 Icon(
                     Icons.Default.Delete,
                     contentDescription = "Remove ${wordWithSrs.word.hanzi} from your collection",
-                    tint = TextMuted
+                    tint = AppTheme.colors.textSecondary
                 )
             }
         }
@@ -630,8 +616,8 @@ fun WordDetailSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = DarkSurfaceCard,
-        contentColor = TextLight,
+        containerColor = AppTheme.colors.card,
+        contentColor = AppTheme.colors.textPrimary,
         scrimColor = Color.Black.copy(alpha = 0.6f)
     ) {
         Column(
@@ -654,13 +640,13 @@ fun WordDetailSheet(
                     Text(
                         text = wordWithSrs.word.hanzi,
                         fontSize = 44.sp,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                     Text(
                         text = wordWithSrs.word.pinyin,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = AccentPrimary
+                        color = AppTheme.colors.button
                     )
                 }
                 PronunciationButton(
@@ -681,7 +667,7 @@ fun WordDetailSheet(
                     Icon(
                         Icons.Default.Close,
                         contentDescription = "Close word details",
-                        tint = TextMuted
+                        tint = AppTheme.colors.textSecondary
                     )
                 }
             }
@@ -708,14 +694,14 @@ fun WordDetailSheet(
                         StorageValues.ContentProvenance.UNKNOWN, null -> "Source not recorded"
                     },
                     color = when (provenance) {
-                        StorageValues.ContentProvenance.CURATED -> SrsGoodDark
-                        StorageValues.ContentProvenance.AI_GENERATED -> SrsHardDark
-                        else -> TextMuted
+                        StorageValues.ContentProvenance.CURATED -> AppTheme.colors.success
+                        StorageValues.ContentProvenance.AI_GENERATED -> AppTheme.colors.hard
+                        else -> AppTheme.colors.textSecondary
                     }
                 )
-                DetailChip(text = "HSK ${wordWithSrs.word.hskLevel}", color = TextMuted)
+                DetailChip(text = "HSK ${wordWithSrs.word.hskLevel}", color = AppTheme.colors.textSecondary)
                 if (wordWithSrs.word.isVerified) {
-                    DetailChip(text = "Verified", color = SrsGoodDark)
+                    DetailChip(text = "Verified", color = AppTheme.colors.success)
                 }
             }
 
@@ -744,7 +730,7 @@ fun WordDetailSheet(
                         }
                     },
                     fontSize = 11.sp,
-                    color = TextSubtle
+                    color = AppTheme.colors.textSecondary
                 )
             }
 
@@ -760,17 +746,17 @@ fun WordDetailSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkSurfaceContainer, RoundedCornerShape(16.dp))
-                    .border(1.dp, OutlineBorder, RoundedCornerShape(16.dp))
+                    .background(AppTheme.colors.surfaceAlt, RoundedCornerShape(16.dp))
+                    .border(1.dp, AppTheme.colors.border, RoundedCornerShape(16.dp))
                     .padding(14.dp)
             ) {
-                Text("Meaning", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TextMuted)
-                Text(wordWithSrs.word.meaning, fontSize = 15.sp, color = TextLight)
+                Text("Meaning", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
+                Text(wordWithSrs.word.meaning, fontSize = 15.sp, color = AppTheme.colors.textPrimary)
 
                 if (wordWithSrs.word.radical.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text("Radical", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = TextMuted)
-                    Text(wordWithSrs.word.radical, fontSize = 15.sp, color = AccentPrimary)
+                    Text("Radical", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
+                    Text(wordWithSrs.word.radical, fontSize = 15.sp, color = AppTheme.colors.button)
                 }
 
                 if (wordWithSrs.word.exampleCn.isNotBlank()) {
@@ -784,7 +770,7 @@ fun WordDetailSheet(
                             "Example sentence",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
-                            color = TextMuted
+                            color = AppTheme.colors.textSecondary
                         )
                         // `forSentenceOfWord` so this control and the header's control — both
                         // enabled, both on this word — cannot both claim to be playing.
@@ -801,12 +787,12 @@ fun WordDetailSheet(
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(wordWithSrs.word.exampleCn, fontSize = 15.sp, fontWeight = FontWeight.Normal, color = TextLight)
+                    Text(wordWithSrs.word.exampleCn, fontSize = 15.sp, fontWeight = FontWeight.Normal, color = AppTheme.colors.textPrimary)
                     if (wordWithSrs.word.examplePy.isNotBlank()) {
-                        Text(wordWithSrs.word.examplePy, fontSize = 12.sp, color = AccentPrimary)
+                        Text(wordWithSrs.word.examplePy, fontSize = 12.sp, color = AppTheme.colors.button)
                     }
                     if (wordWithSrs.word.exampleEn.isNotBlank()) {
-                        Text(wordWithSrs.word.exampleEn, fontSize = 12.sp, color = TextMuted)
+                        Text(wordWithSrs.word.exampleEn, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
                     }
                 }
             }
@@ -840,7 +826,7 @@ fun WordDetailSheet(
                     }
                 },
                 fontSize = 11.sp,
-                color = TextSubtle
+                color = AppTheme.colors.textSecondary
             )
         }
     }
@@ -850,9 +836,9 @@ fun WordDetailSheet(
 @Composable
 private fun DetailChip(text: String, color: Color) {
     Surface(
-        color = DarkSurfaceElevated,
+        color = AppTheme.colors.elevated,
         shape = RoundedCornerShape(6.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
     ) {
         Text(
             text = text,
@@ -863,3 +849,4 @@ private fun DetailChip(text: String, color: Color) {
         )
     }
 }
+

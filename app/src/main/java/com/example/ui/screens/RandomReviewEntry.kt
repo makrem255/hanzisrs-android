@@ -59,15 +59,9 @@ import com.example.ui.components.AppCard
 import com.example.ui.components.IconBadge
 import com.example.ui.components.PrimaryButton
 import com.example.ui.components.SecondaryButton
-import com.example.ui.theme.AccentAmber
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.AccentViolet
-import com.example.ui.theme.DarkSurfaceCard
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.Dimens
 import com.example.ui.theme.HanziLarge
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
 import kotlinx.coroutines.delay
 
 /**
@@ -97,7 +91,7 @@ fun RandomReviewEntry(
         Text(
             text = "Random Review",
             style = MaterialTheme.typography.headlineMedium,
-            color = TextLight,
+            color = AppTheme.colors.textPrimary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -105,7 +99,7 @@ fun RandomReviewEntry(
         Text(
             text = "A surprise word, out loud. Nothing gets rescheduled.",
             style = MaterialTheme.typography.bodyMedium,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -140,7 +134,7 @@ fun RandomReviewEntry(
             Icon(
                 imageVector = Icons.Outlined.HelpOutline,
                 contentDescription = "How Random Review works",
-                tint = TextMuted,
+                tint = AppTheme.colors.textSecondary,
                 modifier = Modifier.size(26.dp),
             )
         }
@@ -151,12 +145,12 @@ fun RandomReviewEntry(
             !wordsLoaded -> Text(
                 text = "Loading your words…",
                 style = MaterialTheme.typography.bodySmall,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
             )
 
             words.size < RANDOM_REVIEW_MIN_VOCABULARY -> AppCard(
-                containerColor = DarkSurfaceCard,
-                borderColor = AccentAmber.copy(alpha = 0.4f),
+                containerColor = AppTheme.colors.card,
+                borderColor = AppTheme.colors.textPrimary.copy(alpha = 0.4f),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
@@ -164,7 +158,7 @@ fun RandomReviewEntry(
                         "to start — randomness needs room. " +
                         "You have ${words.size} of $RANDOM_REVIEW_MIN_VOCABULARY.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                 )
                 Spacer(Modifier.height(Dimens.md))
                 SecondaryButton(
@@ -180,7 +174,7 @@ fun RandomReviewEntry(
                 text = "${words.size} words in the wheel · recent " +
                     "$RANDOM_REVIEW_HISTORY_SIZE never repeat back-to-back",
                 style = MaterialTheme.typography.labelSmall,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -236,7 +230,7 @@ private fun VocabStrip(
                     text = hanzi,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextLight.copy(alpha = 0.85f),
+                    color = AppTheme.colors.textPrimary.copy(alpha = 0.85f),
                     modifier = Modifier.padding(end = 28.dp),
                     maxLines = 1,
                 )
@@ -253,8 +247,8 @@ fun RandomReviewHelpDialog(onDismiss: () -> Unit) {
         icon = {
             IconBadge(
                 icon = Icons.Outlined.HelpOutline,
-                tint = AccentViolet,
-                background = AccentViolet.copy(alpha = 0.14f),
+                tint = AppTheme.colors.textPrimary,
+                background = AppTheme.colors.textPrimary.copy(alpha = 0.14f),
                 size = 40.dp,
                 cornerRadius = 13.dp,
             )
@@ -263,7 +257,7 @@ fun RandomReviewHelpDialog(onDismiss: () -> Unit) {
             Text(
                 text = "How Random Review works",
                 style = MaterialTheme.typography.titleLarge,
-                color = TextLight,
+                color = AppTheme.colors.textPrimary,
             )
         },
         text = {
@@ -279,15 +273,15 @@ fun RandomReviewHelpDialog(onDismiss: () -> Unit) {
                     "One honest note: the phone checks which words it heard, not how " +
                     "perfect your tones were. No score is shown because none is measured.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
             )
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = "Got it", color = AccentCyan)
+                Text(text = "Got it", color = AppTheme.colors.textPrimary)
             }
         },
-        containerColor = DarkSurfaceCard,
+        containerColor = AppTheme.colors.card,
     )
 }
 
@@ -303,7 +297,7 @@ fun RandomReviewExitDialog(
             Text(
                 text = "Exit Random Review?",
                 style = MaterialTheme.typography.titleLarge,
-                color = TextLight,
+                color = AppTheme.colors.textPrimary,
             )
         },
         text = {
@@ -311,7 +305,7 @@ fun RandomReviewExitDialog(
                 text = "Your vocabulary is untouched - but the word on screen and its " +
                     "attempt count will be gone.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextMuted,
+                color = AppTheme.colors.textSecondary,
             )
         },
         confirmButton = {
@@ -319,7 +313,7 @@ fun RandomReviewExitDialog(
                 onClick = onConfirmExit,
                 modifier = Modifier.testTag("random_review_exit_yes"),
             ) {
-                Text(text = "Yes, exit", color = AccentAmber)
+                Text(text = "Yes, exit", color = AppTheme.colors.textPrimary)
             }
         },
         dismissButton = {
@@ -327,10 +321,10 @@ fun RandomReviewExitDialog(
                 onClick = onStay,
                 modifier = Modifier.testTag("random_review_exit_no"),
             ) {
-                Text(text = "Keep going", color = AccentCyan)
+                Text(text = "Keep going", color = AppTheme.colors.textPrimary)
             }
         },
-        containerColor = DarkSurfaceCard,
+        containerColor = AppTheme.colors.card,
     )
 }
 
@@ -399,3 +393,4 @@ fun SelectionAnimation(
         }
     }
 }
+

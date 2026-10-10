@@ -61,20 +61,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.srs.StrokeNameParser
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.DarkSurfaceContainer
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsGoodContainer
-import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
-import com.example.ui.theme.TianGridCenter
-import com.example.ui.theme.TianGridLine
+import com.example.ui.theme.AppTheme
 import kotlinx.coroutines.delay
 
 /** One traced stroke, as the learner drew it. */
@@ -107,7 +94,7 @@ private val MinGridSize: Dp = 180.dp
 private fun GridBox(
     gridModifier: Modifier = Modifier,
     borderWidth: Dp = 1.dp,
-    borderColor: Color = OutlineBorder,
+    borderColor: Color = AppTheme.colors.border,
     content: @Composable BoxScope.() -> Unit
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -116,7 +103,7 @@ private fun GridBox(
             modifier = gridModifier
                 .size(side)
                 .clip(RoundedCornerShape(16.dp))
-                .background(DarkSurfaceContainer)
+                .background(AppTheme.colors.surfaceAlt)
                 .border(borderWidth, borderColor, RoundedCornerShape(16.dp)),
             content = content
         )
@@ -147,8 +134,8 @@ fun InteractiveStrokeSection(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(DarkSurfaceCard)
-            .border(1.dp, OutlineBorder, RoundedCornerShape(20.dp))
+            .background(AppTheme.colors.card)
+            .border(1.dp, AppTheme.colors.border, RoundedCornerShape(20.dp))
             .padding(14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -172,8 +159,8 @@ fun InteractiveStrokeSection(
 private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
     Surface(
         shape = CircleShape,
-        color = DarkSurfaceContainer,
-        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+        color = AppTheme.colors.surfaceAlt,
+        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp)
@@ -194,7 +181,7 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                     text = "Stroke guide",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected == 0) AccentPrimaryInk else TextSubtle
+                    color = if (selected == 0) AppTheme.colors.onButton else AppTheme.colors.textSecondary
                 )
             }
             SegmentedOption(
@@ -208,7 +195,7 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                     text = "Practise tracing",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected == 1) AccentPrimaryInk else TextSubtle
+                    color = if (selected == 1) AppTheme.colors.onButton else AppTheme.colors.textSecondary
                 )
             }
         }
@@ -238,7 +225,7 @@ private fun NoStrokeData(hanzi: String) {
         Text(
             text = "No stroke order for this character",
             style = androidx.compose.material3.MaterialTheme.typography.titleSmall,
-            color = TextLight
+            color = AppTheme.colors.textPrimary
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -247,7 +234,7 @@ private fun NoStrokeData(hanzi: String) {
                 "still here, and it still works in your review deck.",
             fontSize = 12.sp,
             lineHeight = 17.sp,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             textAlign = TextAlign.Center
         )
     }
@@ -330,7 +317,7 @@ fun AnimatedStrokeOrderPlayer(
             // The current stroke's name, in the corner, where it cannot be mistaken for part
             // of the character.
             Surface(
-                color = AccentPrimary,
+                color = AppTheme.colors.button,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -339,7 +326,7 @@ fun AnimatedStrokeOrderPlayer(
             ) {
                 Text(
                     text = "${currentStep + 1}/${strokes.size}",
-                    color = AccentPrimaryInk,
+                    color = AppTheme.colors.onButton,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -351,9 +338,9 @@ fun AnimatedStrokeOrderPlayer(
 
         val (name, pinyin) = strokes[currentStep]
         Surface(
-            color = DarkSurfaceElevated,
+            color = AppTheme.colors.elevated,
             shape = RoundedCornerShape(20.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
             modifier = Modifier.padding(vertical = 4.dp)
         ) {
             Row(
@@ -363,19 +350,19 @@ fun AnimatedStrokeOrderPlayer(
                 Text(
                     text = "Stroke ${currentStep + 1} of ${strokes.size}",
                     fontWeight = FontWeight.Bold,
-                    color = AccentPrimary,
+                    color = AppTheme.colors.button,
                     fontSize = 13.sp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = name,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                     fontSize = 15.sp
                 )
                 if (pinyin.isNotBlank()) {
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = pinyin, color = TextMuted, fontSize = 12.sp)
+                    Text(text = pinyin, color = AppTheme.colors.textSecondary, fontSize = 12.sp)
                 }
             }
         }
@@ -398,15 +385,15 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.FastRewind,
                     contentDescription = "Previous stroke",
-                    tint = AccentPrimary
+                    tint = AppTheme.colors.button
                 )
             }
 
             Button(
                 onClick = { isPlaying = !isPlaying },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentPrimary,
-                    contentColor = AccentPrimaryInk
+                    containerColor = AppTheme.colors.button,
+                    contentColor = AppTheme.colors.onButton
                 ),
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
@@ -442,7 +429,7 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.FastForward,
                     contentDescription = "Next stroke",
-                    tint = AccentPrimary
+                    tint = AppTheme.colors.button
                 )
             }
         }
@@ -504,10 +491,9 @@ fun UserTracingCanvas(
         ) {
             GridBackdrop(hanzi)
 
+            val finished = AppTheme.colors.textPrimary
+            val drawing = AppTheme.colors.button
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val finished = TextLight
-                val drawing = AccentPrimary
-
                 strokes.forEach { userStroke ->
                     drawTracedStroke(userStroke.points, finished)
                 }
@@ -517,7 +503,7 @@ fun UserTracingCanvas(
             }
 
             Surface(
-                color = DarkSurfaceElevated,
+                color = AppTheme.colors.elevated,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -526,7 +512,7 @@ fun UserTracingCanvas(
             ) {
                 Text(
                     text = "$targetStrokeCount strokes",
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -542,7 +528,7 @@ fun UserTracingCanvas(
                 (if (targetStrokeCount == 1) "1 stroke." else "$targetStrokeCount strokes."),
             fontSize = 11.sp,
             lineHeight = 16.sp,
-            color = TextMuted,
+            color = AppTheme.colors.textSecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
@@ -566,8 +552,8 @@ fun UserTracingCanvas(
                     .heightIn(min = MinTouchTarget)
                     .testTag("trace_clear"),
                 shape = RoundedCornerShape(24.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextLight)
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary)
             ) {
                 Icon(
                     Icons.Default.Clear,
@@ -586,8 +572,8 @@ fun UserTracingCanvas(
                         .testTag("trace_undo"),
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = DarkSurfaceElevated,
-                        contentColor = TextLight
+                        containerColor = AppTheme.colors.elevated,
+                        contentColor = AppTheme.colors.textPrimary
                     )
                 ) {
                     Icon(
@@ -606,8 +592,10 @@ fun UserTracingCanvas(
 /** The ghost character over the grid, in one place so both canvases sit on the same backdrop. */
 @Composable
 private fun GridBackdrop(hanzi: String) {
+    val center = AppTheme.colors.gridCenter
+    val line = AppTheme.colors.gridLine
     Canvas(modifier = Modifier.fillMaxSize()) {
-        drawRiceGrid(size.width, size.height)
+        drawRiceGrid(size.width, size.height, center, line)
         drawGhostGlyph(hanzi)
     }
 }
@@ -628,35 +616,36 @@ private fun DrawScope.drawTracedStroke(points: List<Offset>, color: Color) {
 }
 
 /** The 田字格: a centre cross plus the diagonals, dashed. */
-private fun DrawScope.drawRiceGrid(width: Float, height: Float) {
+private fun DrawScope.drawRiceGrid(width: Float, height: Float, center: Color, line: Color) {
     val dash = PathEffect.dashPathEffect(floatArrayOf(8f, 8f), 0f)
 
     drawLine(
-        color = TianGridCenter,
+        color = center,
         start = Offset(0f, height / 2),
         end = Offset(width, height / 2),
         strokeWidth = 2f,
         pathEffect = dash
     )
     drawLine(
-        color = TianGridCenter,
+        color = center,
         start = Offset(width / 2, 0f),
         end = Offset(width / 2, height),
         strokeWidth = 2f,
         pathEffect = dash
     )
     drawLine(
-        color = TianGridLine,
+        color = line,
         start = Offset(0f, 0f),
         end = Offset(width, height),
         strokeWidth = 1.2f,
         pathEffect = dash
     )
     drawLine(
-        color = TianGridLine,
+        color = line,
         start = Offset(width, 0f),
         end = Offset(0f, height),
         strokeWidth = 1.2f,
         pathEffect = dash
     )
 }
+

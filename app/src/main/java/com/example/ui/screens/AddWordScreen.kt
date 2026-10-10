@@ -82,19 +82,7 @@ import com.example.data.ai.GeneratedWordData
 import com.example.data.ai.WordDataOrigin
 import com.example.ui.components.InteractiveStrokeSection
 import com.example.ui.components.minimumTouchTarget
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.DarkSurfaceContainer
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsGoodContainer
-import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
+import com.example.ui.theme.AppTheme
 import com.example.ui.viewmodel.AiGenerationState
 import com.example.ui.viewmodel.MainViewModel
 
@@ -113,15 +101,15 @@ fun AddWordScreen(
     var searchInput by rememberSaveable { mutableStateOf("") }
 
     val customTextFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = AccentPrimary,
-        unfocusedBorderColor = OutlineBorder,
-        focusedTextColor = TextLight,
-        unfocusedTextColor = TextLight,
-        focusedLabelColor = AccentPrimary,
-        unfocusedLabelColor = TextMuted,
-        cursorColor = AccentPrimary,
-        focusedContainerColor = DarkSurfaceContainer,
-        unfocusedContainerColor = DarkSurfaceContainer
+        focusedBorderColor = AppTheme.colors.button,
+        unfocusedBorderColor = AppTheme.colors.border,
+        focusedTextColor = AppTheme.colors.textPrimary,
+        unfocusedTextColor = AppTheme.colors.textPrimary,
+        focusedLabelColor = AppTheme.colors.button,
+        unfocusedLabelColor = AppTheme.colors.textSecondary,
+        cursorColor = AppTheme.colors.button,
+        focusedContainerColor = AppTheme.colors.surfaceAlt,
+        unfocusedContainerColor = AppTheme.colors.surfaceAlt
     )
 
     // Back from the review step used to silently discard the draft on the first tap and
@@ -151,7 +139,7 @@ fun AddWordScreen(
                         text = if (aiState is AiGenerationState.ReadyForReview) "Review & approve" else "Add word",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                 },
                 navigationIcon = {
@@ -172,14 +160,14 @@ fun AddWordScreen(
                             } else {
                                 "Back"
                             },
-                            tint = AccentPrimary
+                            tint = AppTheme.colors.button
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.background)
             )
         },
-        containerColor = DarkBg
+        containerColor = AppTheme.colors.background
     ) { padding ->
         // imePadding: the app runs edge to edge, so the window does not resize for the
         // keyboard and nothing is inset above it. The scroll alone is not enough — the
@@ -201,19 +189,19 @@ fun AddWordScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AccentPrimary)
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.button)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "AI Chinese Word Enrichment",
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = TextLight
+                                    color = AppTheme.colors.textPrimary
                                 )
                             }
 
@@ -229,7 +217,7 @@ fun AddWordScreen(
                                     "auto-generate pinyin with tones, radical, stroke order " +
                                     "breakdown, and context sentences.",
                                 fontSize = 12.sp,
-                                color = TextMuted,
+                                color = AppTheme.colors.textSecondary,
                                 lineHeight = 17.sp
                             )
 
@@ -239,7 +227,7 @@ fun AddWordScreen(
                                 value = searchInput,
                                 onValueChange = { searchInput = it },
                                 label = { Text("Chinese hanzi or pinyin") },
-                                placeholder = { Text("e.g. 茶 or chá", color = TextSubtle) },
+                                placeholder = { Text("e.g. 茶 or chá", color = AppTheme.colors.textSecondary) },
                                 singleLine = true,
                                 // Search, and it runs. The action key used to do nothing at
                                 // all, so on a phone the only way to generate was to dismiss
@@ -280,20 +268,20 @@ fun AddWordScreen(
                                     .height(48.dp)
                                     .testTag("generate_word_button"),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = AccentPrimary,
-                                    contentColor = AccentPrimaryInk
+                                    containerColor = AppTheme.colors.button,
+                                    contentColor = AppTheme.colors.onButton
                                 ),
                                 shape = RoundedCornerShape(24.dp),
                                 enabled = searchInput.isNotBlank() && state !is AiGenerationState.Loading
                             ) {
                                 if (state is AiGenerationState.Loading) {
                                     CircularProgressIndicator(
-                                        color = AccentPrimaryInk,
+                                        color = AppTheme.colors.onButton,
                                         modifier = Modifier.size(20.dp),
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Generating SRS Learning Data...", color = AccentPrimaryInk)
+                                    Text("Generating SRS Learning Data...", color = AppTheme.colors.onButton)
                                 } else {
                                     Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -356,11 +344,11 @@ fun AddWordScreen(
     if (confirmDiscard) {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
-            title = { Text("Discard this word?", color = TextLight, fontWeight = FontWeight.SemiBold) },
+            title = { Text("Discard this word?", color = AppTheme.colors.textPrimary, fontWeight = FontWeight.SemiBold) },
             text = {
                 Text(
                     "The details you generated and any edits you made will not be saved.",
-                    color = TextMuted
+                    color = AppTheme.colors.textSecondary
                 )
             },
             confirmButton = {
@@ -377,10 +365,10 @@ fun AddWordScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDiscard = false }) {
-                    Text("Keep editing", color = AccentPrimary)
+                    Text("Keep editing", color = AppTheme.colors.button)
                 }
             },
-            containerColor = DarkSurfaceCard,
+            containerColor = AppTheme.colors.card,
             shape = RoundedCornerShape(24.dp)
         )
     }
@@ -443,16 +431,16 @@ fun WordReviewAndApprovalView(
     ) {
         // Approval Notice Banner
         Surface(
-            color = DarkSurfaceElevated,
+            color = AppTheme.colors.elevated,
             shape = RoundedCornerShape(14.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = AccentPrimary)
+                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTheme.colors.button)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = if (generatedData.origin == WordDataOrigin.GEMINI) {
@@ -461,7 +449,7 @@ fun WordReviewAndApprovalView(
                         "Built-in fallback: review and complete these details before saving. Add a Gemini key for AI enrichment."
                     },
                     fontSize = 12.sp,
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                     lineHeight = 16.sp
                 )
             }
@@ -481,8 +469,8 @@ fun WordReviewAndApprovalView(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
             elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
@@ -491,7 +479,7 @@ fun WordReviewAndApprovalView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Character details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = TextLight)
+                    Text("Character details", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = AppTheme.colors.textPrimary)
                     // `Variant.Tonal` here, where the other three screens use the plain icon:
                     // this is the one place a learner goes deliberately to hear what they just
                     // typed, so the control earns prominence rather than recedes into the row.
@@ -646,7 +634,7 @@ fun WordReviewAndApprovalView(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // HSK Level Selector
-                Text("HSK Level:", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = TextMuted)
+                Text("HSK Level:", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AppTheme.colors.textSecondary)
                 Spacer(modifier = Modifier.height(4.dp))
                 // FlowRow, because six chips in a fixed Row do not fit a phone.
                 //
@@ -664,10 +652,10 @@ fun WordReviewAndApprovalView(
                         val selected = hskLevel == level
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) AccentPrimary else DarkSurfaceContainer,
+                            color = if (selected) AppTheme.colors.button else AppTheme.colors.surfaceAlt,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (selected) AccentPrimary else OutlineBorder
+                                if (selected) AppTheme.colors.button else AppTheme.colors.border
                             ),
                             modifier = Modifier
                                 .minimumTouchTarget()
@@ -682,7 +670,7 @@ fun WordReviewAndApprovalView(
                                 text = "HSK $level",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (selected) AccentPrimaryInk else TextMuted,
+                                color = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                             )
                         }
@@ -712,7 +700,7 @@ fun WordReviewAndApprovalView(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Contextual example sentence", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = TextLight)
+                    Text("Contextual example sentence", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = AppTheme.colors.textPrimary)
                     // The blank case is handled by the button: an empty field yields
                     // `NothingToSay`, which disables the control without a caption, because
                     // the empty field beside it is the explanation. The old code got there by
@@ -841,15 +829,15 @@ fun WordReviewAndApprovalView(
                         .height(50.dp)
                         .testTag("approve_word_button"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AccentPrimary,
-                        contentColor = AccentPrimaryInk
+                        containerColor = AppTheme.colors.button,
+                        contentColor = AppTheme.colors.onButton
                     ),
                     shape = RoundedCornerShape(24.dp),
                     enabled = !isSaving
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
-                            color = AccentPrimaryInk,
+                            color = AppTheme.colors.onButton,
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )
@@ -868,12 +856,13 @@ fun WordReviewAndApprovalView(
                     onClick = onCancel,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextLight)
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary)
                 ) {
-                    Text("Cancel / Discard", color = TextMuted)
+                    Text("Cancel / Discard", color = AppTheme.colors.textSecondary)
                 }
             }
         }
     }
 }
+

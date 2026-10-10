@@ -97,22 +97,7 @@ import com.example.ui.components.InteractiveStrokeSection
 import com.example.ui.components.MinTouchTarget
 import com.example.ui.components.SegmentedOption
 import com.example.ui.components.rememberHaptics
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceCard
-import com.example.ui.theme.DarkSurfaceContainer
-import com.example.ui.theme.DarkSurfaceElevated
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.AccentCyan
-import com.example.ui.theme.OutlineBorder
-import com.example.ui.theme.SrsAgainDark
-import com.example.ui.theme.SrsEasyDark
-import com.example.ui.theme.SrsGoodContainer
-import com.example.ui.theme.SrsGoodDark
-import com.example.ui.theme.SrsHardDark
-import com.example.ui.theme.TextLight
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSubtle
+import com.example.ui.theme.AppTheme
 import com.example.ui.viewmodel.MainViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -235,12 +220,12 @@ fun SwipeDeckReviewScreen(
                         text = "Daily review",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextLight
+                        color = AppTheme.colors.textPrimary
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AccentPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AppTheme.colors.button)
                     }
                 },
                 actions = {
@@ -256,15 +241,15 @@ fun SwipeDeckReviewScreen(
                             } else {
                                 "Slow pronunciation off"
                             },
-                            tint = if (isSlowTts) AccentPrimary else TextMuted
+                            tint = if (isSlowTts) AppTheme.colors.button else AppTheme.colors.textSecondary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.background)
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = DarkBg
+        containerColor = AppTheme.colors.background
     ) { padding ->
         // Three states, not two. The guard used to be `reviewSessionWordIds == null &&
         // allWords.isNotEmpty()`, which read an empty collection that had not been loaded yet as a
@@ -362,8 +347,8 @@ fun SwipeDeckReviewScreen(
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp)),
-                        color = AccentPrimary,
-                        trackColor = DarkSurfaceContainer
+                        color = AppTheme.colors.button,
+                        trackColor = AppTheme.colors.surfaceAlt
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -388,26 +373,26 @@ fun SwipeDeckReviewScreen(
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                             contentDescription = null,
-                            tint = if (currentDeckIndex > 0) TextLight else TextSubtle
+                            tint = if (currentDeckIndex > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                         )
-                        Text("Back", color = if (currentDeckIndex > 0) TextLight else TextSubtle)
+                        Text("Back", color = if (currentDeckIndex > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary)
                     }
 
                     Text(
                         text = "Card ${deckState.positionLabel}",
                         fontSize = 12.sp,
-                        color = TextMuted
+                        color = AppTheme.colors.textSecondary
                     )
 
                     TextButton(
                         onClick = { viewModel.goToNextCard() },
                         enabled = currentDeckIndex < reviewDeck.size - 1
                     ) {
-                        Text("Skip", color = if (currentDeckIndex < reviewDeck.size - 1) TextLight else TextSubtle)
+                        Text("Skip", color = if (currentDeckIndex < reviewDeck.size - 1) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary)
                         Icon(
                             Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = if (currentDeckIndex < reviewDeck.size - 1) TextLight else TextSubtle
+                            tint = if (currentDeckIndex < reviewDeck.size - 1) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
                         )
                     }
                 }
@@ -506,8 +491,8 @@ fun SwipeDeckReviewScreen(
                         modifier = Modifier
                             .fillMaxSize(),
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                        colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
                     ) {
                         Column(
@@ -524,23 +509,23 @@ fun SwipeDeckReviewScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    color = DarkSurfaceElevated,
+                                    color = AppTheme.colors.elevated,
                                     shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder)
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
                                 ) {
                                     Text(
                                         text = "HSK ${currentWordWithSrs.word.hskLevel}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = AccentPrimary,
+                                        color = AppTheme.colors.button,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
 
                                 Surface(
-                                    color = if (currentWordWithSrs.isDue) SrsAgainDark.copy(alpha = 0.25f) else SrsGoodDark.copy(alpha = 0.25f),
+                                    color = if (currentWordWithSrs.isDue) AppTheme.colors.error.copy(alpha = 0.25f) else AppTheme.colors.success.copy(alpha = 0.25f),
                                     shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (currentWordWithSrs.isDue) SrsAgainDark else SrsGoodDark)
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (currentWordWithSrs.isDue) AppTheme.colors.error else AppTheme.colors.success)
                                 ) {
                                     Text(
                                         // The learner's word for the state, not the storage
@@ -559,7 +544,7 @@ fun SwipeDeckReviewScreen(
                                         // arm's length on a 6.1" screen.
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (currentWordWithSrs.isDue) SrsAgainDark else SrsGoodDark,
+                                        color = if (currentWordWithSrs.isDue) AppTheme.colors.error else AppTheme.colors.success,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
@@ -598,7 +583,7 @@ fun SwipeDeckReviewScreen(
                                 text = currentWordWithSrs.word.hanzi,
                                 fontSize = glyphSize,
                                 fontWeight = FontWeight.Normal,
-                                color = TextLight,
+                                color = AppTheme.colors.textPrimary,
                                 textAlign = TextAlign.Center
                             )
 
@@ -607,7 +592,7 @@ fun SwipeDeckReviewScreen(
                                 Text(
                                     text = "Recall the pronunciation and meaning before revealing the answer.",
                                     fontSize = 13.sp,
-                                    color = TextMuted,
+                                    color = AppTheme.colors.textSecondary,
                                     textAlign = TextAlign.Center
                                 )
                                 Spacer(modifier = Modifier.height(14.dp))
@@ -619,8 +604,8 @@ fun SwipeDeckReviewScreen(
                                     modifier = Modifier.testTag("reveal_answer_button"),
                                     shape = RoundedCornerShape(22.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = AccentPrimary,
-                                        contentColor = AccentPrimaryInk
+                                        containerColor = AppTheme.colors.button,
+                                        contentColor = AppTheme.colors.onButton
                                     )
                                 ) {
                                     Icon(Icons.Default.Flip, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -636,7 +621,7 @@ fun SwipeDeckReviewScreen(
                                         text = currentWordWithSrs.word.pinyin,
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = AccentPrimary,
+                                        color = AppTheme.colors.button,
                                         textAlign = TextAlign.Center
                                     )
 
@@ -656,8 +641,8 @@ fun SwipeDeckReviewScreen(
                             // that is a layout that can truncate differently on two phones.
                             Surface(
                                 shape = CircleShape,
-                                color = DarkSurfaceContainer,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+                                color = AppTheme.colors.surfaceAlt,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp)
@@ -708,40 +693,40 @@ fun SwipeDeckReviewScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(DarkSurfaceContainer)
-                                        .border(1.dp, OutlineBorder, RoundedCornerShape(20.dp))
+                                        .background(AppTheme.colors.surfaceAlt)
+                                        .border(1.dp, AppTheme.colors.border, RoundedCornerShape(20.dp))
                                         .padding(16.dp),
                                     horizontalAlignment = Alignment.Start
                                 ) {
-                                    Text("English Translation", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                                    Text("English Translation", fontSize = 11.sp, color = AppTheme.colors.textSecondary, fontWeight = FontWeight.Medium)
                                     Text(
                                         text = currentWordWithSrs.word.meaning,
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = TextLight
+                                        color = AppTheme.colors.textPrimary
                                     )
 
                                     Spacer(modifier = Modifier.height(12.dp))
 
                                     if (currentWordWithSrs.word.radical.isNotBlank()) {
-                                        Text("Radical (部首)", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.Medium)
+                                        Text("Radical (部首)", fontSize = 11.sp, color = AppTheme.colors.textSecondary, fontWeight = FontWeight.Medium)
                                         Text(
                                             text = currentWordWithSrs.word.radical,
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = AccentPrimary
+                                            color = AppTheme.colors.button
                                         )
                                     }
 
                                     Spacer(modifier = Modifier.height(12.dp))
 
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Hearing, contentDescription = null, tint = SrsGoodDark, modifier = Modifier.size(16.dp))
+                                        Icon(Icons.Default.Hearing, contentDescription = null, tint = AppTheme.colors.success, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = "Tap TTS button to practice pronunciation listening",
                                             fontSize = 11.sp,
-                                            color = TextMuted
+                                            color = AppTheme.colors.textSecondary
                                         )
                                     }
                                 }
@@ -753,8 +738,8 @@ fun SwipeDeckReviewScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(20.dp))
-                                        .background(DarkSurfaceContainer)
-                                        .border(1.dp, OutlineBorder, RoundedCornerShape(20.dp))
+                                        .background(AppTheme.colors.surfaceAlt)
+                                        .border(1.dp, AppTheme.colors.border, RoundedCornerShape(20.dp))
                                         .padding(16.dp),
                                     horizontalAlignment = Alignment.Start
                                 ) {
@@ -766,7 +751,7 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             "Example sentence",
                                             fontSize = 12.sp,
-                                            color = AccentPrimary,
+                                            color = AppTheme.colors.button,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         // `forSentenceOfWord` rather than `forSentence`: the
@@ -792,7 +777,7 @@ fun SwipeDeckReviewScreen(
                                         text = currentWordWithSrs.word.exampleCn,
                                         fontSize = 17.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = TextLight
+                                        color = AppTheme.colors.textPrimary
                                     )
 
                                     if (currentWordWithSrs.word.examplePy.isNotBlank()) {
@@ -800,7 +785,7 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             text = currentWordWithSrs.word.examplePy,
                                             fontSize = 13.sp,
-                                            color = AccentPrimary,
+                                            color = AppTheme.colors.button,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -810,7 +795,7 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             text = currentWordWithSrs.word.exampleEn,
                                             fontSize = 13.sp,
-                                            color = TextMuted
+                                            color = AppTheme.colors.textSecondary
                                         )
                                     }
                                 }
@@ -836,7 +821,7 @@ fun SwipeDeckReviewScreen(
                     Text(
                         text = "Rate recall difficulty",
                         fontSize = 12.sp,
-                        color = TextMuted,
+                        color = AppTheme.colors.textSecondary,
                         fontWeight = FontWeight.Medium
                     )
 
@@ -851,7 +836,7 @@ fun SwipeDeckReviewScreen(
                     SrsRatingButton(
                         rating = SrsRating.AGAIN,
                         interval = nextIntervals.getValue(SrsRating.AGAIN),
-                        color = SrsAgainDark,
+                        color = AppTheme.colors.error,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.AGAIN) }
@@ -861,7 +846,7 @@ fun SwipeDeckReviewScreen(
                     SrsRatingButton(
                         rating = SrsRating.HARD,
                         interval = nextIntervals.getValue(SrsRating.HARD),
-                        color = SrsHardDark,
+                        color = AppTheme.colors.hard,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.HARD) }
@@ -871,7 +856,7 @@ fun SwipeDeckReviewScreen(
                     SrsRatingButton(
                         rating = SrsRating.GOOD,
                         interval = nextIntervals.getValue(SrsRating.GOOD),
-                        color = SrsGoodDark,
+                        color = AppTheme.colors.success,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.GOOD) }
@@ -881,7 +866,7 @@ fun SwipeDeckReviewScreen(
                     SrsRatingButton(
                         rating = SrsRating.EASY,
                         interval = nextIntervals.getValue(SrsRating.EASY),
-                        color = SrsEasyDark,
+                        color = AppTheme.colors.easy,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.EASY) }
@@ -966,7 +951,7 @@ private fun RowScope.PillarTab(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                tint = if (selected) AccentPrimaryInk else TextSubtle
+                tint = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary
             )
             Spacer(modifier = Modifier.width(5.dp))
             Text(
@@ -974,7 +959,7 @@ private fun RowScope.PillarTab(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                color = if (selected) AccentPrimaryInk else TextSubtle
+                color = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary
             )
         }
     }
@@ -1013,8 +998,8 @@ private fun ReviewSessionCompletedView(
     ) {
         Card(
             shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
+            colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -1034,13 +1019,13 @@ private fun ReviewSessionCompletedView(
                         // enough on its own to earn one. "Nothing is due" is a fact about
                         // the schedule, not an achievement, and a learner who has never
                         // opened the app has not "finished" anything.
-                        .background(if (studied) SrsGoodContainer else DarkSurfaceElevated),
+                        .background(if (studied) AppTheme.colors.successContainer else AppTheme.colors.elevated),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         if (studied) Icons.Default.CheckCircle else Icons.Default.Info,
                         contentDescription = null,
-                        tint = if (studied) SrsGoodDark else TextMuted,
+                        tint = if (studied) AppTheme.colors.success else AppTheme.colors.textSecondary,
                         modifier = Modifier.size(42.dp)
                     )
                 }
@@ -1051,7 +1036,7 @@ private fun ReviewSessionCompletedView(
                     text = if (studied) "Session complete" else "Nothing to review",
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextLight,
+                    color = AppTheme.colors.textPrimary,
                     modifier = Modifier.testTag("session_complete_title")
                 )
 
@@ -1078,7 +1063,7 @@ private fun ReviewSessionCompletedView(
                                 "is scheduled."
                     },
                     fontSize = 13.sp,
-                    color = TextMuted,
+                    color = AppTheme.colors.textSecondary,
                     textAlign = TextAlign.Center
                 )
 
@@ -1104,7 +1089,7 @@ private fun ReviewSessionCompletedView(
 
                 Button(
                     onClick = onBack,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentPrimary, contentColor = AccentPrimaryInk),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.button, contentColor = AppTheme.colors.onButton),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1129,8 +1114,8 @@ private fun ReviewSessionCompletedView(
                     OutlinedButton(
                         onClick = onRestart,
                         shape = RoundedCornerShape(24.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, OutlineBorder),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextLight),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary),
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = MinTouchTarget)
@@ -1138,7 +1123,7 @@ private fun ReviewSessionCompletedView(
                     ) {
                         Text(
                             text = if (studied) "Review what is still due" else "Start a review",
-                            color = TextLight,
+                            color = AppTheme.colors.textPrimary,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -1151,6 +1136,7 @@ private fun ReviewSessionCompletedView(
 @Composable
 private fun ReviewSessionLoadingView(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.CircularProgressIndicator(color = AccentPrimary)
+        androidx.compose.material3.CircularProgressIndicator(color = AppTheme.colors.button)
     }
 }
+

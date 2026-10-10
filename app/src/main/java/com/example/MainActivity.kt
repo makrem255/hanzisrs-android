@@ -58,13 +58,8 @@ import com.example.ui.screens.ProgressScreen
 import com.example.ui.screens.RandomReviewScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SwipeDeckReviewScreen
-import com.example.ui.theme.AccentPrimary
-import com.example.ui.theme.AccentPrimaryInk
-import com.example.ui.theme.DarkBg
-import com.example.ui.theme.DarkSurfaceContainer
+import com.example.ui.theme.AppTheme
 import com.example.ui.theme.MyApplicationTheme
-import com.example.ui.theme.OutlineSubtle
-import com.example.ui.theme.TextMuted
 import com.example.ui.viewmodel.MainViewModel
 
 class MainActivity : ComponentActivity() {
@@ -78,7 +73,8 @@ class MainActivity : ComponentActivity() {
         requestedNavigationTarget = intent.getStringExtra("navigate_to")
 
         setContent {
-            MyApplicationTheme {
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            MyApplicationTheme(themeMode = themeMode) {
                 MainAppContainer(
                     viewModel = viewModel,
                     initialTarget = requestedNavigationTarget,
@@ -188,11 +184,11 @@ fun MainAppContainer(
                         Modifier
                             .fillMaxWidth()
                             .height(1.dp)
-                            .background(OutlineSubtle)
+                            .background(AppTheme.colors.borderSubtle)
                     )
                     NavigationBar(
-                        containerColor = DarkSurfaceContainer,
-                        contentColor = AccentPrimary,
+                        containerColor = AppTheme.colors.background,
+                        contentColor = AppTheme.colors.textPrimary,
                         tonalElevation = 0.dp
                     ) {
                         bottomNavScreens.forEach { screen ->
@@ -212,13 +208,13 @@ fun MainAppContainer(
                                     if (screen == Screen.Home && dueCount > 0) {
                                         BadgedBox(
                                             badge = {
-                                                // The count of work outstanding, in the accent
-                                                // colour, not the failure colour. A learner who
+                                                // The count of work outstanding, in the button
+                                                // fill, not the failure colour. A learner who
                                                 // had simply not studied yet saw a red number
                                                 // about work they had not failed at.
                                                 Badge(
-                                                    containerColor = AccentPrimary,
-                                                    contentColor = AccentPrimaryInk
+                                                    containerColor = AppTheme.colors.button,
+                                                    contentColor = AppTheme.colors.onButton
                                                 ) {
                                                     Text("$dueCount")
                                                 }
@@ -238,11 +234,11 @@ fun MainAppContainer(
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = AccentPrimaryInk,
-                                    selectedTextColor = AccentPrimary,
-                                    indicatorColor = AccentPrimary,
-                                    unselectedIconColor = TextMuted,
-                                    unselectedTextColor = TextMuted
+                                    selectedIconColor = AppTheme.colors.textPrimary,
+                                    selectedTextColor = AppTheme.colors.textPrimary,
+                                    indicatorColor = AppTheme.colors.elevated,
+                                    unselectedIconColor = AppTheme.colors.textSecondary,
+                                    unselectedTextColor = AppTheme.colors.textSecondary
                                 ),
                                 modifier = Modifier.testTag("nav_item_${screen.route}")
                             )
@@ -251,7 +247,7 @@ fun MainAppContainer(
                 }
             }
         },
-        containerColor = DarkBg
+        containerColor = AppTheme.colors.background
     ) { innerPadding ->
         // Nothing is drawn until the session check has answered. Rendering the graph in the
         // meantime would show the home screen - a summary, a streak and an empty library - to a
@@ -259,7 +255,7 @@ fun MainAppContainer(
         // states of queries that are about to succeed. A blank surface for the few milliseconds
         // a local SQLite lookup takes is the honest one.
         if (!sessionRestored) {
-            Box(Modifier.fillMaxSize().background(DarkBg))
+            Box(Modifier.fillMaxSize().background(AppTheme.colors.background))
             return@Scaffold
         }
 

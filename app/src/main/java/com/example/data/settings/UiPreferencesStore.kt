@@ -2,6 +2,7 @@ package com.example.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.data.model.StorageValues
 
 /**
  * Interface preferences that are neither relational nor part of a session.
@@ -47,8 +48,28 @@ class UiPreferencesStore(context: Context) {
         prefs.edit().putBoolean(KEY_SOUND_EFFECTS, enabled).apply()
     }
 
+    /**
+     * The interface theme: system, light or dark.
+     *
+     * Device-global like the sound toggle, for the same reason: it must apply before anyone
+     * signs in and survive an account switch, and it has no relationship to a word, a
+     * schedule or a learner. Stored as the enum's storage value; an unrecognised string -
+     * from a downgrade or a hand-edited file - falls back to system rather than crashing the
+     * theme resolution.
+     */
+    val themeMode: StorageValues.ThemeMode
+        get() = StorageValues.ThemeMode.fromStorage(
+            prefs.getString(KEY_THEME_MODE, null)
+        ) ?: StorageValues.ThemeMode.SYSTEM
+
+    /** Records the learner's choice. Applied asynchronously, as preference writes should be. */
+    fun setThemeMode(mode: StorageValues.ThemeMode) {
+        prefs.edit().putString(KEY_THEME_MODE, mode.storageValue).apply()
+    }
+
     private companion object {
         const val FILE_NAME = "hanzisrs_ui_prefs"
         const val KEY_SOUND_EFFECTS = "sound_effects_enabled"
+        const val KEY_THEME_MODE = "theme_mode"
     }
 }

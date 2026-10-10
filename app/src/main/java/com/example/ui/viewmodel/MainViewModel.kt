@@ -29,6 +29,7 @@ import com.example.data.progress.SessionSummary
 import com.example.data.progress.UnlockedAward
 import com.example.data.review.RandomWordChoice
 import com.example.data.review.pickRandomWord
+import com.example.data.review.updateRecentHistory
 import com.example.data.settings.UiPreferencesStore
 import com.example.data.srs.ReviewDeckState
 import com.example.data.srs.SrsRating
@@ -121,6 +122,8 @@ sealed class RandomReviewUiState {
         val choice: RandomWordChoice,
         val revealed: Boolean,
         val wordsShown: Int,
+        /** Valid pronunciation attempts against this word. Technical failures never count. */
+        val attempts: Int,
     ) : RandomReviewUiState()
 
     /** The read failed. The message is fixed and safe to show; it is never a thrown message. */
@@ -671,6 +674,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _nothingLeftToReview.value = false
         _reviewError.value = null
         _randomReviewSession.value = null
+        _pendingSelection.value = null
+        recentRandomIds = emptyList()
         pronunciationService.stop()
     }
 
@@ -1358,9 +1363,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val choice: RandomWordChoice,
         val revealed: Boolean,
         val wordsShown: Int,
+        /** Valid pronunciation attempts against the word on screen. Technical failures never land here. */
+        val attempts: Int = 0,
     )
 
     private val _randomReviewSession = MutableStateFlow<RandomReviewSession?>(null)
+
+    /**
+     * The last words the wheel drew, oldest first, capped at the history size.
+     *
+     * Plain state rather than a flow because nothing composes from it: it is an input to the
+     * next draw, not something displayed. It lives in the view model rather than the screen so
+     * leaving and re-entering keeps the memory - the spec tracks selections "regardless of
+     * whether pronunciation attempts were successful", and a re-entry that forgot would repeat.
+     * Written only on the main thread, where every caller here runs.
+     */
+    private var recentRandomIds: List<Long> = emptyList()
+
+    /**
+     * A drawn word waiting for its selection animation to finish. Null when no draw is pending.
+     *
+     * Split from the published session on purpose: the draw (with its history update) happens
+     * up front so the animation knows where it lands, but the word only goes on screen when the
+     * wheel stops. Publishing immediately would flash the answer, fire the arrival sound early,
+     * and let a stale recogniser result meet the new word.
+     */
+    private val _pendingSelection = MutableStateFlow<RandomWordChoice?>(null)
+    val pendingSelection: StateFlow<RandomWordChoice?> = _pendingSelection.asStateFlow()
 
     /**
      * What Random Review is showing, derived from the same [userWords] every other screen reads.
@@ -1378,6 +1407,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     choice = session.choice,
                     revealed = session.revealed,
                     wordsShown = session.wordsShown,
+                    attempts = session.attempts,
                 )
                 words.isEmpty() -> RandomReviewUiState.NoVocabulary
                 // Loaded, non-empty, not yet picked: the first pick is in flight. Drawing the
@@ -1388,53 +1418,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RandomReviewUiState.Loading)
 
     /**
-     * Opens Random Review, picking a word if there is not already one on screen.
+     * Draws the next word and holds it as pending until its selection animation finishes.
      *
-     * Waits for the collection instead of racing it. [userWords] is a `StateFlow` and therefore
-     * reads as empty before its first database emission, so picking immediately would show "no
-     * vocabulary" to a learner who has some - and because [SharingStarted.WhileSubscribed] keeps
-     * that value warm, it would do it on every open rather than never.
+     * The history updates at draw time, not when attempts resolve: a word counts as "recently
+     * selected" the moment the wheel lands on it. A second call while a draw is pending is a
+     * no-op, so double-tapped START cannot stack two draws.
+     *
+     * Waits for the collection instead of racing it, for the reason the old opener did: a
+     * `StateFlow` reads as empty before its first database emission.
      */
-    fun startRandomReview() {
+    fun requestSelection() {
+        if (_pendingSelection.value != null) return
         viewModelScope.launch {
             wordsLoaded.first { it }
-            if (_randomReviewSession.value == null) pickNextRandomWord(null)
+            if (_pendingSelection.value != null) return@launch
+            val draw = pickRandomWord(userWords.value, recentRandomIds.toSet()) ?: return@launch
+            recentRandomIds = updateRecentHistory(recentRandomIds, draw.word.word.id)
+            _pendingSelection.value = draw
         }
     }
 
-    /** Uncovers the word on screen. A no-op when it is already showing. */
-    fun revealRandomWord() {
+    /**
+     * Publishes the pending draw as the word on screen. A no-op with nothing pending.
+     *
+     * Attempts reset for the new word; the shown counter continues the sitting.
+     */
+    fun confirmSelection() {
+        val draw = _pendingSelection.value ?: return
+        _pendingSelection.value = null
+        val shown = _randomReviewSession.value?.wordsShown ?: 0
+        _randomReviewSession.value = RandomReviewSession(
+            choice = draw,
+            revealed = false,
+            wordsShown = shown + 1,
+            attempts = 0,
+        )
+    }
+
+    /** Drops a pending draw, e.g. when the feature is exited mid-animation. */
+    fun cancelSelection() {
+        _pendingSelection.value = null
+    }
+
+    /**
+     * Records one valid pronunciation attempt against the word on screen.
+     *
+     * The screen decides validity - heard, current, non-blank - so this only increments. Three
+     * increments open the help state; the screen reads that off the session it already holds.
+     */
+    fun noteRandomAttempt() {
+        _randomReviewSession.update { session ->
+            session?.copy(attempts = session.attempts + 1)
+        }
+    }
+
+    /** Opens the help state for the word on screen: meaning, Pinyin and playback. */
+    fun revealRandomHelp() {
         _randomReviewSession.update { session ->
             if (session == null || session.revealed) session else session.copy(revealed = true)
         }
     }
 
-    /** Moves to another word, avoiding an immediate repeat when the collection allows one. */
-    fun nextRandomWord() {
-        val current = _randomReviewSession.value ?: return
-        pickNextRandomWord(current.choice.word.word.id, current.wordsShown)
-    }
-
     /** Ends the sitting. The next entry starts fresh rather than resuming a half-answered word. */
     fun endRandomReview() {
         _randomReviewSession.value = null
-    }
-
-    /**
-     * Picks a word and puts it on screen.
-     *
-     * One private function for the three ways of arriving here - opening, moving on - so they
-     * cannot diverge about what counts as a shown word. Selection itself is
-     * [com.example.data.review.pickRandomWord], a pure function, so the policy about preferring
-     * learned words and avoiding repeats is tested without any of this.
-     */
-    private fun pickNextRandomWord(excludeId: Long?, shownSoFar: Int = 0) {
-        val choice = pickRandomWord(userWords.value, excludeId) ?: return
-        _randomReviewSession.value = RandomReviewSession(
-            choice = choice,
-            revealed = false,
-            wordsShown = shownSoFar + 1,
-        )
+        _pendingSelection.value = null
     }
 
     // ---- daily study limits -----------------------------------------------------------------------------

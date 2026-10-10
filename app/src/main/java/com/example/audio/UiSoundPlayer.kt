@@ -32,6 +32,13 @@ enum class UiSound(@RawRes val rawRes: Int) {
 
     /** An achievement unlocked. The only genuinely celebratory sound in the set. */
     Achievement(R.raw.ui_achievement),
+
+    /**
+     * One step of the Random Review selection wheel. A single 55ms click, deliberately much
+     * shorter than [Tap]: the wheel plays one tick per displayed word, so the deceleration is
+     * carried by the *spacing* of the ticks rather than by stretching the sample.
+     */
+    Tick(R.raw.ui_tick),
 }
 
 /**
@@ -48,7 +55,7 @@ enum class UiSound(@RawRes val rawRes: Int) {
  * ## Why the pool is created lazily
  *
  * A learner with sounds turned off should never pay for the feature at all. The [SoundPool] and
- * its six loaded samples exist from the first [play] that is actually allowed to happen, and not
+ * its seven loaded samples exist from the first [play] that is actually allowed to happen, and not
  * before.
  *
  * ## Stream choice

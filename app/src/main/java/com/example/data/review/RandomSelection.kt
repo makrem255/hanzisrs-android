@@ -68,6 +68,25 @@ fun pickRandomWord(
     vocabulary: List<WordWithSrs>,
     excludeId: Long?,
     random: Random = Random.Default,
+): RandomWordChoice? = pickRandomWord(
+    vocabulary = vocabulary,
+    excludeIds = setOfNotNull(excludeId),
+    random = random,
+)
+
+/**
+ * Picks the next word for Random Review, avoiding every id in [excludeIds].
+ *
+ * The set form of the rule above: the caller keeps the recent-selection history and passes
+ * the whole of it, and the exclusion applies whenever an eligible alternative exists. When the
+ * exclusion would leave nothing to show, the pool is used whole rather than refusing to run.
+ *
+ * @param excludeIds enrolment ids to avoid, usually the recent-selection history
+ */
+fun pickRandomWord(
+    vocabulary: List<WordWithSrs>,
+    excludeIds: Set<Long>,
+    random: Random = Random.Default,
 ): RandomWordChoice? {
     if (vocabulary.isEmpty()) return null
 
@@ -79,7 +98,11 @@ fun pickRandomWord(
     // exclusion would empty the candidate list, and a learner with one word still deserves to
     // practise it.
     val candidates =
-        if (pool.size > 1 && excludeId != null) pool.filter { it.word.id != excludeId } else pool
+        if (pool.size > excludeIds.size && excludeIds.isNotEmpty()) {
+            pool.filter { it.word.id !in excludeIds }
+        } else {
+            pool
+        }
     val effective = candidates.ifEmpty { pool }
 
     return RandomWordChoice(

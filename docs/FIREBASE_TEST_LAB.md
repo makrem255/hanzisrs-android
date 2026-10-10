@@ -91,8 +91,10 @@ Screens: `home_screen`, `learn_screen`, `progress_screen`, `profile_screen`,
 Flows: `review_start_button` (Home) / `dashboard_start`, `review_card`,
 `reveal_answer_button`, `srs_rate_again` / `srs_rate_hard` / `srs_rate_good` /
 `srs_rate_easy`, `session_complete_title`, `session_review_again_button`,
-`random_review_entry`, `random_review_card`, `random_review_listen`,
-`random_review_reveal`, `random_review_next`, `library_search_field`,
+`random_review_entry`, `random_review_start`, `random_review_help`,
+`random_review_add_words`, `random_review_card`, `random_review_listen`,
+`random_review_next`, `random_review_exit`, `random_review_exit_yes`,
+`random_review_exit_no`, `library_search_field`,
 `word_row_<id>`, `approve_word_button`, `sound_effects_switch`,
 `slow_tts_switch`, `logout_button`.
 

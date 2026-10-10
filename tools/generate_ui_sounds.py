@@ -136,6 +136,19 @@ def main():
         duration=0.70, attack=0.004, decay=6.5,
     ))
 
+    # A selection tick for the Random Review word wheel: a single crisp click, much
+    # shorter than a tap, so that one tick per cycling step stays rhythmic instead of
+    # smearing. The deceleration is carried by the *spacing* of the ticks (one per
+    # displayed word), not by stretching this sample.
+    tick_len = int(0.055 * SAMPLE_RATE)
+    tick_env = envelope(tick_len, attack=0.001, decay=55.0)
+    tick_samples = [
+        amp * math.sin(2.0 * math.pi * 1800.0 * (i / SAMPLE_RATE))
+        for i, amp in enumerate(tick_env)
+    ]
+    peak = max(abs(v) for v in tick_samples)
+    write_wav("ui_tick", [v * 0.55 / peak for v in tick_samples])
+
     print("Done.")
 
 

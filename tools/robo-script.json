@@ -20,11 +20,7 @@
   },
   {
     "eventType": "VIEW_TEXT",
-    "elementDescriptors": [{ "text": "Reveal the answer" }]
-  },
-  {
-    "eventType": "VIEW_TEXT",
-    "elementDescriptors": [{ "text": "Next word" }]
+    "elementDescriptors": [{ "text": "START" }]
   },
   {
     "eventType": "GO_BACK"

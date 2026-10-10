@@ -336,7 +336,8 @@ fun MainAppContainer(
             composable(Screen.RandomReview.route) {
                 RandomReviewScreen(
                     viewModel = viewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToAddWord = { navController.navigate(Screen.AddWord.route) },
                 )
             }
 

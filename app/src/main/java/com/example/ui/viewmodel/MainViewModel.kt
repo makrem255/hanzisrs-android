@@ -785,6 +785,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private var latestAiRequest: Long = 0
 
+    /**
+     * Generates word data for [query]: online first, offline sample as fallback.
+     *
+     * The order matters and was the "老师" bug: the offline dictionary used to be reachable
+     * only through a separate button, so when the AI backend was unconfigured the learner got
+     * an instant failure and then, via the fallback button, a second failure about a missing
+     * sample - for a word the online attempt never ran for. Now one press tries the AI flow
+     * when configured, falls back to a matching sample, and only then reports an error that
+     * names both halves truthfully.
+     */
     fun generateWord(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) {
@@ -805,18 +815,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 Log.i("MainViewModel", "dropping superseded AI request $requestId for '$trimmed'")
                 return@launch
             }
-            result.fold(
-                onSuccess = { data ->
-                    _aiState.value = AiGenerationState.ReadyForReview(data)
-                },
-                onFailure = { error ->
-                    // Real, actionable failures now reach the UI instead of being
-                    // silently replaced with placeholder data.
-                    _aiState.value = AiGenerationState.Error(
-                        error.message ?: "Failed to generate word data"
-                    )
+            when (
+                val outcome = com.example.data.ai.resolveGeneration(trimmed, result) {
+                    geminiService.offlineSampleFor(it)
                 }
-            )
+            ) {
+                is com.example.data.ai.GenerationOutcome.Ready ->
+                    _aiState.value = AiGenerationState.ReadyForReview(outcome.data)
+                is com.example.data.ai.GenerationOutcome.Failed ->
+                    _aiState.value = AiGenerationState.Error(outcome.message)
+            }
         }
     }
 

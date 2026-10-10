@@ -58,6 +58,38 @@ object PinyinAnalyzer {
 
     private val CONTOURS = mapOf(1 to "55", 2 to "35", 3 to "214", 4 to "51", 0 to "33")
 
+    /** Every vowel form that carries a tone mark, for phrase detection below. */
+    private val TONED_VOWELS: Set<Char> = TONE_LOOKUP.keys
+
+    /**
+     * Whether [token] is shaped like one pinyin syllable: letters and tone-marked vowels only,
+     * no digits, spaces or punctuation. Lenient about *which* letters, the way [analyze] is -
+     * "hello" is storable text, "h3llo" is not pinyin.
+     */
+    fun isPinyinToken(token: String): Boolean =
+        token.isNotEmpty() && token.all { ch ->
+            ch in 'a'..'z' || ch in 'A'..'Z' || ch == 'ü' || ch == 'Ü' || ch in TONED_VOWELS
+        }
+
+    /**
+     * How many tone marks [input] carries. A single syllable carries at most one; more means
+     * the reading spans syllables and per-syllable analysis would keep only the first tone.
+     */
+    fun countToneMarks(input: String): Int = input.count { it in TONED_VOWELS }
+
+    /**
+     * Whether [input] is a multi-syllable reading rather than one syllable.
+     *
+     * Whitespace between syllables or more than one tone mark. The caller that stores the
+     * reading must preserve the original text in this case instead of the re-marked single
+     * analysis: re-marking "lǎoshī" as one syllable yields "lǎoshi", silently dropping the
+     * second tone the learner is trying to study.
+     */
+    fun isPhrase(input: String): Boolean {
+        val trimmed = input.trim()
+        return trimmed.any { it.isWhitespace() } || countToneMarks(trimmed) > 1
+    }
+
     /**
      * The contour for [tone], total over every value `analyze` can produce.
      *

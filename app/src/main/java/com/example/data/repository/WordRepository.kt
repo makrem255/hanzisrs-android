@@ -282,6 +282,8 @@ class WordRepository(
         radical: String = ""
     ): Long {
         characterDao.getByCharacter(hanzi)?.let { return it.id }
+        // First character's code point, informational only. The lookup above is by exact string;
+        // this column is never a lookup key for multi-character rows (see below).
         val codePoint = hanzi.codePointAt(0)
         val inserted = characterDao.insertIfAbsent(
             CharacterEntity(
@@ -293,21 +295,40 @@ class WordRepository(
         )
         // IGNORE returns -1 when a concurrent writer won the race; either way the row exists now.
         if (inserted > 0) return inserted
-        return requireNotNull(characterDao.getByCharacter(hanzi) ?: characterDao.getByCodePoint(codePoint)) {
+        characterDao.getByCharacter(hanzi)?.let { return it.id }
+        // Single characters may fall back to the code-point index, which is exact for them. A
+        // multi-character row must never be resolved that way: the stored code point is its
+        // *first* character's, so the fallback could return that character's own row and file
+        // this word under the wrong glyph - the exact corruption the old single-character rule
+        // existed to prevent.
+        if (hanzi.codePointCount(0, hanzi.length) == 1) {
+            return requireNotNull(characterDao.getByCodePoint(codePoint)) {
+                "Character row for $hanzi disappeared immediately after insert"
+            }.id
+        }
+        throw IllegalStateException(
             "Character row for $hanzi disappeared immediately after insert"
-        }.id
+        )
     }
 
     /** Finds the reading row, deriving the tone and the initial/final split from the text. */
     private suspend fun resolvePinyinId(pinyin: String, now: Long): Long {
         val analysis = PinyinAnalyzer.analyze(pinyin)
+        // A phrase reading ("lǎoshī") is keyed by its analysed syllable and first tone, but the
+        // *displayed* form stays the learner's original text: re-marking it as one syllable
+        // would move the tone onto the first vowel and silently drop the rest ("lǎoshi").
+        val stored = if (PinyinAnalyzer.isPhrase(pinyin)) {
+            analysis.copy(toneMarked = pinyin.trim())
+        } else {
+            analysis
+        }
         pinyinDao.get(analysis.syllable, analysis.toneNumber)?.let { return it.id }
 
         val inserted = pinyinDao.insertIfAbsent(
             PinyinSyllableEntity(
                 syllable = analysis.syllable,
                 toneNumber = analysis.toneNumber,
-                toneMarked = analysis.toneMarked,
+                toneMarked = stored.toneMarked,
                 initial = analysis.initial,
                 final = analysis.final,
                 toneContour = analysis.toneContour,

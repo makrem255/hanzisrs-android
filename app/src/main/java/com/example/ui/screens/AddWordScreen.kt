@@ -220,14 +220,14 @@ fun AddWordScreen(
                             Spacer(modifier = Modifier.height(6.dp))
 
                             Text(
-                                // Both examples were refused by the validator this field feeds:
-                                // 咖啡 is two characters and `Validator.validateNewWord` allows one,
-                                // and péngyou is two syllables where `PinyinAnalyzer` yields one.
-                                // A library entry is a single character, because a character is the
-                                // unit the stroke and writing-practice screens operate on.
-                                text = "Enter one Hanzi character (e.g. 学, 茶) or its pinyin " +
-                                    "(e.g. xue, cha). AI will auto-generate pinyin with tones, " +
-                                    "radical, stroke order breakdown, and context sentences.",
+                                // A library entry is a word of up to four characters: single
+                                // characters for stroke and writing practice, short words like
+                                // 老师 for meaning-first study. The validator enforces the
+                                // limit; this copy states it.
+                                text = "Enter a Hanzi character or word up to four characters " +
+                                    "(e.g. 学, 老师) or its pinyin (e.g. xue, laoshi). AI will " +
+                                    "auto-generate pinyin with tones, radical, stroke order " +
+                                    "breakdown, and context sentences.",
                                 fontSize = 12.sp,
                                 color = TextMuted,
                                 lineHeight = 17.sp

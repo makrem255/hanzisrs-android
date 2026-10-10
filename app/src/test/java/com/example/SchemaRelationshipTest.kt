@@ -400,18 +400,20 @@ class SchemaRelationshipTest {
         val user = newUser("invalid@example.com")
 
         val noMeaning = words.saveNewWordWithInitialSrs(draft(user, "好", "hǎo", meaning = "   "))
-        val phraseNotCharacter = words.saveNewWordWithInitialSrs(draft(user, "学习", "xuéxí"))
+        // Two-character words are library entries now; only overlong pastes are refused.
+        val word = words.saveNewWordWithInitialSrs(draft(user, "学习", "xuéxí"))
+        val tooLong = words.saveNewWordWithInitialSrs(draft(user, "学生们好啊呀", "xuéshēngmenhǎoāya"))
         val notPinyin = words.saveNewWordWithInitialSrs(draft(user, "猫", "!!!"))
         val badLevel = words.saveNewWordWithInitialSrs(draft(user, "狗", "gǒu").copy(hskLevel = 99))
 
         assertTrue(noMeaning is SaveWordResult.Invalid)
-        assertTrue(phraseNotCharacter is SaveWordResult.Invalid)
+        assertTrue("学习 is a valid two-character word: $word", word is SaveWordResult.Saved)
+        assertTrue(tooLong is SaveWordResult.Invalid)
         assertTrue(notPinyin is SaveWordResult.Invalid)
         assertTrue(badLevel is SaveWordResult.Invalid)
 
-        // A rejected draft leaves nothing behind.
-        assertEquals(0, database.userVocabularyDao().countForUser(user))
-        assertEquals(0, database.vocabularyDao().count())
+        // Only the valid word landed.
+        assertEquals(1, database.userVocabularyDao().countForUser(user))
     }
 
     @Test

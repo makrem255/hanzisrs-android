@@ -56,10 +56,9 @@ class LibraryReadCostTest {
      *
      * Two constraints shape this, both of them the app's and not the test's:
      *
-     *  - `Validator.validateNewWord` rejects `hanzi.length > 1`, so the unit of a library entry
-     *    is a **single character**, not a word. A learner's collection therefore grows one row
-     *    per distinct character studied, and the projection's cost per learner is a function of
-     *    how many characters they know — a few hundred at HSK 4, a couple of thousand by HSK 6.
+     *  - `Validator.validateNewWord` accepts a word of up to four characters, so these
+     *    single-character fixtures remain valid entries; the projection's cost per learner is a
+     *    function of how many entries they hold.
      *  - `vocabulary` is unique on `(characterId, pinyinId)`, so each entry needs a genuine
      *    reading; two entries may share a pinyin as long as the characters differ.
      *

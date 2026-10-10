@@ -310,7 +310,17 @@ class GeminiAiService {
             "猫" to GeneratedWordData("猫", "māo", "cat; feline", 1, "犭 (animal)", "我家有一只可爱的小猫。", "Wǒ jiā yǒu yì zhī kě'ài de xiǎomāo.", "My family has a cute little cat.", "撇 (Piě), 弯钩 (Wān Gōu), 撇 (Piě), 竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 竖 (Shù), 横 (Héng), 竖 (Shù), 竖 (Shù), 横 (Héng)", 11),
             "狗" to GeneratedWordData("狗", "gǒu", "dog; canine", 1, "犭 (animal)", "这只小狗非常活泼友好。", "Zhè zhī xiǎogǒu fēicháng huópō yǒuhǎo.", "This puppy is very lively and friendly.", "撇 (Piě), 弯钩 (Wān Gōu), 撇 (Piě), 撇 (Piě), 横折钩 (Héng Zhé Gōu), 竖 (Shù), 横折 (Héng Zhé), 横 (Héng)", 8),
             "吃" to GeneratedWordData("吃", "chī", "to eat; to consume", 1, "口 (mouth)", "你想吃中国菜吗？", "Nǐ xiǎng chī zhōngguó cài ma?", "Do you want to eat Chinese food?", "竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 撇 (Piě), 横 (Héng), 竖弯钩 (Shù Wān Gōu)", 6),
-            "喝" to GeneratedWordData("喝", "hē", "to drink", 1, "口 (mouth)", "天气热的时候多喝水。", "Tiānqì rè de shíhòu duō hē shuǐ.", "Drink more water when the weather is hot.", "竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 撇 (Piě), 竖折 (Shù Zhé), 竖 (Shù)", 12)
+            "喝" to GeneratedWordData("喝", "hē", "to drink", 1, "口 (mouth)", "天气热的时候多喝水。", "Tiānqì rè de shíhòu duō hē shuǐ.", "Drink more water when the weather is hot.", "竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 竖 (Shù), 横折 (Héng Zhé), 横 (Héng), 撇 (Piě), 竖折 (Shù Zhé), 竖 (Shù)", 12),
+            // Common words. The reading, meaning and example are first-year textbook facts;
+            // the radical and the stroke breakdown are deliberately absent rather than
+            // guessed: a radical belongs to one character, not to a word, and an unverified
+            // stroke list would be animated as this word's writing. Absent renders as absent.
+            "老师" to GeneratedWordData("老师", "lǎoshī", "teacher", 1, "", "他是我们的老师。", "Tā shì wǒmen de lǎoshī.", "He is our teacher.", "", 0),
+            "laoshi" to GeneratedWordData("老师", "lǎoshī", "teacher", 1, "", "他是我们的老师。", "Tā shì wǒmen de lǎoshī.", "He is our teacher.", "", 0),
+            "学生" to GeneratedWordData("学生", "xuéshēng", "student", 1, "", "我是一名学生。", "Wǒ shì yì míng xuéshēng.", "I am a student.", "", 0),
+            "xuesheng" to GeneratedWordData("学生", "xuéshēng", "student", 1, "", "我是一名学生。", "Wǒ shì yì míng xuéshēng.", "I am a student.", "", 0),
+            "学校" to GeneratedWordData("学校", "xuéxiào", "school", 1, "", "学校很大。", "Xuéxiào hěn dà.", "The school is very big.", "", 0),
+            "xuexiao" to GeneratedWordData("学校", "xuéxiào", "school", 1, "", "学校很大。", "Xuéxiào hěn dà.", "The school is very big.", "", 0)
         )
     }
 }

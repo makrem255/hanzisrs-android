@@ -39,19 +39,21 @@ sealed interface ValidationError {
 object Validator {
 
     /**
-     * Exactly one CJK code point, which is what `CharacterEntity` can hold.
+     * One CJK character or one short Chinese word, which is what a library entry can hold.
      *
-     * The quantifier is `{1}` and not `{1,2}` on purpose. A two-character word is a real thing
-     * in Chinese, but `vocabulary` is keyed on one character and one reading, and `characters`
-     * stores a single code point, so accepting a pair would file a word under only its first
-     * character: the meaning, the example and the strokes would all belong to the pair while
-     * the row claimed to be about the first half. Refusing it with a message the add-word
-     * screen can show is better than storing something that looks right and is not.
+     * Up to [MAX_HANZI_LENGTH] characters: the overwhelming majority of Chinese words are one
+     * or two, and four covers the idioms. Longer pastes are refused rather than truncated,
+     * because truncating a phrase into a word changes what the learner asked to study. The
+     * gate counts code points and every unit must be CJK from the basic ranges; rarer
+     * extension-plane characters are conservatively refused rather than half-stored.
      */
-    private val SINGLE_CJK = Regex("^[\u3400-\u4DBFu4E00-\u9FFFuF900-\uFAFF]$")
+    private val CJK_RUN = Regex("^[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]+$")
 
-    /** Guard against a runaway paste; well above any real pinyin syllable. */
-    const val MAX_PINYIN_LENGTH = 16
+    /** Longest word the library accepts, in characters. */
+    const val MAX_HANZI_LENGTH = 4
+
+    /** Guard against a runaway paste; sized for a four-character word's reading. */
+    const val MAX_PINYIN_LENGTH = 32
     const val MAX_MEANING_LENGTH = 400
     const val MAX_SENTENCE_LENGTH = 300
     const val MAX_NOTE_LENGTH = 500
@@ -75,11 +77,14 @@ object Validator {
         if (hanzi.isEmpty()) {
             return ValidationError.Blank("Enter a Chinese character.")
         }
-        if (hanzi.length > 1) {
-            return ValidationError.TooLong("Enter a single character, not a phrase.", maxLength = 1)
+        if (hanzi.codePointCount(0, hanzi.length) > MAX_HANZI_LENGTH) {
+            return ValidationError.TooLong(
+                "Enter a single word of up to $MAX_HANZI_LENGTH characters, not a sentence.",
+                maxLength = MAX_HANZI_LENGTH,
+            )
         }
-        if (!SINGLE_CJK.matches(hanzi)) {
-            return ValidationError.NotACharacter("\"$hanzi\" is not a Chinese character.")
+        if (!CJK_RUN.matches(hanzi)) {
+            return ValidationError.NotACharacter("\"$hanzi\" is not Chinese text.")
         }
 
         val pinyin = draft.pinyin.trim()
@@ -87,11 +92,13 @@ object Validator {
             return ValidationError.Blank("Enter the pinyin reading.")
         }
         if (pinyin.length > MAX_PINYIN_LENGTH) {
-            return ValidationError.TooLong("That pinyin is too long to be a single syllable.", MAX_PINYIN_LENGTH)
+            return ValidationError.TooLong("That pinyin is too long.", MAX_PINYIN_LENGTH)
         }
-        val analysis = PinyinAnalyzer.analyze(pinyin)
-        if (!analysis.syllable.all { it in 'a'..'z' || it == 'ü' }) {
-            return ValidationError.NotAPinyinSyllable("\"$pinyin\" is not a pinyin syllable.")
+        // A word's reading spans syllables ("lǎoshī"), so each whitespace-separated token is
+        // checked as a syllable rather than forcing the whole reading through one.
+        val tokens = pinyin.split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (tokens.isEmpty() || tokens.any { !PinyinAnalyzer.isPinyinToken(it) }) {
+            return ValidationError.NotAPinyinSyllable("\"$pinyin\" is not pinyin.")
         }
 
         val meaning = draft.meaning.trim()

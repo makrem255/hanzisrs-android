@@ -265,7 +265,8 @@ class SuppliedDataIntegrityTest {
         // test that will keep passing as the catalogue grows wrong.
         val keys = listOf(
             "爱", "ai", "人", "ren", "中", "zhong", "大", "da", "水", "shui",
-            "日", "月", "山", "火", "书", "猫", "狗", "吃", "喝"
+            "日", "月", "山", "火", "书", "猫", "狗", "吃", "喝",
+            "老师", "laoshi", "学生", "xuesheng", "学校", "xuexiao"
         )
         assertEquals(
             "a dictionary entry was added without adding it to this test; " +
@@ -281,17 +282,35 @@ class SuppliedDataIntegrityTest {
                 "'$query' (${sample.hanzi}) reports ${sample.strokeCount} strokes but its " +
                     "breakdown lists $segments: \"${sample.strokeBreakdown}\"",
                 segments,
-                sample.strokeCount
+                sample.strokeCount,
             )
             assertTrue(
                 "'$query' carries the placeholder radical; absent data must be absent",
-                sample.radical != "部首"
+                sample.radical != "部首",
             )
-            assertTrue(
-                "'$query' has no stroke breakdown at all, so writing practice would have " +
-                    "nothing to animate",
-                sample.strokeBreakdown.isNotBlank()
-            )
+            if (sample.hanzi.codePointCount(0, sample.hanzi.length) == 1) {
+                assertTrue(
+                    "'$query' has no stroke breakdown at all, so writing practice would have " +
+                        "nothing to animate",
+                    sample.strokeBreakdown.isNotBlank(),
+                )
+            } else {
+                // A word is not a character: there is no single stroke sequence to animate,
+                // so a word entry must be *consistently* empty (blank list, zero count)
+                // rather than carry one character's strokes as the word's. Fabricating a
+                // sequence the catalogue cannot verify would be the old bug in a new shape.
+                assertTrue(
+                    "'$query' is a word and must not carry a guessed stroke breakdown: " +
+                        "\"${sample.strokeBreakdown}\"",
+                    sample.strokeBreakdown.isBlank(),
+                )
+                assertEquals(
+                    "'$query' is a word with no breakdown, so its count must be zero, " +
+                        "not ${sample.strokeCount}",
+                    0,
+                    sample.strokeCount,
+                )
+            }
         }
     }
 }

@@ -48,10 +48,11 @@ data class StrokeGeometryColors(
  * ## Coordinate handling
  *
  * The dataset lives in its own space (roughly 0..900 with overshoot on both sides),
- * so the union bounds of the parsed paths are measured and the whole character is
- * fitted into the canvas with uniform scale and centring - aspect preserved, no
- * stretching, no clipping. A degenerate (empty) bounds falls back to identity rather
- * than dividing by zero.
+ * so the union bounds of the parsed paths are measured and fitted into the canvas by
+ * [fitCharViewport] - one uniform positive scale plus centring, aspect preserved, no
+ * stretching, no clipping, and by construction no mirroring: both coordinate systems
+ * are y-down with x running left to right, so no axis is ever flipped. A degenerate
+ * (empty) bounds falls back to identity rather than dividing by zero.
  *
  * ## What each layer means
  *
@@ -87,17 +88,21 @@ fun StrokeGeometryCanvas(
 
     Canvas(modifier = modifier.fillMaxSize()) {
         val pad = 24.dp.toPx()
-        val spanX = (bounds.width).takeIf { it > 0f } ?: 1f
-        val spanY = (bounds.height).takeIf { it > 0f } ?: 1f
-        val scale = minOf(
-            (size.width - pad * 2f) / spanX,
-            (size.height - pad * 2f) / spanY,
-        ).takeIf { it.isFinite() && it > 0f } ?: 1f
-        val dx = (size.width - bounds.width * scale) / 2f - bounds.left * scale
-        val dy = (size.height - bounds.height * scale) / 2f - bounds.top * scale
+        // One mapping for every layer: the guide, the completed strokes and the animated
+        // segment all go through the same viewport, so they cannot disagree about where
+        // a stroke lives. See `fitCharViewport` for the orientation contract.
+        val viewport = fitCharViewport(
+            contentLeft = bounds.left,
+            contentTop = bounds.top,
+            contentRight = bounds.right,
+            contentBottom = bounds.bottom,
+            canvasWidth = size.width,
+            canvasHeight = size.height,
+            padding = pad,
+        )
 
-        translate(left = dx, top = dy) {
-            scale(scale, scale, pivot = Offset.Zero) {
+        translate(left = viewport.dx, top = viewport.dy) {
+            scale(viewport.scale, viewport.scale, pivot = Offset.Zero) {
                 val done = revealedSteps.coerceIn(0, paths.size)
                 paths.forEach { drawPath(path = it, color = colors.guide) }
                 for (i in 0 until done) {
@@ -130,4 +135,53 @@ private fun Rect.expandToInclude(outer: Rect): Rect {
     val right = maxOf(right, outer.right)
     val bottom = maxOf(bottom, outer.bottom)
     return Rect(left, top, right, bottom)
+}
+
+/**
+ * How a character's data bounds are fitted into a canvas: uniform positive scale plus a
+ * centring translation. Pure float math, no Canvas, so the mapping itself is unit-tested.
+ *
+ * ## Orientation contract
+ *
+ * Both the dataset and Compose Canvas are y-down with x running left to right, so the
+ * mapping is a uniform *positive* scale followed by a translation - a similarity
+ * transform, which by construction can neither mirror nor invert. There is deliberately
+ * no flip, no negative factor and no axis swap anywhere in this function; if one ever
+ * appears, `StrokeOrientationTest` (ink agreement against an independent rasterizer)
+ * fails on every asymmetric character. The scale is derived from a single `minOf`, so
+ * aspect is preserved and nothing stretches.
+ *
+ * @param contentLeft contentTop contentRight contentBottom union bounds of the paths.
+ * @param canvasWidth canvasHeight size of the drawing surface, in the same units.
+ * @param padding breathing room kept on every side, in the same units.
+ */
+data class CharViewport(
+    val scale: Float,
+    val dx: Float,
+    val dy: Float,
+) {
+    /** Maps one data-space point into canvas space. */
+    fun map(x: Float, y: Float): Pair<Float, Float> = (x * scale + dx) to (y * scale + dy)
+}
+
+fun fitCharViewport(
+    contentLeft: Float,
+    contentTop: Float,
+    contentRight: Float,
+    contentBottom: Float,
+    canvasWidth: Float,
+    canvasHeight: Float,
+    padding: Float,
+): CharViewport {
+    val spanX = (contentRight - contentLeft).takeIf { it > 0f } ?: 1f
+    val spanY = (contentBottom - contentTop).takeIf { it > 0f } ?: 1f
+    val scale = minOf(
+        (canvasWidth - padding * 2f) / spanX,
+        (canvasHeight - padding * 2f) / spanY,
+    ).takeIf { it.isFinite() && it > 0f } ?: 1f
+    return CharViewport(
+        scale = scale,
+        dx = (canvasWidth - (contentRight - contentLeft) * scale) / 2f - contentLeft * scale,
+        dy = (canvasHeight - (contentBottom - contentTop) * scale) / 2f - contentTop * scale,
+    )
 }

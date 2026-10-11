@@ -34,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +44,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.strokes.CharacterGeometry
+import com.example.data.strokes.StrokeGeometryStore
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -130,6 +136,12 @@ fun InteractiveStrokeSection(
     val strokes = remember(strokeBreakdown) {
         StrokeNameParser.parse(strokeBreakdown).map { it.nameCn to it.namePinyin }
     }
+    // Verified per-stroke paths, when this is one bundled character. Null for anything
+    // else - words, unbundled characters, unreadable assets - and every branch below
+    // treats null as "no geometry", never as a reason to guess.
+    val context = LocalContext.current
+    val geometryStore = remember(context) { StrokeGeometryStore(context) }
+    val geometry = remember(hanzi, geometryStore) { geometryStore.load(hanzi) }
 
     Column(
         modifier = modifier
@@ -140,7 +152,7 @@ fun InteractiveStrokeSection(
             .padding(14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (strokes.isEmpty()) {
+        if (geometry == null && strokes.isEmpty()) {
             NoStrokeData(hanzi = hanzi)
             return@Column
         }
@@ -148,9 +160,25 @@ fun InteractiveStrokeSection(
         SegmentedModeSwitch(selected = selectedMode, onSelect = { selectedMode = it })
 
         if (selectedMode == 0) {
-            AnimatedStrokeOrderPlayer(hanzi = hanzi, strokes = strokes)
+            AnimatedStrokeOrderPlayer(hanzi = hanzi, strokes = strokes, geometry = geometry)
         } else {
-            UserTracingCanvas(hanzi = hanzi, targetStrokeCount = strokes.size)
+            UserTracingCanvas(
+                hanzi = hanzi,
+                targetStrokeCount = geometry?.strokeCount ?: strokes.size
+            )
+        }
+
+        if (geometry != null) {
+            // Provenance on screen, not just in the repo: the paths are someone's
+            // licensed work, and the learner deserves to know whose.
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Stroke paths: Make Me a Hanzi project · Arphic Public License",
+                style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+                color = AppTheme.colors.textSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -301,21 +329,69 @@ private fun DrawScope.drawGhostGlyph(hanzi: String, alpha: Int = 45) {
 @Composable
 fun AnimatedStrokeOrderPlayer(
     hanzi: String,
-    strokes: List<Pair<String, String>>
+    strokes: List<Pair<String, String>>,
+    geometry: CharacterGeometry? = null,
 ) {
-    var currentStep by remember(hanzi, strokes) { mutableIntStateOf(0) }
+    // Steps are positions in the demonstrated order. With geometry, the count comes from
+    // the verified paths; otherwise from the named sequence. Both are ordered lists, so
+    // either way step `i` is genuinely the i-th stroke.
+    val totalSteps = geometry?.strokeCount ?: strokes.size
+    var currentStep by remember(hanzi, strokes, geometry) { mutableIntStateOf(0) }
     // Starts paused. It used to start playing, and a `LaunchedEffect` then advanced a step
     // every 1.3 seconds forever, redrawing two full-glyph canvases continuously on a phone
     // battery for as long as the tab was visible. The control is still there; it just no
     // longer starts itself.
-    var isPlaying by remember(hanzi, strokes) { mutableStateOf(false) }
+    var isPlaying by remember(hanzi, strokes, geometry) { mutableStateOf(false) }
+
+    // Draw-on progress of the current stroke. lives beside the step rather than inside
+    // the canvas so pause, resume and manual stepping stay decisions, not accidents
+    // (see the effects below). Unused without geometry.
+    val drawProgress = remember(hanzi, geometry) { Animatable(0f) }
+    var lastDrawnStep by remember(hanzi, geometry) { mutableIntStateOf(-1) }
+    if (geometry != null) {
+        LaunchedEffect(currentStep, isPlaying, geometry) {
+            if (currentStep != lastDrawnStep) {
+                lastDrawnStep = currentStep
+                // A manually chosen step shows fully drawn; a played step draws on.
+                drawProgress.snapTo(if (isPlaying) 0f else 1f)
+            }
+            if (isPlaying && drawProgress.value < 1f) {
+                val remaining = ((1f - drawProgress.value) * STEP_DRAW_MS).toInt().coerceAtLeast(1)
+                drawProgress.animateTo(1f, tween(remaining))
+            } else {
+                // Halted while paused. `stop` on an idle Animatable is a no-op, so
+                // this branch is safe on every path that reaches it.
+                drawProgress.stop()
+            }
+        }
+    }
+
+    if (totalSteps == 0) return
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
         GridBox {
-            GridBackdrop(hanzi)
+            if (geometry != null) {
+                // Real paths, drawn in order: completed solid, the current one
+                // drawing itself on, the rest as faint context. See
+                // `StrokeGeometryCanvas` for the layer contract.
+                val palette = AppTheme.colors
+                StrokeGeometryCanvas(
+                    geometry = geometry,
+                    revealedSteps = currentStep,
+                    currentProgress = drawProgress.value,
+                    colors = StrokeGeometryColors(
+                        guide = palette.ghostText,
+                        completed = palette.textPrimary,
+                        current = palette.button,
+                    ),
+                    modifier = Modifier.testTag("stroke_geometry_canvas"),
+                )
+            } else {
+                GridBackdrop(hanzi)
+            }
 
             // The current stroke's name, in the corner, where it cannot be mistaken for part
             // of the character.
@@ -328,7 +404,7 @@ fun AnimatedStrokeOrderPlayer(
                     .testTag("stroke_step_counter")
             ) {
                 Text(
-                    text = "${currentStep + 1}/${strokes.size}",
+                    text = "${currentStep + 1}/$totalSteps",
                     color = AppTheme.colors.onButton,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -339,7 +415,11 @@ fun AnimatedStrokeOrderPlayer(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        val (name, pinyin) = strokes[currentStep]
+        // The current stroke's name, when the catalogue carries names. Geometry-only
+        // characters (bundled paths without a named breakdown) skip this row rather
+        // than show a blank label: the counter above already says where the demo is.
+        val (name, pinyin) = strokes.getOrElse(currentStep) { "" to "" }
+        if (name.isNotBlank()) {
         Surface(
             color = AppTheme.colors.elevated,
             shape = RoundedCornerShape(20.dp),
@@ -351,7 +431,7 @@ fun AnimatedStrokeOrderPlayer(
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
                 Text(
-                    text = "Stroke ${currentStep + 1} of ${strokes.size}",
+                    text = "Stroke ${currentStep + 1} of $totalSteps",
                     fontWeight = FontWeight.Bold,
                     color = AppTheme.colors.button,
                     fontSize = 13.sp
@@ -369,6 +449,7 @@ fun AnimatedStrokeOrderPlayer(
                 }
             }
         }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -377,7 +458,7 @@ fun AnimatedStrokeOrderPlayer(
         // position-in-sequence is honest in a way per-stroke geometry would not be -
         // the app has names, not paths, and a dot claims nothing about shapes.
         StepDots(
-            total = strokes.size,
+            total = totalSteps,
             current = currentStep,
             modifier = Modifier.testTag("stroke_progress")
         )
@@ -404,8 +485,8 @@ fun AnimatedStrokeOrderPlayer(
             IconTarget(
                 onClick = {
                     isPlaying = false
-                    if (strokes.isNotEmpty()) {
-                        currentStep = if (currentStep > 0) currentStep - 1 else strokes.lastIndex
+                    if (totalSteps > 0) {
+                        currentStep = if (currentStep > 0) currentStep - 1 else totalSteps - 1
                     }
                 },
                 modifier = Modifier.testTag("stroke_prev")
@@ -444,12 +525,12 @@ fun AnimatedStrokeOrderPlayer(
             IconTarget(
                 onClick = {
                     isPlaying = false
-                    // Guarded: `strokes` is non-empty by the caller's contract, and a
+                    // Guarded: `totalSteps` is non-zero by the early return above, and a
                     // zero-length list here would be a modulo by zero. The contract is
-                    // enforced in `InteractiveStrokeSection`, but the stepper does not rely
+                    // enforced before this composable runs, but the stepper does not rely
                     // on a caller to keep it alive.
-                    if (strokes.isNotEmpty()) {
-                        currentStep = (currentStep + 1) % strokes.size
+                    if (totalSteps > 0) {
+                        currentStep = (currentStep + 1) % totalSteps
                     }
                 },
                 modifier = Modifier.testTag("stroke_next")
@@ -462,11 +543,11 @@ fun AnimatedStrokeOrderPlayer(
             }
         }
 
-        if (isPlaying && strokes.isNotEmpty()) {
+        if (isPlaying && totalSteps > 0) {
             LaunchedEffect(currentStep) {
                 delay(1100)
-                if (isPlaying && strokes.isNotEmpty()) {
-                    currentStep = (currentStep + 1) % strokes.size
+                if (isPlaying && totalSteps > 0) {
+                    currentStep = (currentStep + 1) % totalSteps
                 }
             }
         }
@@ -503,6 +584,9 @@ private fun StepDots(total: Int, current: Int, modifier: Modifier = Modifier) {
         }
     }
 }
+
+/** How long one stroke takes to draw itself on during playback, in milliseconds. */
+private const val STEP_DRAW_MS = 800
 
 /**
  * A canvas to trace a character on.

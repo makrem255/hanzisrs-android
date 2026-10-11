@@ -110,4 +110,38 @@ class StrokeGuideTest {
         composeTestRule.onAllNodesWithTag("stroke_play_pause", useUnmergedTree = true)
             .assertCountEquals(0)
     }
+
+    @Test
+    fun geometry_mode_draws_bundled_paths_in_order() {
+        // 人 has bundled geometry but no named breakdown here: the canvas must still
+        // demonstrate - two real strokes, stepped through - with no name row required.
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                InteractiveStrokeSection(hanzi = "人", strokeBreakdown = "")
+            }
+        }
+
+        composeTestRule.onNodeWithTag("stroke_geometry_canvas").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1/2").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("stroke_play_pause").performClick()
+        composeTestRule.mainClock.advanceTimeBy(1_500L)
+        composeTestRule.onNodeWithText("2/2").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("stroke_play_pause").performClick()
+        composeTestRule.mainClock.advanceTimeBy(5_000L)
+        composeTestRule.onNodeWithText("2/2").assertIsDisplayed()
+    }
+
+    @Test
+    fun geometry_mode_composes_in_light_theme() {
+        composeTestRule.setContent {
+            MyApplicationTheme(themeMode = com.example.data.model.StorageValues.ThemeMode.LIGHT) {
+                InteractiveStrokeSection(hanzi = "中", strokeBreakdown = "")
+            }
+        }
+
+        composeTestRule.onNodeWithTag("stroke_geometry_canvas").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1/4").assertIsDisplayed()
+    }
 }

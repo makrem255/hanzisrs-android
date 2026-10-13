@@ -170,9 +170,17 @@ class StrokeOrientationTest {
         bmpH: Int,
         padPx: Float,
     ): Array<BooleanArray> {
-        val segs = pathData.flatMap { flattenPath(it) }
-        val xs = segs.flatMap { listOf(it.ax, it.bx) }
-        val ys = segs.flatMap { listOf(it.ay, it.by) }
+        val raw = pathData.flatMap { flattenPath(it) }
+        val xs = raw.flatMap { listOf(it.ax, it.bx) }
+        val ys = raw.flatMap { listOf(it.ay, it.by) }
+        // The dataset is y-up (larger y is higher); the reference mirrors about the
+        // data midline exactly as the documented display transform requires, so this
+        // rasterizer and the renderer answer the same question: upright, or not.
+        val yLo = ys.min()
+        val yHi = ys.max()
+        val segs = raw.map { s ->
+            Segment(s.ax, (yLo + yHi) - s.ay, s.bx, (yLo + yHi) - s.by)
+        }
         // The same fit rule the renderer uses, reimplemented in plain arithmetic: uniform
         // scale from the tighter axis, centred, padding respected. Sharing the rule is
         // correct here because orientation - not framing - is under test; a mirror in
@@ -346,27 +354,31 @@ class StrokeOrientationTest {
             canvasHeight = 400f,
             padding = 24f,
         )
-        assertTrue("scale must be positive, never a flip", viewport.scale > 0f)
-        // Uniform: a unit square maps to a square.
+        assertTrue("scale magnitude must be positive, never a horizontal flip", viewport.scale > 0f)
+        // Uniform: a unit square maps to a square (magnitudes; y carries the one
+        // documented reflection, so its differences are compared by magnitude).
         val (ax, ay) = viewport.map(100f, 50f)
         val (bx, by) = viewport.map(200f, 50f)
         val (cx, cy) = viewport.map(100f, 150f)
-        assertEquals(bx - ax, cy - ay, 0.001f)
+        assertEquals(100f * viewport.scale, bx - ax, 0.01f)
+        assertEquals(100f * viewport.scale, ay - cy, 0.01f)
         assertEquals(0f, by - ay, 0.001f)
         assertEquals(0f, cx - ax, 0.001f)
-        // Centred: content middle lands on canvas middle.
+        // Centred: content middle lands on canvas middle (a reflection preserves it).
         val (mx, my) = viewport.map(500f, 450f)
         assertEquals(200f, mx, 0.01f)
         assertEquals(200f, my, 0.01f)
-        // Order preserved: left stays left, above stays above - the no-mirror rule.
+        // Left stays left; dataset-maximum y (the visual top) lands above
+        // dataset-minimum y (the visual bottom) - the no-upside-down rule.
         val (lx, _) = viewport.map(100f, 450f)
         val (rx, _) = viewport.map(900f, 450f)
         assertTrue("left must stay left of right", lx < rx)
-        val (_, ty) = viewport.map(500f, 50f)
-        val (_, uy) = viewport.map(500f, 850f)
-        assertTrue("above must stay above below", ty < uy)
-        // Inside the canvas with padding respected.
+        val (_, topY) = viewport.map(500f, 850f)
+        val (_, bottomY) = viewport.map(500f, 50f)
+        assertTrue("dataset-maximum y is the visual top and must land above", topY < bottomY)
+        // Inside the canvas with padding respected on all four sides.
         assertTrue("mapped content must respect padding", ax >= 24f - 0.01f && rx <= 400f - 24f + 0.01f)
+        assertTrue("mapped content must respect vertical padding", topY >= 24f - 0.01f && bottomY <= 400f - 24f + 0.01f)
     }
 
     @Test

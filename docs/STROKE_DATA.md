@@ -3,6 +3,15 @@
 The writing guide animates real stroke paths from bundled JSON in
 `app/src/main/assets/strokes/`. This note is the whole procedure for extending it.
 
+## Coordinate system
+
+The data is y-UP: larger y is higher on screen. The dataset's own documentation
+states the y-axis decreases downward and mandates a `scale(1, -1)` flip for
+display. The renderer (`StrokeGeometryCanvas` via `fitCharViewport`) applies
+exactly that reflection about the content midline, in one place, shared by the
+guide, completed and animated layers. Never "fix" orientation by editing the
+bundled files: the files are correct, and any flip belongs in the transform.
+
 ## Adding a character
 
 1. Fetch its data from the verified source:

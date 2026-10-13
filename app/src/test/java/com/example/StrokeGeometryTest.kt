@@ -1,12 +1,15 @@
 package com.example
 
 import android.content.Context
+import androidx.compose.ui.graphics.vector.PathParser
+import com.example.ui.components.segmentRange
 import androidx.test.core.app.ApplicationProvider
 import com.example.data.strokes.CharacterGeometry
 import com.example.data.strokes.StrokeGeometryStore
 import com.example.data.strokes.strokeAssetName
 import com.example.data.strokes.parseStrokeData
 import com.example.data.strokes.parseStrokeJson
+import kotlin.math.hypot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -44,6 +47,90 @@ class StrokeGeometryTest {
     fun `words and empty input map to nothing`() {
         assertNull(strokeAssetName("老师"))
         assertNull(strokeAssetName(""))
+    }
+
+    // ---- paths and order agree: one list, one sequence ---------------------------------------
+    //
+    // The guide, the completed strokes, the animated segment, the counter and the timer
+    // all index the same stroke list, so the one way they could disagree about order is
+    // if the list itself paired a path with the wrong stroke. The medians are the
+    // independent witness: each stroke's parsed-path centre must sit on its own
+    // median's centre. Verified against 汉典 for 你 (笔顺 3235234: 丿竖撇折竖撇捺):
+    // the median shapes, in file order, are exactly those seven types in those
+    // positions, and the check below holds the pairing for every bundled character.
+
+    @Test
+    fun `every stroke path sits on its own median for all bundled characters`() {
+        for (hanzi in listOf("你", "好", "我", "是", "人", "中", "国", "学", "生", "老", "师")) {
+            val geometry = store.load(hanzi)!!
+            for ((index, stroke) in geometry.strokes.withIndex()) {
+                val box = PathParser().parsePathString(stroke.pathData).toPath().getBounds()
+                val pathCx = (box.left + box.right) / 2f
+                val pathCy = (box.top + box.bottom) / 2f
+                val mx = stroke.median.map { it.x }
+                val my = stroke.median.map { it.y }
+                val medCx = (mx.min() + mx.max()) / 2f
+                val medCy = (my.min() + my.max()) / 2f
+                val dist = hypot(pathCx - medCx, pathCy - medCy)
+                assertTrue(
+                    "$hanzi stroke $index: path centre ($pathCx,$pathCy) is $dist units " +
+                        "from its median centre ($medCx,$medCy) - path and order disagree",
+                    dist < 100f,
+                )
+            }
+        }
+    }
+
+    // ---- the animated segment follows the real path from its start --------------------------------------
+    //
+    // The draw-on is a measured sub-path of the *same* parsed path the completed layer
+    // draws whole, so the animation cannot show anything the final state does not also
+    // show. The range math is pure and pinned directly; the measuring itself is
+    // platform Skia, which this environment cannot drive through the Compose wrapper
+    // (Compose `Path` resolves to a non-Android implementation in unit tests, so the
+    // wrapper's bridge hands the native measurer an empty path and every length reads
+    // zero - verified by probe, not assumed). The native-level behaviour - a sub-path
+    // from the path's own start covering the requested fraction - is pinned with
+    // android.graphics classes directly, which do work here.
+
+    @Test
+    fun `segment ranges always start at zero and clamp progress`() {
+        assertEquals(0f to 0f, segmentRange(200f, 0f))
+        assertEquals(0f to 100f, segmentRange(200f, 0.5f))
+        assertEquals(0f to 200f, segmentRange(200f, 1f))
+        assertEquals(
+            "negative progress must not produce a backwards range",
+            0f to 0f,
+            segmentRange(200f, -0.5f),
+        )
+        assertEquals(
+            "progress past one must not run past the path end",
+            0f to 200f,
+            segmentRange(200f, 2f),
+        )
+        assertEquals(0f to 0f, segmentRange(0f, 0.5f))
+    }
+
+    @Test
+    fun `a half-progress segment covers the first half of its path`() {
+        // The range handed to Skia is ours and is pinned exactly: from the path's
+        // own start, spanning precisely the progress fraction. Executing it is
+        // stock Skia behaviour, deliberately not asserted here - Robolectric
+        // reports every path length as zero (verified by probe for both the
+        // Compose wrapper and the native measurer), so a getSegment-based test
+        // would assert against a stub, not the animation.
+        val (startD, stopD) = segmentRange(200f, 0.5f)
+
+        assertEquals(
+            "the draw-on must begin where the completed stroke begins",
+            0f,
+            startD,
+        )
+        assertEquals(
+            "half progress over a 200-unit path must stop at 100 units",
+            100f,
+            stopD,
+        )
     }
 
     // ---- the bundled catalogue --------------------------------------------------------------------

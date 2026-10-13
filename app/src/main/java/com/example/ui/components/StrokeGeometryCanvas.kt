@@ -47,11 +47,11 @@ data class StrokeGeometryColors(
  *
  * ## Coordinate handling
  *
- * The dataset lives in its own space (roughly 0..900 with overshoot on both sides),
- * so the union bounds of the parsed paths are measured and fitted into the canvas by
- * [fitCharViewport] - one uniform positive scale plus centring, aspect preserved, no
- * stretching, no clipping, and by construction no mirroring: both coordinate systems
- * are y-down with x running left to right, so no axis is ever flipped. A degenerate
+ * The dataset lives in its own space (roughly x 0..900, y -124..900) where larger
+ * y is HIGHER - its documentation states the y-axis decreases downward and mandates
+ * a `scale(1, -1)` flip for display. Fitting is delegated to [fitCharViewport],
+ * which applies exactly that reflection about the content midline and then fits
+ * normally: aspect preserved, no stretching, no clipping, centred. A degenerate
  * (empty) bounds falls back to identity rather than dividing by zero.
  *
  * ## What each layer means
@@ -102,7 +102,9 @@ fun StrokeGeometryCanvas(
         )
 
         translate(left = viewport.dx, top = viewport.dy) {
-            scale(viewport.scale, viewport.scale, pivot = Offset.Zero) {
+            // Negative y scale: the single documented reflection, matching
+            // `CharViewport.map`. Positive x scale: left stays left.
+            scale(viewport.scale, -viewport.scale, pivot = Offset.Zero) {
                 val done = revealedSteps.coerceIn(0, paths.size)
                 paths.forEach { drawPath(path = it, color = colors.guide) }
                 for (i in 0 until done) {
@@ -113,13 +115,9 @@ fun StrokeGeometryCanvas(
                     if (progress > 0f) {
                         val measure = PathMeasure()
                         measure.setPath(paths[done], false)
+                        val (startD, stopD) = segmentRange(measure.length, progress)
                         val segment = Path()
-                        measure.getSegment(
-                            0f,
-                            measure.length * progress,
-                            segment,
-                            startWithMoveTo = true,
-                        )
+                        measure.getSegment(startD, stopD, segment, startWithMoveTo = true)
                         drawPath(path = segment, color = colors.current)
                     }
                 }
@@ -138,20 +136,37 @@ private fun Rect.expandToInclude(outer: Rect): Rect {
 }
 
 /**
- * How a character's data bounds are fitted into a canvas: uniform positive scale plus a
- * centring translation. Pure float math, no Canvas, so the mapping itself is unit-tested.
+ * The measured sub-range a draw-on progress covers: from the path's own start to
+ * `progress` of its total length.
+ *
+ * Pure so the contract is unit-tested without a measurer: untrusted progress is
+ * clamped into range here rather than at the draw call, so no caller can ask for
+ * a negative start, a stop past the end, or a backwards range, and the animation
+ * always begins exactly where the completed stroke begins.
+ */
+internal fun segmentRange(totalLength: Float, progress: Float): Pair<Float, Float> {
+    val clamped = progress.coerceIn(0f, 1f)
+    return 0f to (totalLength * clamped).coerceAtLeast(0f)
+}
+
+/**
+ * How a character's data bounds are fitted into a canvas.
+ *
+ * Pure float math, no Canvas, so the mapping itself is unit-tested.
  *
  * ## Orientation contract
  *
- * Both the dataset and Compose Canvas are y-down with x running left to right, so the
- * mapping is a uniform *positive* scale followed by a translation - a similarity
- * transform, which by construction can neither mirror nor invert. There is deliberately
- * no flip, no negative factor and no axis swap anywhere in this function; if one ever
- * appears, `StrokeOrientationTest` (ink agreement against an independent rasterizer)
- * fails on every asymmetric character. The scale is derived from a single `minOf`, so
- * aspect is preserved and nothing stretches.
+ * The dataset is y-UP: larger y is higher on screen (its own documentation states
+ * the y-axis decreases downward and mandates a `scale(1, -1)` flip for display).
+ * Compose Canvas is y-down, so the mapping reflects once about the content's
+ * horizontal midline and then fits as usual. The reflection lives HERE and nowhere
+ * else - one place, applied exactly once - so guide, completed and animated layers,
+ * which all map through this function, cannot disagree about orientation. The scale
+ * magnitude stays uniform and positive (aspect preserved, no stretching); only the
+ * y direction is mirrored, which is precisely what upright display requires.
  *
- * @param contentLeft contentTop contentRight contentBottom union bounds of the paths.
+ * @param contentLeft contentTop contentRight contentBottom union bounds of the paths,
+ *   in dataset coordinates.
  * @param canvasWidth canvasHeight size of the drawing surface, in the same units.
  * @param padding breathing room kept on every side, in the same units.
  */
@@ -160,8 +175,8 @@ data class CharViewport(
     val dx: Float,
     val dy: Float,
 ) {
-    /** Maps one data-space point into canvas space. */
-    fun map(x: Float, y: Float): Pair<Float, Float> = (x * scale + dx) to (y * scale + dy)
+    /** Maps one dataset point into canvas space, reflecting y exactly once. */
+    fun map(x: Float, y: Float): Pair<Float, Float> = (x * scale + dx) to (-y * scale + dy)
 }
 
 fun fitCharViewport(
@@ -179,9 +194,14 @@ fun fitCharViewport(
         (canvasWidth - padding * 2f) / spanX,
         (canvasHeight - padding * 2f) / spanY,
     ).takeIf { it.isFinite() && it > 0f } ?: 1f
+    // Dataset-maximum y is the visual top and must land on the canvas top margin;
+    // dataset-minimum y is the visual bottom and lands on the bottom margin:
+    // canvas_y = -scale*y + dy with dy = padTop + scale*contentBottom.
+    val spanYPx = spanY * scale
+    val padTop = (canvasHeight - spanYPx) / 2f
     return CharViewport(
         scale = scale,
         dx = (canvasWidth - (contentRight - contentLeft) * scale) / 2f - contentLeft * scale,
-        dy = (canvasHeight - (contentBottom - contentTop) * scale) / 2f - contentTop * scale,
+        dy = padTop + contentBottom * scale,
     )
 }

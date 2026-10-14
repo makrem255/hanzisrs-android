@@ -28,6 +28,8 @@ import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -61,18 +63,57 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.srs.StrokeNameParser
 import com.example.ui.theme.AppTheme
 import kotlinx.coroutines.delay
 
-/** One traced stroke, as the learner drew it. */
+/** One traced stroke, as the learner drew it.
+ *
+ * Points are fractions of the canvas size (0..1 in each axis), not pixels. Pixel
+ * values would pin the stroke to the canvas size at draw time, so rotating the
+ * phone or resizing the sheet would shift old strokes away from the grid they
+ * were drawn on. Fractions survive any size: drawing multiplies back out against
+ * whatever the canvas measures when it draws.
+ */
 data class UserStroke(val points: List<Offset>)
+
+/**
+ * Converts a touch point to canvas fractions.
+ *
+ * Returns [Offset.Zero] when the canvas size is still unknown rather than
+ * dividing by zero; a zero-size canvas cannot receive touches anyway, so the
+ * point could never have been drawn.
+ */
+fun normalizeTracePoint(p: Offset, widthPx: Float, heightPx: Float): Offset {
+    if (widthPx <= 0f || heightPx <= 0f) return Offset.Zero
+    return Offset(
+        (p.x / widthPx).coerceIn(0f, 1f),
+        (p.y / heightPx).coerceIn(0f, 1f),
+    )
+}
+
+/**
+ * Converts stored fractions back to pixels for the canvas currently drawing.
+ *
+ * Returns an empty list when the size is unknown rather than drawing at a
+ * degenerate scale; drawing nothing is honest, drawing collapsed is not.
+ */
+fun denormalizeTracePoints(
+    points: List<Offset>,
+    widthPx: Float,
+    heightPx: Float,
+): List<Offset> {
+    if (widthPx <= 0f || heightPx <= 0f) return emptyList()
+    return points.map { Offset(it.x * widthPx, it.y * heightPx) }
+}
 
 /**
  * The size of the drawing square.
@@ -588,6 +629,9 @@ private fun StepDots(total: Int, current: Int, modifier: Modifier = Modifier) {
 /** How long one stroke takes to draw itself on during playback, in milliseconds. */
 private const val STEP_DRAW_MS = 800
 
+/** How long a Hint flash shows the reference glyph, in milliseconds. */
+private const val HINT_FLASH_MS = 1500L
+
 /**
  * A canvas to trace a character on.
  *
@@ -608,6 +652,23 @@ fun UserTracingCanvas(
     // kept the first character's stroke count as its target.
     val strokes = remember(hanzi) { mutableStateListOf<UserStroke>() }
     var currentPoints by remember(hanzi) { mutableStateOf<List<Offset>>(emptyList()) }
+    // Canvas size in pixels, tracked so touch points can be stored as fractions (see
+    // [UserStroke]). Included in the gesture keys below so a resize or rotation never
+    // leaves the handler normalizing against a stale size.
+    var gridPx by remember(hanzi) { mutableStateOf(IntSize.Zero) }
+    // Whether the reference glyph is drawn. Off means "write from memory": the grid
+    // stays, the glyph goes. Keyed on the character like everything else here.
+    var referenceVisible by remember(hanzi) { mutableStateOf(true) }
+    // A momentary reveal while hidden. Timed, never latched: the `LaunchedEffect`
+    // below always turns it back off, so a hint cannot get stuck on.
+    var hinting by remember(hanzi) { mutableStateOf(false) }
+    if (hinting) {
+        LaunchedEffect(hanzi) {
+            delay(HINT_FLASH_MS)
+            hinting = false
+        }
+    }
+    val ghostVisible = referenceVisible || hinting
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -615,12 +676,25 @@ fun UserTracingCanvas(
     ) {
         GridBox(
             gridModifier = Modifier
-                .pointerInput(hanzi, targetStrokeCount) {
+                .onSizeChanged { gridPx = it }
+                .pointerInput(hanzi, targetStrokeCount, gridPx) {
                     detectDragGestures(
-                        onDragStart = { offset -> currentPoints = listOf(offset) },
+                        onDragStart = { offset ->
+                            currentPoints = listOf(
+                                normalizeTracePoint(
+                                    offset,
+                                    gridPx.width.toFloat(),
+                                    gridPx.height.toFloat(),
+                                )
+                            )
+                        },
                         onDrag = { change, _ ->
                             change.consume()
-                            currentPoints = currentPoints + change.position
+                            currentPoints = currentPoints + normalizeTracePoint(
+                                change.position,
+                                gridPx.width.toFloat(),
+                                gridPx.height.toFloat(),
+                            )
                         },
                         onDragEnd = {
                             if (currentPoints.size > 1) {
@@ -631,8 +705,9 @@ fun UserTracingCanvas(
                         onDragCancel = { currentPoints = emptyList() }
                     )
                 }
+                .testTag("trace_grid")
         ) {
-            GridBackdrop(hanzi)
+            GridBackdrop(hanzi, showGlyph = ghostVisible)
 
             val finished = AppTheme.colors.textPrimary
             val drawing = AppTheme.colors.button
@@ -678,6 +753,50 @@ fun UserTracingCanvas(
                 .padding(horizontal = 4.dp)
                 .testTag("trace_not_scored_note")
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Reference visibility: hide the glyph to write from memory, flash it
+        // briefly with Hint, bring it back with Show. All three only change what
+        // is drawn; strokes, counter and the honesty note below are untouched.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedButton(
+                onClick = { referenceVisible = !referenceVisible },
+                modifier = Modifier
+                    .heightIn(min = MinTouchTarget)
+                    .testTag("trace_toggle_reference"),
+                shape = RoundedCornerShape(24.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary)
+            ) {
+                Icon(
+                    if (referenceVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(if (referenceVisible) "Hide" else "Show", fontSize = 13.sp)
+            }
+
+            // Offered only while hidden: with the reference up, a hint would
+            // reveal nothing, and a button that does nothing is a defect.
+            if (!referenceVisible) {
+                OutlinedButton(
+                    onClick = { hinting = true },
+                    modifier = Modifier
+                        .heightIn(min = MinTouchTarget)
+                        .testTag("trace_hint"),
+                    shape = RoundedCornerShape(24.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary)
+                ) {
+                    Text("Hint", fontSize = 13.sp)
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(8.dp))
 
@@ -732,18 +851,24 @@ fun UserTracingCanvas(
     }
 }
 
-/** The ghost character over the grid, in one place so both canvases sit on the same backdrop. */
+/** The ghost character over the grid, in one place so both canvases sit on the same backdrop.
+ *
+ * @param showGlyph whether the reference glyph itself is drawn. Hiding the glyph
+ *   is the "write from memory" mode: the grid stays as an
+ *   orientation aid, but there is nothing left to trace over.
+ */
 @Composable
-private fun GridBackdrop(hanzi: String) {
+private fun GridBackdrop(hanzi: String, showGlyph: Boolean = true) {
     val center = AppTheme.colors.gridCenter
     val line = AppTheme.colors.gridLine
     Canvas(modifier = Modifier.fillMaxSize()) {
         drawRiceGrid(size.width, size.height, center, line)
-        drawGhostGlyph(hanzi)
+        if (showGlyph) drawGhostGlyph(hanzi)
     }
 }
 
-private fun DrawScope.drawTracedStroke(points: List<Offset>, color: Color) {
+private fun DrawScope.drawTracedStroke(normalized: List<Offset>, color: Color) {
+    val points = denormalizeTracePoints(normalized, size.width, size.height)
     if (points.size < 2) return
     val path = Path().apply {
         moveTo(points.first().x, points.first().y)

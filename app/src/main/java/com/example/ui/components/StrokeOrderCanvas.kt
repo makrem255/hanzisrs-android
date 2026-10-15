@@ -50,6 +50,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalContext
 import com.example.data.strokes.CharacterGeometry
 import com.example.data.strokes.StrokeGeometryStore
+import com.example.data.strokes.AssessmentGap
+import com.example.data.strokes.AttemptAssessment
+import com.example.data.strokes.DirectionVerdict
+import com.example.data.strokes.ShapeVerdict
+import com.example.data.strokes.StrokeVerdict
+import com.example.data.strokes.TracePoint
+import com.example.data.strokes.evaluateAttempt
+import com.example.data.strokes.summarizeAssessment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -205,7 +213,8 @@ fun InteractiveStrokeSection(
         } else {
             UserTracingCanvas(
                 hanzi = hanzi,
-                targetStrokeCount = geometry?.strokeCount ?: strokes.size
+                targetStrokeCount = geometry?.strokeCount ?: strokes.size,
+                referenceGeometry = geometry
             )
         }
 
@@ -633,19 +642,19 @@ private const val STEP_DRAW_MS = 800
 private const val HINT_FLASH_MS = 1500L
 
 /**
- * A canvas to trace a character on.
+ * A canvas to trace a character on, with an optional offline evaluation.
  *
- * The strokes drawn here are never compared to the character. Nothing in the app has the
- * geometry to do that comparison, and a "correct!" that came from counting scribbles rather
- * than from reading them would be the same kind of invented measurement as a fabricated
- * stroke order. So this is labelled as practice, it counts the learner's strokes against
- * the character's real stroke count, and it says plainly that the tracing is not being
- * scored.
+ * The strokes drawn here are compared to the reference medians only when the learner
+ * presses Check. The evaluation is purely geometric, offline, and makes no claims
+ * about handwriting skill or mastery. It reports cautious descriptors such as
+ * "close to the reference", "different from the reference", or "not enough information
+ * to compare", and never grades, percentages, or SRS-affecting scores.
  */
 @Composable
 fun UserTracingCanvas(
     hanzi: String,
-    targetStrokeCount: Int
+    targetStrokeCount: Int,
+    referenceGeometry: CharacterGeometry? = null
 ) {
     // Keyed on the character. These were `remember` with no key, and the pointer input was
     // keyed on `Unit`, so a second character kept the first one's strokes on the canvas and
@@ -669,6 +678,28 @@ fun UserTracingCanvas(
         }
     }
     val ghostVisible = referenceVisible || hinting
+
+    // Assessment result, shown after pressing Check. Keyed on hanzi so switching
+    // characters clears the previous result.
+    var assessmentResult by remember(hanzi) { mutableStateOf<AttemptAssessment?>(null) }
+
+    // Convert reference geometry medians to evaluator format (TracePoint lists).
+    // The dataset uses y-up coordinates; the evaluator handles the y-flip.
+    val referenceMedians = remember(referenceGeometry) {
+        referenceGeometry?.strokes?.map { stroke ->
+            stroke.median.map { mp -> TracePoint(mp.x, mp.y) }
+        }
+    }
+
+    // Convert user strokes (Offset fractions) to evaluator format (TracePoint lists).
+    fun drawnStrokesForEvaluation(): List<List<TracePoint>> = strokes.map { userStroke ->
+        userStroke.points.map { offset -> TracePoint(offset.x, offset.y) }
+    }
+
+    // Run evaluation and store the result.
+    fun runEvaluation() {
+        assessmentResult = evaluateAttempt(referenceMedians, drawnStrokesForEvaluation())
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -700,6 +731,8 @@ fun UserTracingCanvas(
                             if (currentPoints.size > 1) {
                                 strokes.add(UserStroke(currentPoints))
                                 currentPoints = emptyList()
+                                // Clear previous assessment when new strokes are added
+                                assessmentResult = null
                             }
                         },
                         onDragCancel = { currentPoints = emptyList() }
@@ -808,6 +841,7 @@ fun UserTracingCanvas(
                 onClick = {
                     strokes.clear()
                     currentPoints = emptyList()
+                    assessmentResult = null
                 },
                 enabled = strokes.isNotEmpty(),
                 modifier = Modifier
@@ -845,6 +879,88 @@ fun UserTracingCanvas(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Undo stroke", fontSize = 13.sp)
+                }
+            }
+        }
+
+        // Check button: only enabled when reference geometry exists and at least one stroke is drawn.
+        val canCheck = referenceMedians != null && strokes.isNotEmpty()
+        if (canCheck) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = { runEvaluation() },
+                    modifier = Modifier
+                        .heightIn(min = MinTouchTarget)
+                        .testTag("trace_check"),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppTheme.colors.button,
+                        contentColor = AppTheme.colors.onButton
+                    )
+                ) {
+                    Text("Check", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // Display assessment result if available.
+        assessmentResult?.let { result ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = summarizeAssessment(result),
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                color = AppTheme.colors.textPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .testTag("trace_assessment_result")
+            )
+
+            // Per-stroke indicators for assessed attempts.
+            if (result is AttemptAssessment.Assessed) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .testTag("trace_stroke_indicators")
+                ) {
+                    result.results.forEachIndexed { index, verdict ->
+                        val indicatorColor = when (verdict.shape) {
+                            ShapeVerdict.CloseToReference -> AppTheme.colors.success
+                            ShapeVerdict.DifferentFromReference -> AppTheme.colors.error
+                            ShapeVerdict.NotEnoughInfo -> AppTheme.colors.textSecondary
+                        }
+                        val directionMark = when (verdict.direction) {
+                            DirectionVerdict.Forward -> " →"
+                            DirectionVerdict.Backward -> " ←"
+                            DirectionVerdict.Unclear -> " ?"
+                        }
+                        Surface(
+                            color = indicatorColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(12.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, indicatorColor),
+                            modifier = Modifier
+                                .padding(2.dp)
+                                .testTag("stroke_indicator_$index")
+                        ) {
+                            Text(
+                                text = "Stroke ${index + 1}$directionMark",
+                                fontSize = 11.sp,
+                                color = indicatorColor,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -15,19 +15,21 @@ import kotlin.math.sqrt
  * ## Coordinate conventions, verified, not assumed
  *
  * Reference medians grow upward in y (dataset convention: larger y is higher; a
- * top-to-bottom stroke has *decreasing* y... see below). Canvas fractions grow
- * downward in y (top of the canvas is 0). [evaluateAttempt] negates drawn y once,
- * in one place, so the two sides share an orientation before anything is
- * compared. A top-down stroke drawn on screen matches a top-down reference
- * median if and only if this harmonization is right, which is exactly what the
- * y-convention test pins - remove it and that test fails.
+ * top-to-bottom stroke has *decreasing* y). Canvas fractions grow downward in y
+ * (top of the canvas is 0). [evaluateAttempt] negates drawn y once, in one
+ * place, so the two sides share an orientation before anything is compared.
  *
- * Wait, precisely: reference medians run from the stroke's visual top (large y)
- * to its visual bottom (small y). A drawn top-down stroke runs from small
- * fraction-y to large fraction-y. Negating drawn y maps drawn-top (0.2) to -0.2
- * and drawn-bottom (0.8) to -0.8, so drawn order top-down becomes
- * decreasing-y - the same direction as the reference. Directions then compare
- * like with like.
+ * ## Position preservation (corrective audit)
+ *
+ * Earlier versions normalized each stroke independently (per-stroke centroid +
+ * RMS radius), which erased within-character positioning: a correctly shaped
+ * stroke drawn in the wrong grid cell still read as "close." The current
+ * version computes a single global centroid and RMS radius from ALL points of
+ * the character (reference and drawn separately), then normalizes every stroke
+ * by that shared frame. This preserves relative stroke positions: a stroke in
+ * the wrong part of the character no longer matches solely because of its
+ * local shape. The alignment is consistent (uniform scale, no per-axis
+ * distortion) and handles overall placement and size differences.
  *
  * ## What v1 deliberately does not do
  *
@@ -43,6 +45,39 @@ import kotlin.math.sqrt
 
 /** One 2D point in either coordinate space. Plain floats, no UI types. */
 data class TracePoint(val x: Float, val y: Float)
+
+/**
+ * Global character-level statistics used for a single consistent alignment
+ * transform. All strokes of a character share these values, preserving
+ * relative positioning (unlike per-stroke normalization).
+ */
+internal data class GlobalStats(val cx: Float, val cy: Float, val rms: Float)
+
+/**
+ * Computes global centroid and RMS radius from all points of a character.
+ * Falls back to identity (rms=1) when degenerate or non-finite.
+ */
+internal fun computeGlobalStats(points: List<TracePoint>): GlobalStats {
+    val finite = points.filter { it.x.isFinite() && it.y.isFinite() }
+    if (finite.isEmpty()) return GlobalStats(0f, 0f, 1f)
+    val cx = finite.map { it.x.toDouble() }.average().toFloat()
+    val cy = finite.map { it.y.toDouble() }.average().toFloat()
+    var variance = 0f
+    for (p in finite) {
+        val dx = p.x - cx
+        val dy = p.y - cy
+        variance += dx * dx + dy * dy
+    }
+    val rms = sqrt(variance / finite.size)
+    return GlobalStats(cx, cy, if (rms > 1e-6f) rms else 1f)
+}
+
+/**
+ * Normalizes points by global character-level stats (preserves relative position).
+ */
+internal fun normalizeByGlobalStats(points: List<TracePoint>, stats: GlobalStats): List<TracePoint> {
+    return points.map { TracePoint((it.x - stats.cx) / stats.rms, (it.y - stats.cy) / stats.rms) }
+}
 
 /** How many samples a stroke is resampled to before comparison. */
 const val RESAMPLE_POINTS = 16
@@ -262,9 +297,10 @@ internal fun assessPair(
     if (refDeduped.size < 2) {
         return StrokeVerdict(ShapeVerdict.NotEnoughInfo, Float.NaN, DirectionVerdict.Unclear, AssessmentGap.TooShort)
     }
-    val oriented = drawn.map { TracePoint(it.x, -it.y) }
-    val ref = normalizeTrace(resampleTrace(refDeduped))
-    val mine = normalizeTrace(resampleTrace(oriented))
+    // Inputs are pre-normalized by global character-level stats (done in
+    // evaluateAttempt). No per-stroke normalization or y-flip here.
+    val ref = resampleTrace(refDeduped)
+    val mine = resampleTrace(drawn)
     val forward = shapeDistance(ref, mine)
     val reversed = shapeDistance(ref, mine.asReversed())
 
@@ -312,9 +348,45 @@ fun evaluateAttempt(
             drawnStrokes = drawn.size,
         )
     }
-    return AttemptAssessment.Assessed(
-        reference.zip(drawn) { ref, one -> assessPair(ref, one) },
-    )
+
+    // Y-flip drawn coordinates once to match reference's y-up convention.
+    val drawnOriented = drawn.map { stroke -> stroke.map { TracePoint(it.x, -it.y) } }
+
+    // Global character-level stats: a single consistent transform for the whole
+    // attempt, preserving relative stroke positions (not per-stroke).
+    val refAllPoints = reference.flatMap { it }
+    val drawnAllPoints = drawnOriented.flatMap { it }
+    val refStats = computeGlobalStats(refAllPoints)
+    val drawnStats = computeGlobalStats(drawnAllPoints)
+
+    val results = mutableListOf<StrokeVerdict>()
+    for (i in reference.indices) {
+        val refRaw = reference[i]
+        val drawnRaw = drawnOriented[i]
+
+        val drawnDeduped = dedupTrace(drawnRaw)
+        if (drawnDeduped.size < 2) {
+            results.add(StrokeVerdict(ShapeVerdict.NotEnoughInfo, Float.NaN, DirectionVerdict.Unclear, AssessmentGap.TooShort))
+            continue
+        }
+        if (traceSpan(drawnDeduped) < MIN_DRAWN_SPAN) {
+            results.add(StrokeVerdict(ShapeVerdict.NotEnoughInfo, Float.NaN, DirectionVerdict.Unclear, AssessmentGap.TooSmall))
+            continue
+        }
+        val refDeduped = dedupTrace(refRaw)
+        if (refDeduped.size < 2) {
+            results.add(StrokeVerdict(ShapeVerdict.NotEnoughInfo, Float.NaN, DirectionVerdict.Unclear, AssessmentGap.TooShort))
+            continue
+        }
+
+        // Normalize by global stats (preserves relative position).
+        val refNorm = normalizeByGlobalStats(refDeduped, refStats)
+        val drawnNorm = normalizeByGlobalStats(drawnDeduped, drawnStats)
+
+        results.add(assessPair(refNorm, drawnNorm))
+    }
+
+    return AttemptAssessment.Assessed(results)
 }
 
 /**

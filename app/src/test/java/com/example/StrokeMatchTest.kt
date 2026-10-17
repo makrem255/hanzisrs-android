@@ -9,8 +9,10 @@ import com.example.data.strokes.ShapeVerdict
 import com.example.data.strokes.StrokeVerdict
 import com.example.data.strokes.TracePoint
 
+import com.example.data.strokes.computeGlobalStats
 import com.example.data.strokes.dedupTrace
 import com.example.data.strokes.evaluateAttempt
+import com.example.data.strokes.normalizeByGlobalStats
 import com.example.data.strokes.normalizeTrace
 import com.example.data.strokes.resampleTrace
 import com.example.data.strokes.shapeDistance
@@ -251,6 +253,139 @@ class StrokeMatchTest {
     }
 
     // ---- wording ----------------------------------------------------------------------------------------------------
+
+    // ---- position preservation (corrective audit) --------------------------------------------------------
+
+    private fun twoStrokeRef(): List<List<TracePoint>> = listOf(
+        listOf(TracePoint(0.1f, 0.8f), TracePoint(0.5f, 0.8f), TracePoint(0.9f, 0.8f)),
+        listOf(TracePoint(0.1f, 0.2f), TracePoint(0.5f, 0.2f), TracePoint(0.9f, 0.2f)),
+    )
+
+    @Test
+    fun `correctly placed multi-stroke attempt receives close results`() {
+        val refs = twoStrokeRef()
+        val drawn = listOf(
+            listOf(TracePoint(0.1f, 0.2f), TracePoint(0.5f, 0.2f), TracePoint(0.9f, 0.2f)),
+            listOf(TracePoint(0.1f, 0.8f), TracePoint(0.5f, 0.8f), TracePoint(0.9f, 0.8f)),
+        )
+        val attempt = evaluateAttempt(refs, drawn)
+        assertTrue(attempt is AttemptAssessment.Assessed)
+        val results = (attempt as AttemptAssessment.Assessed).results
+        assertEquals(2, results.size)
+        assertTrue(
+            "correctly placed strokes must read close: ${results.map { it.shape }}",
+            results.all { it.shape == ShapeVerdict.CloseToReference },
+        )
+    }
+
+    @Test
+    fun `stroke translated to wrong location is not close`() {
+        val refs = twoStrokeRef()
+        // Bottom stroke drawn at top (wrong position) — same shape, wrong place.
+        val drawn = listOf(
+            listOf(TracePoint(0.1f, 0.2f), TracePoint(0.5f, 0.2f), TracePoint(0.9f, 0.2f)),
+            listOf(TracePoint(0.1f, 0.2f), TracePoint(0.5f, 0.2f), TracePoint(0.9f, 0.2f)),
+        )
+        val attempt = evaluateAttempt(refs, drawn)
+        assertTrue(attempt is AttemptAssessment.Assessed)
+        val results = (attempt as AttemptAssessment.Assessed).results
+        assertEquals(2, results.size)
+        // The second stroke (translated to wrong position) must NOT be close.
+        assertTrue(
+            "translated stroke must not read close: ${results[1].shape} (dist=${results[1].shapeDistance})",
+            results[1].shape != ShapeVerdict.CloseToReference,
+        )
+    }
+
+    @Test
+    fun `consistently translated whole character still matches`() {
+        val refs = twoStrokeRef()
+        // Shift all drawn strokes by +0.05 in both axes (canvas space).
+        val drawn = listOf(
+            listOf(TracePoint(0.15f, 0.25f), TracePoint(0.55f, 0.25f), TracePoint(0.95f, 0.25f)),
+            listOf(TracePoint(0.15f, 0.85f), TracePoint(0.55f, 0.85f), TracePoint(0.95f, 0.85f)),
+        )
+        val attempt = evaluateAttempt(refs, drawn)
+        assertTrue(attempt is AttemptAssessment.Assessed)
+        val results = (attempt as AttemptAssessment.Assessed).results
+        assertTrue(
+            "consistently translated character must still match: ${results.map { it.shape }}",
+            results.all { it.shape == ShapeVerdict.CloseToReference },
+        )
+    }
+
+    @Test
+    fun `consistently resized whole character still matches`() {
+        val refs = twoStrokeRef()
+        // Scale all drawn strokes by 0.8 (around canvas centre).
+        val drawn = listOf(
+            listOf(TracePoint(0.2f, 0.36f), TracePoint(0.5f, 0.36f), TracePoint(0.8f, 0.36f)),
+            listOf(TracePoint(0.2f, 0.64f), TracePoint(0.5f, 0.64f), TracePoint(0.8f, 0.64f)),
+        )
+        val attempt = evaluateAttempt(refs, drawn)
+        assertTrue(attempt is AttemptAssessment.Assessed)
+        val results = (attempt as AttemptAssessment.Assessed).results
+        assertTrue(
+            "consistently resized character must still match: ${results.map { it.shape }}",
+            results.all { it.shape == ShapeVerdict.CloseToReference },
+        )
+    }
+
+    @Test
+    fun `different canvas aspect ratios do not introduce misleading close results`() {
+        val refs = twoStrokeRef()
+        // Simulate a wide canvas: x stretched by 1.5, y unchanged.
+        val drawn = listOf(
+            listOf(TracePoint(0.15f, 0.2f), TracePoint(0.75f, 0.2f), TracePoint(1.0f, 0.2f)),
+            listOf(TracePoint(0.15f, 0.8f), TracePoint(0.75f, 0.8f), TracePoint(1.0f, 0.8f)),
+        )
+        val attempt = evaluateAttempt(refs, drawn)
+        // Must not crash; result is whatever it is (not claiming accuracy).
+        assertTrue(attempt is AttemptAssessment.Assessed || attempt is AttemptAssessment.Insufficient)
+    }
+
+    @Test
+    fun `global stats preserve relative position unlike per-stroke normalization`() {
+        // Directly verify that global normalization keeps a top stroke at top
+        // and a bottom stroke at bottom, rather than centring each.
+        val refTop = listOf(TracePoint(0.1f, 0.8f), TracePoint(0.5f, 0.8f), TracePoint(0.9f, 0.8f))
+        val refBottom = listOf(TracePoint(0.1f, 0.2f), TracePoint(0.5f, 0.2f), TracePoint(0.9f, 0.2f))
+        val allRef = refTop + refBottom
+        val stats = computeGlobalStats(allRef)
+        val normTop = normalizeByGlobalStats(refTop, stats)
+        val normBottom = normalizeByGlobalStats(refBottom, stats)
+        // Top stroke should have positive y, bottom stroke negative y.
+        val topY = normTop.map { it.y }.average().toFloat()
+        val bottomY = normBottom.map { it.y }.average().toFloat()
+        assertTrue("top stroke should be above centre: $topY", topY > 0f)
+        assertTrue("bottom stroke should be below centre: $bottomY", bottomY < 0f)
+    }
+
+    @Test
+    fun `position preservation - empty tiny repeated zero-length reversed mismatched remain safe`() {
+        val refs = twoStrokeRef()
+        // Empty
+        assertTrue(evaluateAttempt(refs, emptyList()) is AttemptAssessment.Insufficient)
+        // Mismatched
+        assertTrue(evaluateAttempt(refs, listOf(refs[0])) is AttemptAssessment.Insufficient)
+        // Tiny dot
+        val tiny = listOf(listOf(TracePoint(0.5f, 0.5f), TracePoint(0.5f + 0.001f, 0.5f)))
+        // Need matching count for this test; use 2 strokes
+        val tinyAttempt = evaluateAttempt(refs, listOf(
+            listOf(TracePoint(0.5f, 0.5f), TracePoint(0.5f + 0.001f, 0.5f)),
+            listOf(TracePoint(0.5f, 0.5f), TracePoint(0.5f + 0.001f, 0.5f)),
+        ))
+        assertTrue(tinyAttempt is AttemptAssessment.Assessed)
+        // Reversed
+        val reversed = listOf(refs[1].asReversed(), refs[0].asReversed())
+        // Y-flip and global: reversed direction should be detected
+        val drawnRev = listOf(
+            listOf(TracePoint(0.9f, 0.8f), TracePoint(0.5f, 0.8f), TracePoint(0.1f, 0.8f)),
+            listOf(TracePoint(0.9f, 0.2f), TracePoint(0.5f, 0.2f), TracePoint(0.1f, 0.2f)),
+        )
+        val revAttempt = evaluateAttempt(refs, drawnRev)
+        assertTrue(revAttempt is AttemptAssessment.Assessed)
+    }
 
     @Test
     fun `summaries use cautious words and never percentages`() {

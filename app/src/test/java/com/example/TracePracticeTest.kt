@@ -187,5 +187,39 @@ class TracePracticeTest {
         composeTestRule.onNodeWithText("Hide").assertIsDisplayed()
         composeTestRule.onNodeWithText("Clear").assertIsDisplayed()
     }
+
+    // ---- disclaimer wording --------------------------------------------------------------------------
+
+    @Test
+    fun `disclaimer mentions Check comparison when reference geometry is available`() {
+        // "人" is a bundled character with reference geometry.
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                InteractiveStrokeSection(hanzi = "人", strokeBreakdown = "")
+            }
+        }
+        openPracticeTab()
+
+        composeTestRule.onNodeWithText(
+            "Check compares your strokes with the reference for 人.",
+            substring = true,
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun `disclaimer says evaluation unavailable when no reference geometry`() {
+        // "字" is not a bundled character, but has named strokes.
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                InteractiveStrokeSection(hanzi = "字", strokeBreakdown = "横,竖")
+            }
+        }
+        openPracticeTab()
+
+        composeTestRule.onNodeWithText(
+            "Handwriting evaluation is not available for this character.",
+            substring = true,
+        ).assertIsDisplayed()
+    }
 }
 

@@ -774,9 +774,17 @@ fun UserTracingCanvas(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Not scored. Drawn strokes are never compared to $hanzi — this is for " +
-                "practising the motion, and $hanzi has " +
-                (if (targetStrokeCount == 1) "1 stroke." else "$targetStrokeCount strokes."),
+            text = if (referenceMedians != null) {
+                "Check compares your strokes with the reference for $hanzi. " +
+                    "This is approximate geometric feedback, not a measure of " +
+                    "handwriting proficiency. It does not affect SRS, mastery, or " +
+                    "vocabulary progress. $hanzi has " +
+                    (if (targetStrokeCount == 1) "1 stroke." else "$targetStrokeCount strokes.")
+            } else {
+                "Handwriting evaluation is not available for this character. " +
+                    "This is for practising the motion, and $hanzi has " +
+                    (if (targetStrokeCount == 1) "1 stroke." else "$targetStrokeCount strokes.")
+            },
             fontSize = 11.sp,
             lineHeight = 16.sp,
             color = AppTheme.colors.textSecondary,

@@ -407,8 +407,10 @@ private fun RatingBreakdown(summary: SessionSummary) {
 /** One rating's share of the session's answers. Takes its width from the surrounding row. */
 @Composable
 private fun RowScope.RatingShare(count: Int, total: Int, color: Color) {
-    // A zero segment still participates as weight 0, which keeps the remaining shares summing to
-    // the whole bar rather than widening to fill the row.
+    // Compose's `weight` requires a strictly positive value; a zero weight throws
+    // `IllegalArgumentException`. A rating that was never given simply does not
+    // appear in the bar, which is the honest representation of its share.
+    if (count <= 0) return
     Box(
         modifier = Modifier
             .weight(count.toFloat() / total.coerceAtLeast(1))

@@ -859,6 +859,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _wordSaveError.value = null
     }
 
+    /**
+     * Opens the word review/approve form with empty fields for manual entry.
+     *
+     * No AI request is made. The result is tagged MANUAL so the UI labels it as
+     * hand-entered rather than generated or fallback data.
+     */
+    fun startManualWordEntry() {
+        _wordSaveError.value = null
+        _aiState.value = AiGenerationState.ReadyForReview(
+            com.example.data.ai.GeneratedWordData(
+                hanzi = "",
+                pinyin = "",
+                meaning = "",
+                hskLevel = 1,
+                radical = "",
+                exampleCn = "",
+                examplePy = "",
+                exampleEn = "",
+                strokeBreakdown = "",
+                strokeCount = 0,
+                origin = com.example.data.ai.WordDataOrigin.MANUAL
+            )
+        )
+    }
+
     // Approve & Save Word into SRS Database
     fun approveAndSaveWord(
         hanzi: String,
@@ -870,7 +895,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         examplePy: String,
         exampleEn: String,
         strokeBreakdown: String,
-        onComplete: () -> Unit
+        onComplete: () -> Unit,
+        isManual: Boolean = false
     ) {
         val user = currentUser.value ?: return
         val cleanHanzi = hanzi.trim()
@@ -895,8 +921,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 exampleEn = exampleEn,
                 strokeJson = strokeBreakdown,
                 tags = "HSK$hskLevel,Custom",
-                source = StorageValues.VocabularySource.AI_GENERATED.storageValue,
-                provenance = StorageValues.ContentProvenance.AI_GENERATED.storageValue
+                source = if (isManual) StorageValues.VocabularySource.MANUAL.storageValue
+                    else StorageValues.VocabularySource.AI_GENERATED.storageValue,
+                provenance = if (isManual) StorageValues.ContentProvenance.UNKNOWN.storageValue
+                    else StorageValues.ContentProvenance.AI_GENERATED.storageValue
             )
             when (val result = wordRepository.saveNewWordWithInitialSrs(word, initialDueImmediate = true)) {
                 is SaveWordResult.Saved -> {

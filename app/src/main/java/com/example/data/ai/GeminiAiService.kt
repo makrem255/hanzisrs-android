@@ -27,7 +27,7 @@ data class GeneratedWordData(
     val origin: WordDataOrigin = WordDataOrigin.LOCAL_FALLBACK
 )
 
-enum class WordDataOrigin { GEMINI, LOCAL_FALLBACK }
+enum class WordDataOrigin { GEMINI, LOCAL_FALLBACK, MANUAL }
 
 /**
  * Why a word could not be produced. Callers can tell these apart so the

@@ -99,6 +99,7 @@ fun AddWordScreen(
     // in the view model and survives already; the edits the learner made to it did not,
     // which is the worst possible split: the expensive work was kept and the cheap work lost.
     var searchInput by rememberSaveable { mutableStateOf("") }
+    var manualMode by remember { mutableStateOf(false) }
 
     val customTextFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = AppTheme.colors.button,
@@ -291,6 +292,23 @@ fun AddWordScreen(
                         }
                     }
 
+                    // Always-available manual entry: never triggers an AI request.
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { viewModel.startManualWordEntry() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .testTag("manual_add_button"),
+                        shape = RoundedCornerShape(24.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = AppTheme.colors.textPrimary)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Add by hand", fontWeight = FontWeight.SemiBold)
+                    }
+
                     if (state is AiGenerationState.Error) {
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
@@ -321,6 +339,8 @@ fun AddWordScreen(
                         saveError = wordSaveError,
                         isSaving = isSavingWord,
                         onApprove = { hanzi, pinyin, meaning, hsk, radical, exCn, exPy, exEn, strokes ->
+                            val isManual = (aiState as? AiGenerationState.ReadyForReview)?.wordData?.origin ==
+                                com.example.data.ai.WordDataOrigin.MANUAL
                             viewModel.approveAndSaveWord(
                                 hanzi = hanzi,
                                 pinyin = pinyin,
@@ -331,7 +351,8 @@ fun AddWordScreen(
                                 examplePy = exPy,
                                 exampleEn = exEn,
                                 strokeBreakdown = strokes,
-                                onComplete = onNavigateBack
+                                onComplete = onNavigateBack,
+                                isManual = isManual
                             )
                         },
                         onCancel = { confirmDiscard = true }
@@ -443,10 +464,13 @@ fun WordReviewAndApprovalView(
                 Icon(Icons.Default.Edit, contentDescription = null, tint = AppTheme.colors.button)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = if (generatedData.origin == WordDataOrigin.GEMINI) {
-                        "AI suggestion: verify pinyin, meaning, sentences, and stroke details before saving."
-                    } else {
-                        "Built-in fallback: review and complete these details before saving. Add a Gemini key for AI enrichment."
+                    text = when (generatedData.origin) {
+                        WordDataOrigin.GEMINI ->
+                            "AI suggestion: verify pinyin, meaning, sentences, and stroke details before saving."
+                        WordDataOrigin.MANUAL ->
+                            "Enter the details for this word. Hanzi, pinyin, and meaning are required."
+                        else ->
+                            "Built-in fallback: review and complete these details before saving. Add a Gemini key for AI enrichment."
                     },
                     fontSize = 12.sp,
                     color = AppTheme.colors.textPrimary,

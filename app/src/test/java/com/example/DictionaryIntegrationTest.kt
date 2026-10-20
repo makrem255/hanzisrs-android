@@ -90,13 +90,12 @@ class DictionaryIntegrationTest {
     // ---- 2. Dictionary miss falls through to hardcoded samples ----
 
     @Test
-    fun `dictionary miss falls through to hardcoded sample for laoshi`() {
-        // "老师" is in both dictionary and hardcoded samples.
-        // Test a word only in hardcoded samples (not in dictionary pilot).
-        val data = ai.offlineSampleFor("爱")
+    fun `dictionary miss falls through to hardcoded sample`() {
+        // "猫" is in hardcoded samples but not in the expanded dictionary.
+        val data = ai.offlineSampleFor("猫")
         assertNotNull(data)
-        assertEquals("爱", data!!.hanzi)
-        // "爱" is in hardcoded samples, not dictionary pilot.
+        assertEquals("猫", data!!.hanzi)
+        // "猫" is a hardcoded sample, not a dictionary entry.
         assertEquals(com.example.data.model.StorageValues.VocabularySource.AI_GENERATED, data.source)
     }
 

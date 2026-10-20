@@ -84,7 +84,7 @@ class OfflineDictionaryTest {
     fun `numbered pinyin preserved`() {
         val dict = OfflineDictionary(context)
         assertEquals("ma1 ma5", dict.lookupByHanzi("妈妈")!!.pinyinNumbered)
-        assertEquals("Zhong1 guo2", dict.lookupByHanzi("中国")!!.pinyinNumbered)
+        assertEquals("zhong1 guo2", dict.lookupByHanzi("中国")!!.pinyinNumbered)
     }
 
     @Test

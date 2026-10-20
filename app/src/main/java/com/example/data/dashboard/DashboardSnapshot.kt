@@ -188,6 +188,9 @@ data class DashboardSnapshot(
     val difficult: List<DifficultCard>,
     val recommendation: NextAction
 ) {
+    /** Count of words the learner has demonstrably struggled with. */
+    val weakWordCount: Int get() = difficult.size
+
     /**
      * True when there is genuinely nothing to do.
      *

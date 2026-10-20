@@ -342,6 +342,18 @@ class DashboardAggregatorTest {
         assertEquals("the worst offender survives truncation", 12, snapshot.difficult.first().lapses)
     }
 
+    @Test
+    fun `weak word count matches the number of difficult cards surfaced`() {
+        val snapshot = aggregate(
+            difficult = listOf(
+                difficult(1, character = "学", lapses = 2),
+                difficult(2, character = "水", lapses = 3)
+            )
+        )
+
+        assertEquals(2, snapshot.weakWordCount)
+    }
+
     // ---- what to do next ----------------------------------------------------------------------------
 
     @Test

@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.audio.PronunciationButton
@@ -354,10 +356,11 @@ private fun ProfileAvatar(
 ) {
     Box(
         modifier = Modifier
-            .size(40.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(AppTheme.colors.elevated)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "Open profile" },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -378,7 +381,7 @@ private fun QuickAction(
     modifier: Modifier = Modifier
 ) {
     AppCard(
-        modifier = modifier,
+        modifier = modifier.semantics { contentDescription = "$title: $subtitle" },
         onClick = onClick,
         contentPadding = PaddingValues(Dimens.md)
     ) {
@@ -410,7 +413,7 @@ private fun PillarItem(
     subtitle: String,
     modifier: Modifier = Modifier
 ) {
-    AppCard(modifier = modifier, contentPadding = PaddingValues(Dimens.md)) {
+    AppCard(modifier = modifier.semantics { contentDescription = "$title: $subtitle" }, contentPadding = PaddingValues(Dimens.md)) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally

@@ -34,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.data.dashboard.DashboardSnapshot
@@ -95,7 +97,11 @@ fun DashboardContent(
             WeekCard(snapshot.recentDays, snapshot.asOfEpochDay)
 
             if (snapshot.difficult.isNotEmpty()) {
-                DifficultCardList(snapshot.difficult, onOpenWord)
+                DifficultCardList(
+                    cards = snapshot.difficult,
+                    onOpenWord = onOpenWord,
+                    onPracticeWeak = onStartReview
+                )
             }
         }
     }
@@ -560,10 +566,14 @@ internal fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
 @Composable
 internal fun DifficultCardList(
     cards: List<DifficultCard>,
-    onOpenWord: (Long) -> Unit
+    onOpenWord: (Long) -> Unit,
+    onPracticeWeak: (() -> Unit)? = null
 ) {
     AppCard(modifier = Modifier.testTag("dashboard_difficult")) {
-        SectionHeader("Worth another look", subtitle = "Words you have missed before, worst first.")
+        SectionHeader(
+            "Worth another look",
+            subtitle = "${cards.size} ${if (cards.size == 1) "word" else "words"} you have missed before, worst first."
+        )
         VSpace(Dimens.md)
 
         LazyRow(horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
@@ -575,6 +585,7 @@ internal fun DifficultCardList(
                         .background(AppTheme.colors.elevated)
                         .clickable { onOpenWord(card.userVocabularyId) }
                         .padding(Dimens.md)
+                        .semantics { contentDescription = "${card.character}, ${card.pinyin}, ${card.meaning}, ${card.lapses} misses" }
                 ) {
                     Text(
                         text = card.character,
@@ -603,6 +614,17 @@ internal fun DifficultCardList(
                     )
                 }
             }
+        }
+
+        if (onPracticeWeak != null) {
+            VSpace(Dimens.md)
+            com.example.ui.components.SecondaryButton(
+                text = "Practice weak words",
+                onClick = onPracticeWeak,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dashboard_practice_weak")
+            )
         }
     }
 }

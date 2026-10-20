@@ -13,12 +13,15 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The monochrome system guarantees its own legibility.
+ * The palette guarantees its own legibility — neutral steps and colourful accents alike.
  *
  * Every pair below is text (or a text-sized signal) on the surface it is drawn
  * on, in both themes. 4.5:1 is the WCAG AA floor for normal text; a palette
  * value that drifts below it does not ship, because a theme switch must never
- * turn readable screens into grey-on-grey ones.
+ * turn readable screens into grey-on-grey ones. The accent tokens the colourful
+ * vocabulary screens adopt are held to exactly the same floor, each against the
+ * surface it actually appears on: pinyin on the card, the focus ring on the
+ * field, a badge's label on its own container, a button's ink on the blue fill.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
@@ -41,6 +44,19 @@ class MonoContrastTest {
         PairCheck("error on card", { error }, { card }),
         PairCheck("hard state on card", { hard }, { card }),
         PairCheck("easy state on card", { easy }, { card }),
+        // The colourful accents, in the places the vocabulary screens draw them.
+        PairCheck("primary action on card", { primaryAction }, { card }),
+        PairCheck("primary action label on the action fill", { onPrimaryAction }, { primaryAction }),
+        // The primary button's ink is `onButton`, not `onPrimaryAction`, so the brush override
+        // on the blue "Add word" button is checked under its own name too.
+        PairCheck("button label over the action fill", { onButton }, { primaryAction }),
+        PairCheck("pinyin on card", { vocabulary }, { card }),
+        PairCheck("example pinyin on the meaning panel", { vocabulary }, { surfaceAlt }),
+        PairCheck("hanzi on the vocabulary tile", { textPrimary }, { vocabularyContainer }),
+        PairCheck("focus text on the focused search field", { textPrimary }, { primaryActionContainer }),
+        PairCheck("learning focus on its chip", { learningFocus }, { learningFocusContainer }),
+        PairCheck("learning focus on raised", { learningFocus }, { elevated }),
+        PairCheck("learning focus on the meaning panel", { learningFocus }, { surfaceAlt }),
     )
 
     @Test

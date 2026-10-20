@@ -76,8 +76,9 @@ private fun pressScale(pressed: Boolean): State<Float> =
  * A full-width, 54dp-tall pill in the theme's button fill. When disabled it falls
  * back to a flat surface step so it still reads as a button rather than vanishing.
  *
- * The `brush` override exists for the rare surface that needs a gradient rather than
- * the flat fill; every ordinary call leaves it null and gets the monochrome button.
+ * The `brush` override exists for a call site that needs a different fill than the
+ * theme's button — a gradient, or a screen's accent colour; every ordinary call leaves
+ * it null and gets the monochrome button.
  */
 @Composable
 fun PrimaryButton(

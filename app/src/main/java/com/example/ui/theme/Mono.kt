@@ -7,13 +7,21 @@ import androidx.compose.ui.graphics.Color
 import com.example.data.model.StorageValues
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HanziSRS monochrome palette.
+// HanziSRS palette.
 //
-// One neutral system in two themes. Surfaces step from background to card to
-// raised fills in greys only; text steps from primary to tertiary in greys
-// only; the single interactive fill is the primary button (near-black on light,
-// near-white on dark). Colour carries meaning in exactly two places - green
-// for success, red for error - and nowhere else.
+// One neutral system in two themes, plus a small set of accent tokens. Surfaces
+// step from background to card to raised fills in greys; text steps from primary
+// to tertiary in greys; the primary button fill is near-black on light and
+// near-white on dark. Green for success and red for error carry meaning, as
+// they always have.
+//
+// The accent tokens - blue for primary actions, orange for vocabulary and
+// review, purple for selected learning areas - are the approved colourful
+// direction. They are accents on the neutral system, not a replacement for it:
+// a screen adopts them where the mockup calls for colour and keeps the neutral
+// steps everywhere else, so the app stays one design. Every accent has a light
+// and a dark value and is contrast-checked against the surfaces it is drawn on
+// by MonoContrastTest, so a colourful screen is still a readable one.
 //
 // Every token below exists in a light and a dark value. Screens must read them
 // through [AppTheme] rather than naming a fixed colour, which is what makes the
@@ -46,11 +54,26 @@ data class AppColors(
     // The one interactive fill.
     val button: Color,
     val onButton: Color,
-    // Meaning: success and error, the only hues in the system.
+    // Meaning: success (green) and error (warm red).
     val success: Color,
     val successContainer: Color,
     val error: Color,
     val errorContainer: Color,
+    // Primary actions: bright blue. Fills the primary button and marks the
+    // focused field and the selected filter. Passes 4.5:1 as text on card and
+    // as a fill under the button label in both themes.
+    val primaryAction: Color,
+    val onPrimaryAction: Color,
+    val primaryActionContainer: Color,
+    // Vocabulary and review: orange. Marks pinyin, HSK badges and the weak-word
+    // practice affordance - the "study material" hue of the colourful direction.
+    val vocabulary: Color,
+    val vocabularyContainer: Color,
+    // Selected learning areas: purple. Tints the learning-state chips and the
+    // pillar icons where a selection or a focus area needs to stand apart from
+    // the blue action and the orange study accents.
+    val learningFocus: Color,
+    val learningFocusContainer: Color,
     // Scheduling states. Again reads as error, Good reads as success; Hard and
     // Easy are neutral greys at two distinct steps so the four stay separable
     // without reintroducing hue. Every button also carries a text label, so
@@ -86,6 +109,16 @@ internal val DarkAppColors = AppColors(
     hardContainer = Color(0xFF2A2A2A),
     easy = Color(0xFFD8D8D8),
     easyContainer = Color(0xFF333333),
+    // Accents on the OLED-dark ground: light hues so they clear 4.5:1 on the
+    // near-black card, with deep containers so a tinted chip still carries
+    // white text.
+    primaryAction = Color(0xFF60A5FA),
+    onPrimaryAction = Color(0xFF0B1220),
+    primaryActionContainer = Color(0xFF1E3A5F),
+    vocabulary = Color(0xFFFB923C),
+    vocabularyContainer = Color(0xFF431A05),
+    learningFocus = Color(0xFFA78BFA),
+    learningFocusContainer = Color(0xFF2E1065),
     gridLine = Color(0xFF262626),
     gridCenter = Color(0xFF8A8A8A),
     ghostText = Color(0x24FFFFFF),
@@ -115,6 +148,17 @@ internal val LightAppColors = AppColors(
     hardContainer = Color(0xFFEFEFEF),
     easy = Color(0xFF333333),
     easyContainer = Color(0xFFE2E2E2),
+    // Accents on the white ground: deeper hues so each clears 4.5:1 as text on
+    // the card, with pale containers for the tinted chips. Blue is a step
+    // darker than the pure bright-blue reference for exactly the same reason
+    // textSecondary is: the contrast floor outranks the exact hex.
+    primaryAction = Color(0xFF1D6FD8),
+    onPrimaryAction = Color(0xFFFFFFFF),
+    primaryActionContainer = Color(0xFFDCEBFF),
+    vocabulary = Color(0xFFB4530E),
+    vocabularyContainer = Color(0xFFFFE9D6),
+    learningFocus = Color(0xFF6D28D9),
+    learningFocusContainer = Color(0xFFF0E7FF),
     gridLine = Color(0xFFDCDCDC),
     gridCenter = Color(0xFF737373),
     ghostText = Color(0x24000000),

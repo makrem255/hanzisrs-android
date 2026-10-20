@@ -67,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -209,7 +210,7 @@ fun LibraryScreen(
                     onValueChange = { searchQuery = it },
                     label = { Text("Search") },
                     placeholder = { Text("Hanzi, pinyin or English", color = AppTheme.colors.textSecondary) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.button) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = AppTheme.colors.primaryAction) },
                     singleLine = true,
                     // Search key on a live-filtered list. The action key used to do nothing
                     // at all, so on a phone the only way to get the keyboard out of the
@@ -231,12 +232,18 @@ fun LibraryScreen(
                         onSearch = { focusManager.clearFocus() }
                     ),
                     shape = RoundedCornerShape(14.dp),
+                    // The blue is the theme's primary-action accent, applied here explicitly
+                    // rather than through the Material scheme so that adopting the colourful
+                    // direction on this screen cannot recolour every stock text field in the
+                    // app. Focus is this field's moment to say "ready for your query"; the
+                    // container stays neutral so the placeholder keeps its tested contrast.
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AppTheme.colors.button,
+                        focusedBorderColor = AppTheme.colors.primaryAction,
                         unfocusedBorderColor = AppTheme.colors.border,
                         focusedTextColor = AppTheme.colors.textPrimary,
                         unfocusedTextColor = AppTheme.colors.textPrimary,
-                        cursorColor = AppTheme.colors.button,
+                        cursorColor = AppTheme.colors.primaryAction,
+                        focusedLabelColor = AppTheme.colors.primaryAction,
                         focusedContainerColor = AppTheme.colors.surfaceAlt,
                         unfocusedContainerColor = AppTheme.colors.surfaceAlt
                     ),
@@ -257,10 +264,13 @@ fun LibraryScreen(
                         val selected = selectedFilter == filter
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) AppTheme.colors.button else AppTheme.colors.surfaceAlt,
+                            // A selected filter is a primary action: the learner has just
+                            // stated what they want to see, so it takes the blue fill and the
+                            // label that goes with it (4.86:1 light, 8.26:1 dark).
+                            color = if (selected) AppTheme.colors.primaryAction else AppTheme.colors.surfaceAlt,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (selected) AppTheme.colors.button else AppTheme.colors.border
+                                if (selected) AppTheme.colors.primaryAction else AppTheme.colors.border
                             ),
                             modifier = Modifier
                                 .selectable(
@@ -280,7 +290,7 @@ fun LibraryScreen(
                                 text = filter.label,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary,
+                                color = if (selected) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)
                             )
                         }
@@ -375,10 +385,14 @@ fun LibraryScreen(
                                 // creation action is the primary action, not a shortcut.
                                 if (libraryError == null && wordsLoaded && allWords.isEmpty()) {
                                     Spacer(modifier = Modifier.height(16.dp))
+                                    // Bright blue for this screen's primary action, per the
+                                    // colourful direction; the label stays the theme's button
+                                    // ink, which clears 4.5:1 against the blue in both themes.
                                     PrimaryButton(
                                         text = "Add word",
                                         onClick = onNavigateToAddWord,
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        brush = SolidColor(AppTheme.colors.primaryAction)
                                     )
                                 }
                             }
@@ -465,13 +479,20 @@ fun WordLibraryRow(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Hanzi Box
+            // Hanzi Box — the vocabulary accent's home on this screen: a pale orange tile
+            // behind the character, an orange hairline around it, so the glyph reads as the
+            // study material rather than as another grey control. The hanzi itself keeps
+            // textPrimary, which clears 15:1 on the tile in both themes.
             Box(
                 modifier = Modifier
                     .size(54.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(AppTheme.colors.surfaceAlt)
-                    .border(1.dp, AppTheme.colors.border, RoundedCornerShape(12.dp)),
+                    .background(AppTheme.colors.vocabularyContainer)
+                    .border(
+                        1.dp,
+                        AppTheme.colors.vocabulary.copy(alpha = 0.35f),
+                        RoundedCornerShape(12.dp)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -491,13 +512,23 @@ fun WordLibraryRow(
                         text = wordWithSrs.word.pinyin,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = AppTheme.colors.button
+                        // Orange marks everything the learner reads: pinyin here, in the
+                        // detail sheet, and under example sentences. 5.02:1 on the card in
+                        // light, 8.75:1 on it in dark.
+                        color = AppTheme.colors.vocabulary
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
-                        color = AppTheme.colors.elevated,
+                        // Purple is the classification hue — HSK level here, the level chip
+                        // and the radical in the detail sheet — so a badge that sorts words
+                        // never wears the blue that means "act" or the orange that means
+                        // "read".
+                        color = AppTheme.colors.learningFocusContainer,
                         shape = RoundedCornerShape(4.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            AppTheme.colors.learningFocus.copy(alpha = 0.35f)
+                        )
                     ) {
                         Text(
                             text = "HSK ${wordWithSrs.word.hskLevel}",
@@ -506,7 +537,7 @@ fun WordLibraryRow(
                             // important thing on the row.
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = AppTheme.colors.button,
+                            color = AppTheme.colors.learningFocus,
                             modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                         )
                     }
@@ -647,7 +678,9 @@ fun WordDetailSheet(
                         text = wordWithSrs.word.pinyin,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = AppTheme.colors.button
+                        // The same orange the list row's pinyin wears, so the two screens
+                        // say "reading" in one colour.
+                        color = AppTheme.colors.vocabulary
                     )
                 }
                 PronunciationButton(
@@ -700,7 +733,7 @@ fun WordDetailSheet(
                         else -> AppTheme.colors.textSecondary
                     }
                 )
-                DetailChip(text = "HSK ${wordWithSrs.word.hskLevel}", color = AppTheme.colors.textSecondary)
+                DetailChip(text = "HSK ${wordWithSrs.word.hskLevel}", color = AppTheme.colors.learningFocus)
                 if (wordWithSrs.word.isVerified) {
                     DetailChip(text = "Verified", color = AppTheme.colors.success)
                 }
@@ -757,7 +790,9 @@ fun WordDetailSheet(
                 if (wordWithSrs.word.radical.isNotBlank()) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text("Radical", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = AppTheme.colors.textSecondary)
-                    Text(wordWithSrs.word.radical, fontSize = 15.sp, color = AppTheme.colors.button)
+                    // Purple with the HSK chip above: both classify the character, and both
+                    // are kept clear of the blue that means "act" and the orange "read".
+                    Text(wordWithSrs.word.radical, fontSize = 15.sp, color = AppTheme.colors.learningFocus)
                 }
 
                 if (wordWithSrs.word.exampleCn.isNotBlank()) {
@@ -790,7 +825,8 @@ fun WordDetailSheet(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(wordWithSrs.word.exampleCn, fontSize = 15.sp, fontWeight = FontWeight.Normal, color = AppTheme.colors.textPrimary)
                     if (wordWithSrs.word.examplePy.isNotBlank()) {
-                        Text(wordWithSrs.word.examplePy, fontSize = 12.sp, color = AppTheme.colors.button)
+                        // Orange again: this is pinyin, same as the header's reading.
+                        Text(wordWithSrs.word.examplePy, fontSize = 12.sp, color = AppTheme.colors.vocabulary)
                     }
                     if (wordWithSrs.word.exampleEn.isNotBlank()) {
                         Text(wordWithSrs.word.exampleEn, fontSize = 12.sp, color = AppTheme.colors.textSecondary)

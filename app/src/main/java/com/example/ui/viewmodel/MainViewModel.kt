@@ -8,6 +8,7 @@ import com.example.data.ai.GeminiAiService
 import com.example.data.ai.GeneratedWordData
 import com.example.data.auth.SessionStore
 import com.example.data.dashboard.DashboardSnapshot
+import com.example.data.dashboard.WeakWordSelector
 import com.example.data.db.AppDatabase
 import com.example.data.model.NewWordDraft
 import com.example.data.model.SrsStateEntity
@@ -28,6 +29,7 @@ import com.example.data.progress.LearnerProgress
 import com.example.data.progress.SessionSummary
 import com.example.data.progress.UnlockedAward
 import com.example.data.review.RandomWordChoice
+import com.example.data.review.ReviewDeckChoice
 import com.example.data.review.pickRandomWord
 import com.example.data.review.updateRecentHistory
 import com.example.data.settings.UiPreferencesStore
@@ -1284,22 +1286,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * What a sitting should cover: whatever is due, or the whole collection if nothing is.
      *
-     * This was written out at two call sites, in two spellings that meant the same thing —
-     * `dueWords.ifEmpty { userWords }` in the navigation layer and
-     * `if (dueWords.isNotEmpty()) dueWords else allWords` in the review screen. Both read
-     * `StateFlow.value` off this class from a composable-scope lambda to do it, so the decision
-     * about which cards a learner is shown lived outside the thing that owns the deck, and a
-     * change to it — capping the sitting, or preferring learning cards to due ones — had two
-     * places to be made and one of them was a navigation callback that no test reaches.
-     *
-     * Reading `.value` there was also quietly wrong twice over: a `stateIn` flow's `value` is
-     * whatever the last emission held, which on a cold start is the initial `emptyList()` and so
-     * resolves to "the whole collection" for a learner whose due words had not been queried yet.
+     * The rule itself lives in [ReviewDeckChoice] — stated once, and testable without a view
+     * model — along with the history of why the two spellings it replaced were a defect. What
+     * this method adds is reading the flows' `.value` at the moment the sitting starts: a
+     * `stateIn` flow's `value` is whatever the last emission held, which on a cold start is the
+     * initial `emptyList()` and so resolves to "the whole collection" for a learner whose due
+     * words had not been queried yet — which is why [ensureReviewSession] waits for
+     * [wordsLoaded] before ever getting here.
      */
-    private fun wordsForReview(): List<WordWithSrs> {
-        val due = dueWords.value
-        return if (due.isNotEmpty()) due else userWords.value
-    }
+    private fun wordsForReview(): List<WordWithSrs> =
+        ReviewDeckChoice.select(due = dueWords.value, all = userWords.value)
 
     /**
      * Starts a sitting over whatever is due, or the whole collection if nothing is.
@@ -1312,6 +1308,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun startReviewSession() {
         startReviewSession(wordsForReview())
+    }
+
+    /**
+     * Starts a sitting over the learner's weak words only — the ones the dashboard means by
+     * "Worth another look", worst first, see [WeakWordSelector].
+     *
+     * Returns `false` without opening anything when there are none, and the screen has to
+     * handle that: the dashboard snapshot and the collection flow are two separate reads, so
+     * the button can outlive the rows it was rendered from. The choice is deliberate — "start
+     * the weak sitting or explain that there isn't one" — because the alternative, quietly
+     * falling through to the ordinary sitting, is the exact defect this entry point exists to
+     * fix: a learner asking to practise their worst words and receiving whatever happened to
+     * be due instead.
+     *
+     * Nothing about the deck or the scheduler is special-cased: [startReviewSession] snapshots
+     * the list, ratings are recorded by the same [submitRating], and the SRS intervals follow
+     * from the answer exactly as they do in any other sitting.
+     */
+    fun startWeakWordReviewSession(): Boolean {
+        val weak = WeakWordSelector.select(userWords.value)
+        if (weak.isEmpty()) return false
+        startReviewSession(weak)
+        return true
     }
 
     // Audio

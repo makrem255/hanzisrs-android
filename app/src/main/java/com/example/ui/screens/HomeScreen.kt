@@ -32,8 +32,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -77,6 +79,7 @@ import com.example.ui.viewmodel.ProgressUiState
 fun HomeScreen(
     viewModel: MainViewModel,
     onStartReview: () -> Unit,
+    onNavigateToReviewDeck: () -> Unit,
     onNavigateToAddWord: () -> Unit,
     onNavigateToLibrary: () -> Unit,
     onNavigateToProgress: () -> Unit,
@@ -97,6 +100,10 @@ fun HomeScreen(
     val progressState by viewModel.progressState.collectAsStateWithLifecycle()
 
     var notificationMessage by remember { mutableStateOf<String?>(null) }
+    // What to say when "practice weak words" finds no weak words. Distinct from
+    // notificationMessage because this one carries an action — the ordinary sitting, offered
+    // as a choice rather than taken as a silent fallback — and lasts long enough to read it.
+    var weakPracticeMessage by remember { mutableStateOf<String?>(null) }
     val sendDueReminderPreview = rememberNotificationRequest(
         onGranted = { viewModel.sendDueReminderNotification() },
         onDenied = {
@@ -116,6 +123,21 @@ fun HomeScreen(
         notificationMessage?.let {
             snackbarHostState.showSnackbar(it)
             notificationMessage = null
+        }
+    }
+
+    LaunchedEffect(weakPracticeMessage) {
+        weakPracticeMessage?.let { message ->
+            val outcome = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = "Start review",
+                duration = SnackbarDuration.Long
+            )
+            if (outcome == SnackbarResult.ActionPerformed) {
+                viewModel.resetDeckSession()
+                onStartReview()
+            }
+            weakPracticeMessage = null
         }
     }
 
@@ -195,6 +217,17 @@ fun HomeScreen(
                         onStartReview = {
                             viewModel.resetDeckSession()
                             onStartReview()
+                        },
+                        onStartWeakPractice = {
+                            if (viewModel.startWeakWordReviewSession()) {
+                                // The deck is already the weak sitting; only the navigation is
+                                // left. `onStartReview` cannot be used here — it starts an
+                                // *ordinary* sitting first, which would overwrite this one.
+                                onNavigateToReviewDeck()
+                            } else {
+                                weakPracticeMessage = "No weak words to practise right now. " +
+                                    "Words you miss in review will show up here."
+                            }
                         },
                         onNavigateToAddWord = onNavigateToAddWord,
                         onNavigateToLibrary = onNavigateToLibrary,

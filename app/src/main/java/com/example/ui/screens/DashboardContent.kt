@@ -73,6 +73,7 @@ fun DashboardContent(
     onNavigateToAddWord: () -> Unit,
     onNavigateToLibrary: () -> Unit,
     onOpenWord: (Long) -> Unit,
+    onStartWeakPractice: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
@@ -82,7 +83,7 @@ fun DashboardContent(
         // scrolls, and a lazy list nested in a lazy list is given unbounded height and throws.
         // The caller owns the scrolling; this owns the arrangement.
         Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {
-            NextActionCard(snapshot, onStartReview, onNavigateToAddWord, onNavigateToLibrary)
+            NextActionCard(snapshot, onStartReview, onNavigateToAddWord, onNavigateToLibrary, onStartWeakPractice)
 
             AdaptiveGrid(columns, listOf(
                 { TodayCard(snapshot) },
@@ -100,7 +101,10 @@ fun DashboardContent(
                 DifficultCardList(
                     cards = snapshot.difficult,
                     onOpenWord = onOpenWord,
-                    onPracticeWeak = onStartReview
+                    // The weak path when the screen supplies one — it starts a sitting over
+                    // *these* cards — and the ordinary start only as the fallback for a
+                    // caller that has no weak path to offer.
+                    onPracticeWeak = onStartWeakPractice ?: onStartReview
                 )
             }
         }
@@ -163,13 +167,21 @@ internal fun NextActionCard(
     snapshot: DashboardSnapshot,
     onStartReview: () -> Unit,
     onNavigateToAddWord: () -> Unit,
-    onNavigateToLibrary: () -> Unit
+    onNavigateToLibrary: () -> Unit,
+    onStartWeakPractice: (() -> Unit)? = null
 ) {
     val action = snapshot.recommendation
     AppCard(
         modifier = Modifier.testTag("dashboard_next_action")
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // "Practise" is the one next action that is about specific words, so it wears the
+            // vocabulary accent; every other kind stays on the neutral fill.
+            val badgeAccent = if (action.kind == NextAction.Kind.PRACTICE_DIFFICULT) {
+                AppTheme.colors.vocabulary
+            } else {
+                AppTheme.colors.button
+            }
             IconBadge(
                 icon = when (action.kind) {
                     NextAction.Kind.REVIEW_DUE -> Icons.Default.PlayArrow
@@ -178,8 +190,8 @@ internal fun NextActionCard(
                     NextAction.Kind.CAUGHT_UP -> Icons.Default.TrendingUp
                     NextAction.Kind.NOTHING_ENROLLED -> Icons.Default.AutoAwesome
                 },
-                tint = AppTheme.colors.button,
-                background = AppTheme.colors.button.copy(alpha = 0.16f),
+                tint = badgeAccent,
+                background = badgeAccent.copy(alpha = 0.16f),
                 size = 44.dp
             )
             Spacer(Modifier.width(Dimens.md))
@@ -231,7 +243,14 @@ internal fun NextActionCard(
                             NextAction.Kind.PRACTICE_DIFFICULT -> "Practise"
                             else -> "Start review"
                         },
-                        onClick = onStartReview,
+                        // "Practise" claims to practise *these* words, so it goes through the
+                        // weak path when one exists; routing it to the ordinary start would
+                        // hand a learner asking for their worst words whatever is due instead.
+                        onClick = if (action.kind == NextAction.Kind.PRACTICE_DIFFICULT) {
+                            onStartWeakPractice ?: onStartReview
+                        } else {
+                            onStartReview
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .testTag("dashboard_start")
@@ -623,7 +642,12 @@ internal fun DifficultCardList(
                 onClick = onPracticeWeak,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("dashboard_practice_weak")
+                    .testTag("dashboard_practice_weak"),
+                // The vocabulary accent, so the button reads as the study action the colourful
+                // direction assigns it. The outline sits on the card, where the hue clears
+                // 4.5:1 as text in both themes (5.02 light, 8.75 dark); its border is the same
+                // hue at 0.55 alpha, which is decoration rather than text.
+                accent = AppTheme.colors.vocabulary
             )
         }
     }

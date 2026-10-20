@@ -307,6 +307,10 @@ fun MainAppContainer(
                         viewModel.startReviewSession()
                         navController.navigate(Screen.Deck.route)
                     },
+                    // Navigation only: for the weak-word sitting the session is already
+                    // started by the screen, and `onStartReview`'s `startReviewSession()`
+                    // would replace the weak deck with the ordinary one.
+                    onNavigateToReviewDeck = { navController.navigate(Screen.Deck.route) },
                     onNavigateToAddWord = { navController.navigate(Screen.AddWord.route) },
                     onNavigateToLibrary = { navController.navigate(Screen.Learn.route) },
                     onNavigateToProgress = { navController.navigate(Screen.Progress.route) },

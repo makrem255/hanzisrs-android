@@ -157,7 +157,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val dashboardRepository = DashboardRepository(database)
     private val gamificationRepository = GamificationRepository(database)
     private val sessionRepository = StudySessionRepository(database)
-    private val geminiService = GeminiAiService()
+    private val offlineDictionary = com.example.data.dictionary.OfflineDictionary(application)
+    private val geminiService = GeminiAiService(offlineDictionary)
 
     /**
      * The app's one audio engine.
@@ -896,7 +897,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         exampleEn: String,
         strokeBreakdown: String,
         onComplete: () -> Unit,
-        isManual: Boolean = false
+        source: StorageValues.VocabularySource = StorageValues.VocabularySource.AI_GENERATED
     ) {
         val user = currentUser.value ?: return
         val cleanHanzi = hanzi.trim()
@@ -921,10 +922,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 exampleEn = exampleEn,
                 strokeJson = strokeBreakdown,
                 tags = "HSK$hskLevel,Custom",
-                source = if (isManual) StorageValues.VocabularySource.MANUAL.storageValue
-                    else StorageValues.VocabularySource.AI_GENERATED.storageValue,
-                provenance = if (isManual) StorageValues.ContentProvenance.UNKNOWN.storageValue
-                    else StorageValues.ContentProvenance.AI_GENERATED.storageValue
+                source = source.storageValue,
+                provenance = when (source) {
+                    StorageValues.VocabularySource.MANUAL -> StorageValues.ContentProvenance.UNKNOWN.storageValue
+                    StorageValues.VocabularySource.AI_GENERATED -> StorageValues.ContentProvenance.AI_GENERATED.storageValue
+                    StorageValues.VocabularySource.IMPORTED -> StorageValues.ContentProvenance.IMPORTED.storageValue
+                    StorageValues.VocabularySource.STARTER -> StorageValues.ContentProvenance.CURATED.storageValue
+                }
             )
             when (val result = wordRepository.saveNewWordWithInitialSrs(word, initialDueImmediate = true)) {
                 is SaveWordResult.Saved -> {

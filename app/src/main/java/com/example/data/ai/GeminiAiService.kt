@@ -2,6 +2,8 @@ package com.example.data.ai
 
 import android.util.Log
 import com.example.BuildConfig
+import com.example.data.dictionary.toGeneratedWordData
+import com.example.data.model.StorageValues
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -24,7 +26,8 @@ data class GeneratedWordData(
     val exampleEn: String,
     val strokeBreakdown: String,
     val strokeCount: Int,
-    val origin: WordDataOrigin = WordDataOrigin.LOCAL_FALLBACK
+    val origin: WordDataOrigin = WordDataOrigin.LOCAL_FALLBACK,
+    val source: StorageValues.VocabularySource = StorageValues.VocabularySource.AI_GENERATED
 )
 
 enum class WordDataOrigin { GEMINI, LOCAL_FALLBACK, MANUAL }
@@ -68,7 +71,9 @@ sealed class AiFailure(message: String) : Exception(message) {
     ) { init { if (cause != null) initCause(cause) } }
 }
 
-class GeminiAiService {
+class GeminiAiService(
+    val offlineDictionary: com.example.data.dictionary.OfflineDictionary? = null
+) {
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
@@ -282,9 +287,15 @@ class GeminiAiService {
      */
     fun offlineSampleFor(query: String): GeneratedWordData? {
         val trimmed = query.trim()
+        // Check bundled dictionary first (Phase B2 integration).
+        val dictionary = offlineDictionary
+        if (dictionary != null) {
+            dictionary.lookupByHanzi(trimmed)?.let { entry ->
+                return entry.toGeneratedWordData()
+            }
+        }
+        // Fall back to hardcoded samples.
         val predefined = getPredefinedDictionary()
-        // Exact Hanzi or Pinyin match, in that order, then the first character for a multi
-        // character query. All three are lookups against real entries.
         predefined[trimmed]?.let { return it }
         if (trimmed.length == 1) predefined[trimmed[0].toString()]?.let { return it }
         return null

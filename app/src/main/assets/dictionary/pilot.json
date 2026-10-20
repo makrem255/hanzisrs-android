@@ -1,0 +1,56 @@
+{
+  "source": "CC-CEDICT",
+  "version": "2026-10-19",
+  "license": "CC BY-SA 4.0",
+  "attribution": "CC-CEDICT (https://cc-cedict.org/)",
+  "entries": [
+    {
+      "h": "妈妈",
+      "t": "媽媽",
+      "p": "māma",
+      "pn": "ma1 ma5",
+      "m": "mama; mommy; mother",
+      "l": 1
+    },
+    {
+      "h": "你好",
+      "t": "你好",
+      "p": "nǐhǎo",
+      "pn": "ni3 hao3",
+      "m": "hello; hi",
+      "l": 1
+    },
+    {
+      "h": "老师",
+      "t": "老師",
+      "p": "lǎoshī",
+      "pn": "lao3 shi1",
+      "m": "teacher",
+      "l": 1
+    },
+    {
+      "h": "学校",
+      "t": "學校",
+      "p": "xuéxiào",
+      "pn": "xue2 xiao4",
+      "m": "school",
+      "l": 1
+    },
+    {
+      "h": "学生",
+      "t": "學生",
+      "p": "xuésheng",
+      "pn": "xue2 sheng5",
+      "m": "student; schoolchild",
+      "l": 1
+    },
+    {
+      "h": "中国",
+      "t": "中國",
+      "p": "zhōngguó",
+      "pn": "Zhong1 guo2",
+      "m": "China",
+      "l": 1
+    }
+  ]
+}

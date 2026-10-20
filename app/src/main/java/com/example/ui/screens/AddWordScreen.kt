@@ -339,8 +339,10 @@ fun AddWordScreen(
                         saveError = wordSaveError,
                         isSaving = isSavingWord,
                         onApprove = { hanzi, pinyin, meaning, hsk, radical, exCn, exPy, exEn, strokes ->
-                            val isManual = (aiState as? AiGenerationState.ReadyForReview)?.wordData?.origin ==
-                                com.example.data.ai.WordDataOrigin.MANUAL
+                            val data = (aiState as? AiGenerationState.ReadyForReview)?.wordData
+                            val isManual = data?.origin == com.example.data.ai.WordDataOrigin.MANUAL
+                            val source = if (isManual) com.example.data.model.StorageValues.VocabularySource.MANUAL
+                                else (data?.source ?: com.example.data.model.StorageValues.VocabularySource.AI_GENERATED)
                             viewModel.approveAndSaveWord(
                                 hanzi = hanzi,
                                 pinyin = pinyin,
@@ -352,7 +354,7 @@ fun AddWordScreen(
                                 exampleEn = exEn,
                                 strokeBreakdown = strokes,
                                 onComplete = onNavigateBack,
-                                isManual = isManual
+                                source = source
                             )
                         },
                         onCancel = { confirmDiscard = true }
@@ -464,11 +466,13 @@ fun WordReviewAndApprovalView(
                 Icon(Icons.Default.Edit, contentDescription = null, tint = AppTheme.colors.button)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = when (generatedData.origin) {
-                        WordDataOrigin.GEMINI ->
+                    text = when {
+                        generatedData.origin == WordDataOrigin.GEMINI ->
                             "AI suggestion: verify pinyin, meaning, sentences, and stroke details before saving."
-                        WordDataOrigin.MANUAL ->
+                        generatedData.origin == WordDataOrigin.MANUAL ->
                             "Enter the details for this word. Hanzi, pinyin, and meaning are required."
+                        generatedData.source == com.example.data.model.StorageValues.VocabularySource.IMPORTED ->
+                            "Dictionary entry: review and complete these details before saving."
                         else ->
                             "Built-in fallback: review and complete these details before saving. Add a Gemini key for AI enrichment."
                     },

@@ -1,0 +1,22 @@
+CC-CEDICT
+=========
+Source: https://www.mdbg.net/chinese/dictionary?page=cc-cedict
+License: Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)
+https://creativecommons.org/licenses/by-sa/4.0/
+
+CC-CEDICT is a continuation of the CEDICT project started by Paul Denisowski in 1997.
+
+This dictionary data is included as a bundled asset. It is distributed under
+CC BY-SA 4.0. The application code is licensed separately.
+
+Transformations applied to this pilot subset:
+- Filtered to 6 common HSK 1 words
+- Numbered pinyin (e.g., "ma1 ma5") converted to tone-marked pinyin (e.g., "māma")
+- Spaces removed between syllables to match app display convention
+- Uppercase initials normalized to lowercase
+- Definitions: "/" separators replaced with "; "
+- HSK level taken from CC-CEDICT's own tagging
+- No radical, stroke, example, or verification data added (left empty/unknown)
+
+Source version: 2026-10-19 05:01:26 GMT (125,301 entries)
+Pilot entries verified: 2026-10-19 via MDBG dictionary lookup

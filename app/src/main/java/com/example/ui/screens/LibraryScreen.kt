@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -827,6 +828,15 @@ fun WordDetailSheet(
                 },
                 fontSize = 11.sp,
                 color = AppTheme.colors.textSecondary
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Dictionary data: CC-CEDICT (https://cc-cedict.org/), licensed under CC BY-SA 4.0.",
+                fontSize = 10.sp,
+                color = AppTheme.colors.textSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

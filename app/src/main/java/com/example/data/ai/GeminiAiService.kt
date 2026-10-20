@@ -290,7 +290,11 @@ class GeminiAiService(
         // Check bundled dictionary first (Phase B2 integration).
         val dictionary = offlineDictionary
         if (dictionary != null) {
+            // Try Hanzi lookup first, then Pinyin lookup.
             dictionary.lookupByHanzi(trimmed)?.let { entry ->
+                return entry.toGeneratedWordData()
+            }
+            dictionary.lookupByPinyin(trimmed).firstOrNull()?.let { entry ->
                 return entry.toGeneratedWordData()
             }
         }

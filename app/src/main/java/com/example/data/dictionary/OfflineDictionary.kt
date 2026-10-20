@@ -41,10 +41,36 @@ class OfflineDictionary(context: Context) {
     fun lookupByHanzi(hanzi: String): DictionaryEntry? =
         data.entries[hanzi.trim()]
 
-    /** Lookup by Pinyin (normalized: trimmed, lowercased, spaces removed). */
+    /**
+     * Lookup by Pinyin. Supports:
+     * - Tone-marked Pinyin (e.g. "xuésheng", "māma")
+     * - Numbered Pinyin (e.g. "xue2 sheng5", "ma1 ma5") — converted via PinyinConverter
+     * - Untoned Pinyin (e.g. "xuesheng", "mama") — matched by stripping tone marks
+     *
+     * Input is trimmed, lowercased, and spaces are removed before lookup.
+     */
     fun lookupByPinyin(pinyin: String): List<DictionaryEntry> {
-        val normalized = pinyin.trim().lowercase().replace(" ", "")
-        return data.pinyinIndex[normalized] ?: emptyList()
+        val trimmed = pinyin.trim()
+        if (trimmed.isEmpty()) return emptyList()
+
+        // Try numbered Pinyin conversion first (if input contains digits).
+        if (trimmed.any { it.isDigit() }) {
+            val converted = com.example.data.srs.PinyinConverter.fromNumbered(trimmed)
+            if (converted != trimmed) {
+                val normalized = converted.lowercase().replace(" ", "")
+                data.pinyinIndex[normalized]?.let { return it }
+            }
+        }
+
+        // Try direct tone-marked lookup.
+        val normalized = trimmed.lowercase().replace(" ", "")
+        data.pinyinIndex[normalized]?.let { return it }
+
+        // Try untoned lookup: strip tone marks from input and compare.
+        val untoned = stripTones(normalized)
+        data.untonedIndex[untoned]?.let { return it }
+
+        return emptyList()
     }
 
     private fun loadFromAssets(): DictionaryData {
@@ -54,6 +80,7 @@ class OfflineDictionary(context: Context) {
             val entriesArray = root.optJSONArray("entries") ?: JSONArray()
             val entries = mutableMapOf<String, DictionaryEntry>()
             val pinyinIndex = mutableMapOf<String, MutableList<DictionaryEntry>>()
+            val untonedIndex = mutableMapOf<String, MutableList<DictionaryEntry>>()
 
             for (i in 0 until entriesArray.length()) {
                 val obj = entriesArray.optJSONObject(i) ?: continue
@@ -72,22 +99,41 @@ class OfflineDictionary(context: Context) {
                 entries[hanzi] = entry
                 val normalizedPinyin = entry.pinyin.lowercase().replace(" ", "")
                 pinyinIndex.getOrPut(normalizedPinyin) { mutableListOf() }.add(entry)
+
+                // Build untoned index for tone-insensitive lookup.
+                val untoned = stripTones(normalizedPinyin)
+                untonedIndex.getOrPut(untoned) { mutableListOf() }.add(entry)
             }
 
-            DictionaryData(entries, pinyinIndex)
+            DictionaryData(entries, pinyinIndex, untonedIndex)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load dictionary asset: ${e.message}")
-            DictionaryData(emptyMap(), emptyMap())
+            DictionaryData(emptyMap(), emptyMap(), emptyMap())
         }
     }
 
     private data class DictionaryData(
         val entries: Map<String, DictionaryEntry>,
         val pinyinIndex: Map<String, List<DictionaryEntry>>,
+        val untonedIndex: Map<String, List<DictionaryEntry>>,
     )
 
     companion object {
         private const val TAG = "OfflineDictionary"
+
         private const val ASSET_PATH = "dictionary/pilot.json"
+
+        /** Strips tone marks from pinyin for untoned lookup. */
+        fun stripTones(pinyin: String): String {
+            val toneMap = mapOf(
+                'ā' to 'a', 'á' to 'a', 'ǎ' to 'a', 'à' to 'a',
+                'ē' to 'e', 'é' to 'e', 'ě' to 'e', 'è' to 'e',
+                'ī' to 'i', 'í' to 'i', 'ǐ' to 'i', 'ì' to 'i',
+                'ō' to 'o', 'ó' to 'o', 'ǒ' to 'o', 'ò' to 'o',
+                'ū' to 'u', 'ú' to 'u', 'ǔ' to 'u', 'ù' to 'u',
+                'ǖ' to 'ü', 'ǘ' to 'ü', 'ǚ' to 'ü', 'ǜ' to 'ü',
+            )
+            return pinyin.map { toneMap[it] ?: it }.joinToString("")
+        }
     }
 }

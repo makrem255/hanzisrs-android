@@ -153,18 +153,18 @@ fun AuthScreen(
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Emblem Logo: the button fill, monochrome. The gradient brand
-                // sweep is gone with the blue identity; the glyph carries the mark now.
+                // Top Emblem Logo: the app's blue, the same fill every other primary
+                // surface in the app uses, with the button ink on it.
                 Box(
                     modifier = Modifier
                         .size(80.dp)
                         .clip(RoundedCornerShape(28.dp))
-                        .background(AppTheme.colors.button),
+                        .background(AppTheme.colors.primaryAction),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "学",
-                        color = AppTheme.colors.onButton,
+                        color = AppTheme.colors.onPrimaryAction,
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Normal
                     )
@@ -223,13 +223,13 @@ fun AuthScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("auth_mode_email"),
-                            selectedFill = AppTheme.colors.button
+                            selectedFill = AppTheme.colors.primaryAction
                         ) {
                             Text(
                                 text = "Email",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (inputMode == 0) AppTheme.colors.onButton else AppTheme.colors.textSecondary
+                                color = if (inputMode == 0) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary
                             )
                         }
 
@@ -239,13 +239,13 @@ fun AuthScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("auth_mode_phone"),
-                            selectedFill = AppTheme.colors.button
+                            selectedFill = AppTheme.colors.primaryAction
                         ) {
                             Text(
                                 text = "Phone",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (inputMode == 1) AppTheme.colors.onButton else AppTheme.colors.textSecondary
+                                color = if (inputMode == 1) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary
                             )
                         }
                     }
@@ -258,7 +258,7 @@ fun AuthScreen(
                             value = displayName,
                             onValueChange = { displayName = it },
                             label = { Text("Display name") },
-                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = AppTheme.colors.button) },
+                            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = AppTheme.colors.primaryAction) },
                             singleLine = true,
                             // A nickname, not an account name: the old label promised an
                             // email-shaped field, and the keyboard consequently offered
@@ -284,9 +284,9 @@ fun AuthScreen(
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = AppTheme.colors.textPrimary,
                                 unfocusedTextColor = AppTheme.colors.textPrimary,
-                                focusedBorderColor = AppTheme.colors.button,
+                                focusedBorderColor = AppTheme.colors.primaryAction,
                                 unfocusedBorderColor = AppTheme.colors.border,
-                                focusedLabelColor = AppTheme.colors.button,
+                                focusedLabelColor = AppTheme.colors.primaryAction,
                                 unfocusedLabelColor = AppTheme.colors.textSecondary,
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent
@@ -306,7 +306,7 @@ fun AuthScreen(
                         Icon(
                             imageVector = if (inputMode == 0) Icons.Default.Email else Icons.Default.Phone,
                             contentDescription = null,
-                            tint = AppTheme.colors.button
+                            tint = AppTheme.colors.primaryAction
                         )
                     },
                     keyboardOptions = KeyboardOptions(
@@ -331,9 +331,9 @@ fun AuthScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = AppTheme.colors.textPrimary,
                         unfocusedTextColor = AppTheme.colors.textPrimary,
-                        focusedBorderColor = AppTheme.colors.button,
+                        focusedBorderColor = AppTheme.colors.primaryAction,
                         unfocusedBorderColor = AppTheme.colors.border,
-                        focusedLabelColor = AppTheme.colors.button,
+                        focusedLabelColor = AppTheme.colors.primaryAction,
                         unfocusedLabelColor = AppTheme.colors.textSecondary,
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent
@@ -348,7 +348,7 @@ fun AuthScreen(
                     onValueChange = { password = it },
                     label = { Text("Password (8+ characters)") },
                     placeholder = { Text("••••••••", color = AppTheme.colors.textSecondary) },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AppTheme.colors.button) },
+                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = AppTheme.colors.primaryAction) },
                     trailingIcon = {
                         IconButton(
                             onClick = { passwordVisible = !passwordVisible },
@@ -382,9 +382,9 @@ fun AuthScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = AppTheme.colors.textPrimary,
                         unfocusedTextColor = AppTheme.colors.textPrimary,
-                        focusedBorderColor = AppTheme.colors.button,
+                        focusedBorderColor = AppTheme.colors.primaryAction,
                         unfocusedBorderColor = AppTheme.colors.border,
-                        focusedLabelColor = AppTheme.colors.button,
+                        focusedLabelColor = AppTheme.colors.primaryAction,
                         unfocusedLabelColor = AppTheme.colors.textSecondary,
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent
@@ -436,15 +436,15 @@ fun AuthScreen(
                         .height(52.dp)
                         .testTag("auth_submit_button"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppTheme.colors.button,
-                        contentColor = AppTheme.colors.onButton
+                        containerColor = AppTheme.colors.primaryAction,
+                        contentColor = AppTheme.colors.onPrimaryAction
                     ),
                     shape = RoundedCornerShape(26.dp),
                     enabled = canSubmit
                 ) {
                     if (authLoading) {
                         CircularProgressIndicator(
-                            color = AppTheme.colors.onButton,
+                            color = AppTheme.colors.onPrimaryAction,
                             modifier = Modifier.size(22.dp),
                             strokeWidth = 2.dp
                         )
@@ -471,7 +471,7 @@ fun AuthScreen(
                 ) {
                     Text(
                         text = if (isRegisterMode) "Already have an account? Sign In" else "New here? Create account",
-                        color = AppTheme.colors.button,
+                        color = AppTheme.colors.primaryAction,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp
                     )

@@ -180,7 +180,7 @@ internal fun NextActionCard(
             val badgeAccent = if (action.kind == NextAction.Kind.PRACTICE_DIFFICULT) {
                 AppTheme.colors.vocabulary
             } else {
-                AppTheme.colors.button
+                AppTheme.colors.primaryAction
             }
             IconBadge(
                 icon = when (action.kind) {
@@ -280,10 +280,16 @@ internal fun TodayCard(snapshot: DashboardSnapshot) {
         SectionHeader("Today")
         VSpace(Dimens.md)
 
+        // One rule for the two meters that show the same number: the goal is
+        // green once it is met, and blue while it is still being worked toward.
+        // The ring and the bar cannot disagree, because they read the same flag.
+        val goalMet = goal > 0 && done >= goal
+        val goalAccent = if (goalMet) AppTheme.colors.success else AppTheme.colors.primaryAction
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             ProgressRing(
                 progress = if (goal > 0) done.toFloat() / goal.coerceAtLeast(1) else 0f,
-                accent = AppTheme.colors.button,
+                accent = goalAccent,
                 diameter = 84.dp
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -315,7 +321,7 @@ internal fun TodayCard(snapshot: DashboardSnapshot) {
         VSpace(Dimens.md)
         GoalBar(
             progress = if (goal > 0) done.toFloat() / goal.coerceAtLeast(1) else 0f,
-            accent = if (done >= goal && goal > 0) AppTheme.colors.success else AppTheme.colors.button
+            accent = goalAccent
         )
         VSpace(Dimens.xs)
         Text(
@@ -355,8 +361,12 @@ internal fun StreakCard(snapshot: DashboardSnapshot) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = Icons.Default.LocalFireDepartment,
-                tint = if (p.currentStreakDays > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary,
-                background = (if (p.currentStreakDays > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary).copy(alpha = 0.14f),
+                // Green for a streak that is alive: a streak is a positive learning
+                // state, and green is what this app calls that. A dead streak is
+                // grey, so the badge never claims a streak the learner does not
+                // have.
+                tint = if (p.currentStreakDays > 0) AppTheme.colors.success else AppTheme.colors.textSecondary,
+                background = (if (p.currentStreakDays > 0) AppTheme.colors.success else AppTheme.colors.textSecondary).copy(alpha = 0.14f),
                 size = 36.dp
             )
             Spacer(Modifier.width(Dimens.sm))
@@ -368,7 +378,7 @@ internal fun StreakCard(snapshot: DashboardSnapshot) {
             Text(
                 text = "${p.currentStreakDays}",
                 style = MaterialTheme.typography.displaySmall,
-                color = if (p.currentStreakDays > 0) AppTheme.colors.textPrimary else AppTheme.colors.textSecondary
+                color = if (p.currentStreakDays > 0) AppTheme.colors.success else AppTheme.colors.textSecondary
             )
             Spacer(Modifier.width(Dimens.xs))
             Text(
@@ -407,8 +417,11 @@ internal fun ProgressCard(snapshot: DashboardSnapshot) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconBadge(
                 icon = Icons.Default.TrendingUp,
-                tint = AppTheme.colors.success,
-                background = AppTheme.colors.success.copy(alpha = 0.14f),
+                // Purple for a learning measure, so the three cards that sit side
+                // by side - goal, streak, lifetime progress - are told apart by
+                // colour as well as by their titles.
+                tint = AppTheme.colors.learningFocus,
+                background = AppTheme.colors.learningFocus.copy(alpha = 0.14f),
                 size = 36.dp
             )
             Spacer(Modifier.width(Dimens.sm))
@@ -565,7 +578,7 @@ internal fun WeekCard(days: List<DayActivity>, asOfEpochDay: Int) {
                                 .fillMaxWidth()
                                 .height((4 + 58 * animated).dp)
                                 .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-                                .background(if (count > 0) AppTheme.colors.button else AppTheme.colors.elevated)
+                                .background(if (count > 0) AppTheme.colors.primaryAction else AppTheme.colors.elevated)
                         )
                         Spacer(Modifier.height(Dimens.xs))
                         Text(

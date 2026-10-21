@@ -150,7 +150,7 @@ fun RandomReviewEntry(
 
             words.size < RANDOM_REVIEW_MIN_VOCABULARY -> AppCard(
                 containerColor = AppTheme.colors.card,
-                borderColor = AppTheme.colors.textPrimary.copy(alpha = 0.4f),
+                borderColor = AppTheme.colors.border,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
@@ -247,8 +247,8 @@ fun RandomReviewHelpDialog(onDismiss: () -> Unit) {
         icon = {
             IconBadge(
                 icon = Icons.Outlined.HelpOutline,
-                tint = AppTheme.colors.textPrimary,
-                background = AppTheme.colors.textPrimary.copy(alpha = 0.14f),
+                tint = AppTheme.colors.learningFocus,
+                background = AppTheme.colors.learningFocus.copy(alpha = 0.14f),
                 size = 40.dp,
                 cornerRadius = 13.dp,
             )
@@ -278,7 +278,7 @@ fun RandomReviewHelpDialog(onDismiss: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(text = "Got it", color = AppTheme.colors.textPrimary)
+                Text(text = "Got it", color = AppTheme.colors.primaryAction)
             }
         },
         containerColor = AppTheme.colors.card,
@@ -313,7 +313,7 @@ fun RandomReviewExitDialog(
                 onClick = onConfirmExit,
                 modifier = Modifier.testTag("random_review_exit_yes"),
             ) {
-                Text(text = "Yes, exit", color = AppTheme.colors.textPrimary)
+                Text(text = "Yes, exit", color = AppTheme.colors.error)
             }
         },
         dismissButton = {
@@ -321,7 +321,7 @@ fun RandomReviewExitDialog(
                 onClick = onStay,
                 modifier = Modifier.testTag("random_review_exit_no"),
             ) {
-                Text(text = "Keep going", color = AppTheme.colors.textPrimary)
+                Text(text = "Keep going", color = AppTheme.colors.primaryAction)
             }
         },
         containerColor = AppTheme.colors.card,

@@ -213,8 +213,8 @@ fun MainAppContainer(
                                                 // had simply not studied yet saw a red number
                                                 // about work they had not failed at.
                                                 Badge(
-                                                    containerColor = AppTheme.colors.button,
-                                                    contentColor = AppTheme.colors.onButton
+                                                    containerColor = AppTheme.colors.primaryAction,
+                                                    contentColor = AppTheme.colors.onPrimaryAction
                                                 ) {
                                                     Text("$dueCount")
                                                 }
@@ -234,9 +234,13 @@ fun MainAppContainer(
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = AppTheme.colors.textPrimary,
-                                    selectedTextColor = AppTheme.colors.textPrimary,
-                                    indicatorColor = AppTheme.colors.elevated,
+                                    // The selected destination is a blue pill with the
+                                    // button ink on it, and a blue label beneath it. Both
+                                    // clear 4.5:1: white on the blue fill is 4.86:1 and
+                                    // the blue on the bar's background is the same.
+                                    selectedIconColor = AppTheme.colors.onPrimaryAction,
+                                    selectedTextColor = AppTheme.colors.primaryAction,
+                                    indicatorColor = AppTheme.colors.primaryAction,
                                     unselectedIconColor = AppTheme.colors.textSecondary,
                                     unselectedTextColor = AppTheme.colors.textSecondary
                                 ),

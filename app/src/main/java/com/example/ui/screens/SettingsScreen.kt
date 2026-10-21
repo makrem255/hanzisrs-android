@@ -170,12 +170,12 @@ fun SettingsScreen(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(CircleShape)
-                            .background(AppTheme.colors.button),
+                            .background(AppTheme.colors.primaryAction),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = currentUser?.displayName?.firstOrNull()?.toString()?.uppercase() ?: "U",
-                            color = AppTheme.colors.onButton,
+                            color = AppTheme.colors.onPrimaryAction,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -211,7 +211,9 @@ fun SettingsScreen(
                                 text = "Local profile · this device",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = AppTheme.colors.button,
+                                // Purple for the classification, as the HSK chip in the
+                                // library wears it.
+                                color = AppTheme.colors.learningFocus,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
                         }
@@ -245,7 +247,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Tune, contentDescription = null, tint = AppTheme.colors.button)
+                        Icon(Icons.Default.Tune, contentDescription = null, tint = AppTheme.colors.vocabulary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "Daily Workload",
@@ -316,7 +318,9 @@ fun SettingsScreen(
                                 text = "No new words will be introduced. Words you already " +
                                     "have still come up for review.",
                                 fontSize = 11.sp,
-                                color = AppTheme.colors.button
+                                // Orange for a note that asks the learner to read it:
+                                // the attention hue, on the card's white.
+                                color = AppTheme.colors.vocabulary
                             )
                         }
                     }
@@ -335,7 +339,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = AppTheme.colors.button)
+                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = AppTheme.colors.primaryAction)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                         text = "Review Alert Preview",
@@ -377,8 +381,8 @@ fun SettingsScreen(
                             // also claim the tap or the state change would be handled twice.
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = AppTheme.colors.onButton,
-                                checkedTrackColor = AppTheme.colors.button,
+                                checkedThumbColor = AppTheme.colors.onPrimaryAction,
+                                checkedTrackColor = AppTheme.colors.primaryAction,
                                 uncheckedThumbColor = AppTheme.colors.textSecondary,
                                 uncheckedTrackColor = AppTheme.colors.surfaceAlt
                             )
@@ -390,11 +394,14 @@ fun SettingsScreen(
                     Button(
                         onClick = requestNotification,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AppTheme.colors.surfaceAlt,
-                            contentColor = AppTheme.colors.button
+                            // A filled blue, like every other action button in the app.
+                            // It was a grey surface carrying a black label, and the
+                            // label's own colour was the only thing that made it
+                            // look pressable.
+                            containerColor = AppTheme.colors.primaryAction,
+                            contentColor = AppTheme.colors.onPrimaryAction
                         ),
                         shape = RoundedCornerShape(12.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("test_notification_btn"),
@@ -431,7 +438,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = AppTheme.colors.button)
+                        Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = AppTheme.colors.learningFocus)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Mandarin Speech Synthesis (TTS)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
@@ -456,8 +463,8 @@ fun SettingsScreen(
                             checked = isSlowTts,
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = AppTheme.colors.onButton,
-                                checkedTrackColor = AppTheme.colors.button,
+                                checkedThumbColor = AppTheme.colors.onPrimaryAction,
+                                checkedTrackColor = AppTheme.colors.primaryAction,
                                 uncheckedThumbColor = AppTheme.colors.textSecondary,
                                 uncheckedTrackColor = AppTheme.colors.surfaceAlt
                             )
@@ -483,7 +490,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AppTheme.colors.button)
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AppTheme.colors.success)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Sound Effects", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
@@ -519,8 +526,8 @@ fun SettingsScreen(
                             checked = soundEffectsEnabled,
                             onCheckedChange = null,
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = AppTheme.colors.onButton,
-                                checkedTrackColor = AppTheme.colors.button,
+                                checkedThumbColor = AppTheme.colors.onPrimaryAction,
+                                checkedTrackColor = AppTheme.colors.primaryAction,
                                 uncheckedThumbColor = AppTheme.colors.textSecondary,
                                 uncheckedTrackColor = AppTheme.colors.surfaceAlt
                             )
@@ -544,7 +551,7 @@ fun SettingsScreen(
                         Icon(
                             Icons.Default.Contrast,
                             contentDescription = null,
-                            tint = AppTheme.colors.button
+                            tint = AppTheme.colors.learningFocus
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
@@ -598,7 +605,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.button)
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.vocabulary)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("AI Content Generation Engine", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
@@ -664,7 +671,7 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmSignOut = false }) {
-                    Text("Cancel", color = AppTheme.colors.button)
+                    Text("Cancel", color = AppTheme.colors.primaryAction)
                 }
             },
             containerColor = AppTheme.colors.card,

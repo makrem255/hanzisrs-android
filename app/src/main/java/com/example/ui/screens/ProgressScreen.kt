@@ -88,7 +88,11 @@ fun ProgressScreen(
                                 StatTile(
                                     label = "Words learned",
                                     value = "${p.wordsLearned}",
-                                    accent = AppTheme.colors.button,
+                                    // Blue for the plain count, green for what has been
+                                    // mastered, purple for the lifetime total - the
+                                    // same four semantic hues the rest of the app
+                                    // uses, one per meaning.
+                                    accent = AppTheme.colors.primaryAction,
                                     modifier = Modifier.weight(1f).testTag("progress_stat_learned")
                                 )
                                 StatTile(
@@ -104,14 +108,15 @@ fun ProgressScreen(
                                 StatTile(
                                     label = "Current streak",
                                     value = "${p.currentStreakDays}",
-                                    accent = AppTheme.colors.textPrimary,
+                                    // Green for a streak, as on the dashboard.
+                                    accent = AppTheme.colors.success,
                                     caption = "Longest ${p.longestStreakDays}",
                                     modifier = Modifier.weight(1f).testTag("progress_stat_streak")
                                 )
                                 StatTile(
                                     label = "Reviews all time",
                                     value = "${p.lifetimeReviews}",
-                                    accent = AppTheme.colors.textPrimary,
+                                    accent = AppTheme.colors.learningFocus,
                                     modifier = Modifier.weight(1f).testTag("progress_stat_reviews")
                                 )
                             }

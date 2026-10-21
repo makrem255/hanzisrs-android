@@ -16,31 +16,43 @@ import androidx.core.view.WindowCompat
 import com.example.data.model.StorageValues
 
 /**
- * The monochrome schemes, derived from the same tokens the screens read.
+ * The Material schemes, derived from the same tokens the screens read.
  *
  * Only the stock Material components take their colours from here (navigation
  * bar, switches, text fields, dialogs, progress indicators); everything custom
  * reads [AppTheme] directly. The two must agree, so both schemes are built
  * from the resolved [AppColors] rather than carrying a second set of values
  * that could drift.
+ *
+ * The scheme's `primary` is the app's blue primary-action accent, not the
+ * neutral button fill. That is the one decision that makes the colourful
+ * direction reach the stock components: a switch, a dialog's text field, a
+ * progress indicator and a tonal button all take their colour from here, so
+ * they join the design system instead of sitting beside it. `secondary` is the
+ * same blue, because in Material the secondary roles are the tonal ones, and a
+ * tonal button in this app is a blue one.
+ *
+ * `onSecondaryContainer` is the primary text colour rather than the blue: the
+ * blue on its own pale container is 4.0:1, which is under the floor for the
+ * 12sp labels that sit on it.
  */
 private fun lightScheme(colors: AppColors) = lightColorScheme(
-    primary = colors.button,
-    onPrimary = colors.onButton,
-    primaryContainer = colors.elevated,
+    primary = colors.primaryAction,
+    onPrimary = colors.onPrimaryAction,
+    primaryContainer = colors.primaryActionContainer,
     onPrimaryContainer = colors.textPrimary,
-    secondary = colors.textSecondary,
-    onSecondary = colors.background,
-    secondaryContainer = colors.elevated,
+    secondary = colors.primaryAction,
+    onSecondary = colors.onPrimaryAction,
+    secondaryContainer = colors.primaryActionContainer,
     onSecondaryContainer = colors.textPrimary,
     tertiary = colors.textSecondary,
     onTertiary = colors.background,
     tertiaryContainer = colors.elevated,
     onTertiaryContainer = colors.textPrimary,
     error = colors.error,
-    onError = colors.background,
+    onError = colors.onError,
     errorContainer = colors.errorContainer,
-    onErrorContainer = colors.error,
+    onErrorContainer = colors.onErrorContainer,
     background = colors.background,
     onBackground = colors.textPrimary,
     surface = colors.card,
@@ -57,22 +69,22 @@ private fun lightScheme(colors: AppColors) = lightColorScheme(
 )
 
 private fun darkScheme(colors: AppColors) = darkColorScheme(
-    primary = colors.button,
-    onPrimary = colors.onButton,
-    primaryContainer = colors.elevated,
+    primary = colors.primaryAction,
+    onPrimary = colors.onPrimaryAction,
+    primaryContainer = colors.primaryActionContainer,
     onPrimaryContainer = colors.textPrimary,
-    secondary = colors.textSecondary,
-    onSecondary = colors.background,
-    secondaryContainer = colors.elevated,
+    secondary = colors.primaryAction,
+    onSecondary = colors.onPrimaryAction,
+    secondaryContainer = colors.primaryActionContainer,
     onSecondaryContainer = colors.textPrimary,
     tertiary = colors.textSecondary,
     onTertiary = colors.background,
     tertiaryContainer = colors.elevated,
     onTertiaryContainer = colors.textPrimary,
     error = colors.error,
-    onError = colors.background,
+    onError = colors.onError,
     errorContainer = colors.errorContainer,
-    onErrorContainer = colors.error,
+    onErrorContainer = colors.onErrorContainer,
     background = colors.background,
     onBackground = colors.textPrimary,
     surface = colors.card,

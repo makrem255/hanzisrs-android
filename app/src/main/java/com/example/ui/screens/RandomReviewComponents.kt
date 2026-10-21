@@ -125,7 +125,7 @@ fun AnimatedMicButton(
     enabled: Boolean = true,
     icon: ImageVector,
     contentDescription: String,
-    tint: Color = AppTheme.colors.button
+    tint: Color = AppTheme.colors.primaryAction
 ) {
     val scale by animateFloatAsState(
         targetValue = if (listening) 1.05f else 1f,
@@ -154,7 +154,7 @@ fun AnimatedMicButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = contentDescription,
-                    tint = if (listening) AppTheme.colors.onButton else tint,
+                    tint = if (listening) AppTheme.colors.onPrimaryAction else tint,
                     modifier = Modifier.size(30.dp)
                 )
             }

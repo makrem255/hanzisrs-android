@@ -624,7 +624,7 @@ private fun MicRationaleCard(
 ) {
     AppCard(
         containerColor = AppTheme.colors.elevated,
-        borderColor = AppTheme.colors.textPrimary.copy(alpha = 0.4f),
+        borderColor = AppTheme.colors.border,
     ) {
         Text(
             text = "To check what you say, we need to use your microphone. The words are " +
@@ -795,7 +795,8 @@ private fun WordCard(
             Text(
                 text = if (word.hskLevel > 0) "HSK ${word.hskLevel}" else word.radical,
                 style = MaterialTheme.typography.labelSmall,
-                color = AppTheme.colors.textSecondary,
+                // Purple for the level, as on the library row and the review card.
+                color = AppTheme.colors.learningFocus,
             )
         }
 
@@ -818,7 +819,8 @@ private fun WordCard(
                 label = "PINYIN",
                 value = word.pinyin.ifBlank { "—" },
                 valueStyle = PinyinLarge,
-                valueColor = AppTheme.colors.textPrimary,
+                // Orange for the reading, as everywhere else the app shows pinyin.
+                valueColor = AppTheme.colors.vocabulary,
             )
             Spacer(Modifier.height(Dimens.md))
         }

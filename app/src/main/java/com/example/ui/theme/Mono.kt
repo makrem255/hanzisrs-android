@@ -74,6 +74,19 @@ data class AppColors(
     // the blue action and the orange study accents.
     val learningFocus: Color,
     val learningFocusContainer: Color,
+    // The ink that goes *on* a solid accent fill. A filled button needs two
+    // values, not one: the fill and the label that sits on it. These are the
+    // same rule the neutral button has always followed - white on the light
+    // theme's deeper hues, near-black on the dark theme's lighter ones - so a
+    // coloured button reads exactly like the monochrome one it replaced.
+    val onSuccess: Color,
+    val onError: Color,
+    val onVocabulary: Color,
+    // The ink that goes *on* a tinted container. A container is a pale wash, so
+    // its ink has to be a much darker version of the same hue: the container
+    // colours are too light to carry the full-strength accent as text.
+    val onSuccessContainer: Color,
+    val onErrorContainer: Color,
     // Scheduling states. Again reads as error, Good reads as success; Hard and
     // Easy are neutral greys at two distinct steps so the four stay separable
     // without reintroducing hue. Every button also carries a text label, so
@@ -119,6 +132,15 @@ internal val DarkAppColors = AppColors(
     vocabularyContainer = Color(0xFF431A05),
     learningFocus = Color(0xFFA78BFA),
     learningFocusContainer = Color(0xFF2E1065),
+    // The dark theme's accent fills are light, so their ink is near-black - the
+    // same inversion the neutral button already uses in this theme.
+    onSuccess = Color(0xFF000000),
+    onError = Color(0xFF000000),
+    onVocabulary = Color(0xFF000000),
+    // Container inks are the dark theme's own light accents, so a tinted chip
+    // carries a hue the eye can name rather than a grey.
+    onSuccessContainer = Color(0xFF86EFAC),
+    onErrorContainer = Color(0xFFFCA5A5),
     gridLine = Color(0xFF262626),
     gridCenter = Color(0xFF8A8A8A),
     ghostText = Color(0x24FFFFFF),
@@ -159,6 +181,16 @@ internal val LightAppColors = AppColors(
     vocabularyContainer = Color(0xFFFFE9D6),
     learningFocus = Color(0xFF6D28D9),
     learningFocusContainer = Color(0xFFF0E7FF),
+    // The light theme's accent fills are deep, so their ink is white - the same
+    // pairing the neutral button already uses in this theme.
+    onSuccess = Color(0xFFFFFFFF),
+    onError = Color(0xFFFFFFFF),
+    onVocabulary = Color(0xFFFFFFFF),
+    // Container inks are dark enough to clear 4.5:1 on the pale wash they sit
+    // on; the accent colour itself does not, which is why they are not the same
+    // value.
+    onSuccessContainer = Color(0xFF14532D),
+    onErrorContainer = Color(0xFF7F1D1D),
     gridLine = Color(0xFFDCDCDC),
     gridCenter = Color(0xFF737373),
     ghostText = Color(0x24000000),
@@ -184,23 +216,37 @@ object AppTheme {
 /**
  * The one mapping from a card's scheduling state to the colour that means it.
  *
- * Composable because the answer depends on the theme: Hard and Easy are grey
- * steps that differ between light and dark. The `when` is over the enum with
+ * Composable because the answer depends on the theme. The `when` is over the enum with
  * no `else`, so adding a state is a compile error here. Unknown stored values
  * resolve to `null` at the boundary ([srsStateColorOrNull]), rendered as
  * tertiary grey - "state not recognised" - rather than a colour that asserts
  * a scheduling judgement the data does not support.
+ *
+ * The four states take the four semantic hues, one each, so the distribution bar
+ * can be read at a glance and so no state borrows a colour that means something
+ * else elsewhere in the app. `NEW` used to be `error`: a word the learner had
+ * never studied was drawn in the colour that means "you failed this one", which
+ * is a claim the review history does not support. Mastery is `success`, because
+ * that is what it is.
  */
 @Composable
 @ReadOnlyComposable
-fun srsStateColor(state: StorageValues.CardState): Color {
-    val colors = AppTheme.colors
-    return when (state) {
-        StorageValues.CardState.NEW -> colors.error
-        StorageValues.CardState.LEARNING -> colors.hard
-        StorageValues.CardState.REVIEW -> colors.success
-        StorageValues.CardState.MASTERED -> colors.easy
-    }
+fun srsStateColor(state: StorageValues.CardState): Color =
+    srsStateColorIn(AppTheme.colors, state)
+
+/**
+ * The mapping as a pure function of the palette.
+ *
+ * The rule is the same in both themes; only the values change. Taking the palette
+ * as an argument rather than reading it from the composition means the mapping can
+ * be tested directly, in a plain JVM test, instead of needing a composition to ask
+ * a question about four lines of a `when`.
+ */
+fun srsStateColorIn(colors: AppColors, state: StorageValues.CardState): Color = when (state) {
+    StorageValues.CardState.NEW -> colors.primaryAction
+    StorageValues.CardState.LEARNING -> colors.vocabulary
+    StorageValues.CardState.REVIEW -> colors.learningFocus
+    StorageValues.CardState.MASTERED -> colors.success
 }
 
 /**

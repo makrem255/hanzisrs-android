@@ -231,7 +231,7 @@ fun SwipeDeckReviewScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AppTheme.colors.button)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = AppTheme.colors.textPrimary)
                     }
                 },
                 actions = {
@@ -247,7 +247,7 @@ fun SwipeDeckReviewScreen(
                             } else {
                                 "Slow pronunciation off"
                             },
-                            tint = if (isSlowTts) AppTheme.colors.button else AppTheme.colors.textSecondary
+                            tint = if (isSlowTts) AppTheme.colors.primaryAction else AppTheme.colors.textSecondary
                         )
                     }
                 },
@@ -353,7 +353,7 @@ fun SwipeDeckReviewScreen(
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(3.dp)),
-                        color = AppTheme.colors.button,
+                        color = AppTheme.colors.primaryAction,
                         trackColor = AppTheme.colors.surfaceAlt
                     )
 
@@ -553,23 +553,36 @@ fun SwipeDeckReviewScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Surface(
-                                    color = AppTheme.colors.elevated,
+                                    // The level classifies the character; purple is what
+                                    // that means everywhere else in the app.
+                                    color = AppTheme.colors.learningFocusContainer,
                                     shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border)
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        AppTheme.colors.learningFocus.copy(alpha = 0.35f)
+                                    )
                                 ) {
                                     Text(
                                         text = "HSK ${currentWordWithSrs.word.hskLevel}",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = AppTheme.colors.button,
+                                        color = AppTheme.colors.learningFocus,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
 
                                 Surface(
-                                    color = if (currentWordWithSrs.isDue) AppTheme.colors.error.copy(alpha = 0.25f) else AppTheme.colors.success.copy(alpha = 0.25f),
+                                    // A soft container with the deep ink that belongs on
+                                    // it, rather than a 25% wash carrying the full-strength
+                                    // accent: red on pink is 3.3:1 and green on mint is
+                                    // about the same, which is under the floor for an
+                                    // 11sp label.
+                                    color = if (currentWordWithSrs.isDue) AppTheme.colors.errorContainer else AppTheme.colors.successContainer,
                                     shape = RoundedCornerShape(8.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (currentWordWithSrs.isDue) AppTheme.colors.error else AppTheme.colors.success)
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (currentWordWithSrs.isDue) AppTheme.colors.error else AppTheme.colors.success
+                                    )
                                 ) {
                                     Text(
                                         // The learner's word for the state, not the storage
@@ -588,7 +601,7 @@ fun SwipeDeckReviewScreen(
                                         // arm's length on a 6.1" screen.
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (currentWordWithSrs.isDue) AppTheme.colors.error else AppTheme.colors.success,
+                                        color = if (currentWordWithSrs.isDue) AppTheme.colors.onErrorContainer else AppTheme.colors.onSuccessContainer,
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                     )
                                 }
@@ -648,8 +661,8 @@ fun SwipeDeckReviewScreen(
                                     modifier = Modifier.testTag("reveal_answer_button"),
                                     shape = RoundedCornerShape(22.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = AppTheme.colors.button,
-                                        contentColor = AppTheme.colors.onButton
+                                        containerColor = AppTheme.colors.primaryAction,
+                                        contentColor = AppTheme.colors.onPrimaryAction
                                     )
                                 ) {
                                     Icon(Icons.Default.Flip, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -665,7 +678,9 @@ fun SwipeDeckReviewScreen(
                                         text = currentWordWithSrs.word.pinyin,
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = AppTheme.colors.button,
+                                        // Orange for the reading, as in the library and
+                                        // on the home screen's recent words.
+                                        color = AppTheme.colors.vocabulary,
                                         textAlign = TextAlign.Center
                                     )
 
@@ -758,7 +773,9 @@ fun SwipeDeckReviewScreen(
                                             text = currentWordWithSrs.word.radical,
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = AppTheme.colors.button
+                                            // Purple with the level badge: both classify
+                                            // the character.
+                                            color = AppTheme.colors.learningFocus
                                         )
                                     }
 
@@ -795,7 +812,8 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             "Example sentence",
                                             fontSize = 12.sp,
-                                            color = AppTheme.colors.button,
+                                            // Orange for the reading, as above.
+                                            color = AppTheme.colors.vocabulary,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         // `forSentenceOfWord` rather than `forSentence`: the
@@ -829,7 +847,7 @@ fun SwipeDeckReviewScreen(
                                         Text(
                                             text = currentWordWithSrs.word.examplePy,
                                             fontSize = 13.sp,
-                                            color = AppTheme.colors.button,
+                                            color = AppTheme.colors.vocabulary,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -876,41 +894,47 @@ fun SwipeDeckReviewScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 1. Again (<1d)
+                    // 1. Again (<1d) - red: a lapse is the one grade that is a failure.
                     SrsRatingButton(
                         rating = SrsRating.AGAIN,
                         interval = nextIntervals.getValue(SrsRating.AGAIN),
                         color = AppTheme.colors.error,
+                        ink = AppTheme.colors.onError,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.AGAIN) }
                     )
 
-                    // 2. Hard (~1.2x)
+                    // 2. Hard (~1.2x) - orange: the attention hue, the same one the
+                    // vocabulary wears.
                     SrsRatingButton(
                         rating = SrsRating.HARD,
                         interval = nextIntervals.getValue(SrsRating.HARD),
-                        color = AppTheme.colors.hard,
+                        color = AppTheme.colors.vocabulary,
+                        ink = AppTheme.colors.onVocabulary,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.HARD) }
                     )
 
-                    // 3. Good (~2.5x)
+                    // 3. Good (~2.5x) - green: the successful recall.
                     SrsRatingButton(
                         rating = SrsRating.GOOD,
                         interval = nextIntervals.getValue(SrsRating.GOOD),
                         color = AppTheme.colors.success,
+                        ink = AppTheme.colors.onSuccess,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.GOOD) }
                     )
 
-                    // 4. Easy (>3.5x)
+                    // 4. Easy (>3.5x) - blue: the effortless one, the same blue as
+                    // every other action in the app.
                     SrsRatingButton(
                         rating = SrsRating.EASY,
                         interval = nextIntervals.getValue(SrsRating.EASY),
-                        color = AppTheme.colors.easy,
+                        color = AppTheme.colors.primaryAction,
+                        ink = AppTheme.colors.onPrimaryAction,
                         enabled = canRate,
                         modifier = Modifier.weight(1f),
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.EASY) }
@@ -928,6 +952,7 @@ private fun SrsRatingButton(
     rating: SrsRating,
     interval: String,
     color: Color,
+    ink: Color,
     enabled: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
@@ -949,22 +974,30 @@ private fun SrsRatingButton(
         // trip takes. `canRate` is the same predicate that guard uses, so the greying-out and
         // the refusal cannot disagree about when a rating is allowed.
         enabled = enabled,
+        // A solid fill, with the ink that belongs on it.
+        //
+        // These were a 20% wash carrying the accent as the label's colour, and the label was
+        // 12sp: red on 20% pink is 3.5:1 and green on 20% mint is about the same, both under
+        // the 4.5:1 floor. A filled button is also what the app now teaches everywhere else,
+        // so the four grades are the app's four semantic hues: red for a lapse, orange for a
+        // hard recall, green for a good one, blue for an easy one. The label text carries the
+        // grade as well, so the colour is never the only signal.
         colors = ButtonDefaults.elevatedButtonColors(
-            containerColor = color.copy(alpha = 0.2f),
-            contentColor = color
+            containerColor = color,
+            contentColor = ink
         ),
         shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.6f)),
         modifier = modifier
             .height(56.dp)
             .testTag("srs_rate_${label.lowercase()}"),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = color)
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ink)
             // 11sp, not 10: this is the interval the learner is being shown to justify the
-            // tap, and it is the smallest text in the app's primary action.
-            Text(interval, fontSize = 11.sp, color = color.copy(alpha = 0.85f))
+            // tap, and it is the smallest text in the app's primary action. Full-opacity ink
+            // rather than a faded one: a faded white on a coloured fill drops under 4.5:1.
+            Text(interval, fontSize = 11.sp, color = ink)
         }
     }
 }
@@ -989,16 +1022,16 @@ private fun RowScope.PillarTab(
         selected = selected,
         onClick = onClick,
         modifier = modifier.weight(1f),
-        // The selected label reads in the on-button colour, which needs the button
+        // The selected label reads in the on-accent colour, which needs the accent
         // fill behind it in both themes. See `SegmentedOption.selectedFill`.
-        selectedFill = AppTheme.colors.button
+        selectedFill = AppTheme.colors.primaryAction
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                tint = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary
+                tint = if (selected) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary
             )
             Spacer(modifier = Modifier.width(5.dp))
             Text(
@@ -1006,7 +1039,7 @@ private fun RowScope.PillarTab(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
-                color = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary
+                color = if (selected) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary
             )
         }
     }
@@ -1136,7 +1169,7 @@ private fun ReviewSessionCompletedView(
 
                 Button(
                     onClick = onBack,
-                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.button, contentColor = AppTheme.colors.onButton),
+                    colors = ButtonDefaults.buttonColors(containerColor = AppTheme.colors.primaryAction, contentColor = AppTheme.colors.onPrimaryAction),
                     shape = RoundedCornerShape(24.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1183,7 +1216,7 @@ private fun ReviewSessionCompletedView(
 @Composable
 private fun ReviewSessionLoadingView(modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.CircularProgressIndicator(color = AppTheme.colors.button)
+        androidx.compose.material3.CircularProgressIndicator(color = AppTheme.colors.primaryAction)
     }
 }
 

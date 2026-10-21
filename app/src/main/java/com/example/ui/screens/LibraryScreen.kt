@@ -67,7 +67,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -385,14 +384,12 @@ fun LibraryScreen(
                                 // creation action is the primary action, not a shortcut.
                                 if (libraryError == null && wordsLoaded && allWords.isEmpty()) {
                                     Spacer(modifier = Modifier.height(16.dp))
-                                    // Bright blue for this screen's primary action, per the
-                                    // colourful direction; the label stays the theme's button
-                                    // ink, which clears 4.5:1 against the blue in both themes.
+                                    // The shared primary button, which is the app's blue:
+                                    // no screen-level override is needed any more.
                                     PrimaryButton(
                                         text = "Add word",
                                         onClick = onNavigateToAddWord,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        brush = SolidColor(AppTheme.colors.primaryAction)
+                                        modifier = Modifier.fillMaxWidth()
                                     )
                                 }
                             }
@@ -448,7 +445,7 @@ fun LibraryScreen(
                 ) { Text("Remove") }
             },
             dismissButton = {
-                TextButton(onClick = { wordPendingDeletion = null }) { Text("Keep word", color = AppTheme.colors.button) }
+                TextButton(onClick = { wordPendingDeletion = null }) { Text("Keep word", color = AppTheme.colors.primaryAction) }
             },
             containerColor = AppTheme.colors.card,
             shape = RoundedCornerShape(24.dp)

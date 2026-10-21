@@ -73,12 +73,13 @@ private fun pressScale(pressed: Boolean): State<Float> =
 /**
  * The primary action.
  *
- * A full-width, 54dp-tall pill in the theme's button fill. When disabled it falls
- * back to a flat surface step so it still reads as a button rather than vanishing.
+ * A full-width, 54dp-tall pill in the theme's primary-action fill - the blue
+ * that means "do this". When disabled it falls back to a flat surface step so it
+ * still reads as a button rather than vanishing.
  *
  * The `brush` override exists for a call site that needs a different fill than the
  * theme's button — a gradient, or a screen's accent colour; every ordinary call leaves
- * it null and gets the monochrome button.
+ * it null and gets the blue button.
  */
 @Composable
 fun PrimaryButton(
@@ -94,9 +95,9 @@ fun PrimaryButton(
     val fill: Brush = when {
         !enabled -> SolidColor(colors.highest)
         brush != null -> brush
-        else -> SolidColor(colors.button)
+        else -> SolidColor(colors.primaryAction)
     }
-    val ink = if (enabled) colors.onButton else colors.textSecondary
+    val ink = if (enabled) colors.onPrimaryAction else colors.textSecondary
     val (pressSource, isPressed) = rememberPressState()
     val scale = pressScale(isPressed)
     Box(
@@ -295,7 +296,7 @@ fun <T> SegmentedSelector(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(50))
-                    .background(if (isSelected) colors.button else Color.Transparent)
+                    .background(if (isSelected) colors.primaryAction else Color.Transparent)
                     .clickable { onSelect(option) }
                     .padding(vertical = Dimens.sm),
                 contentAlignment = Alignment.Center
@@ -303,7 +304,7 @@ fun <T> SegmentedSelector(
                 Text(
                     text = label(option),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) colors.onButton else colors.textSecondary
+                    color = if (isSelected) colors.onPrimaryAction else colors.textSecondary
                 )
             }
         }

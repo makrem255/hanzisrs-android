@@ -62,10 +62,10 @@ fun Modifier.minimumTouchTarget(): Modifier = this.minimumInteractiveComponentSi
  * semantics.
  *
  * [selectedFill] paints the selected option's pill. It exists because selected content
- * in these rows reads in the on-button colour, which is only legible on a button fill:
- * selected text without the fill is white-on-light in the light theme and
+ * in these rows reads in the on-accent colour, which is only legible on an accent
+ * fill: selected text without the fill is white-on-light in the light theme and
  * near-black-on-dark in the dark theme. A caller that wants a fill-free selected
- * state must not use the on-button colour for its content.
+ * state must not use the on-accent colour for its content.
  */
 @Composable
 fun SegmentedOption(

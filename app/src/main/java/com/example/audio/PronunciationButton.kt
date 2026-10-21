@@ -108,7 +108,10 @@ fun PronunciationButton(
     // is the one worth recognising at a glance instead of reading. A transient playback error
     // leaves the icon alone: a red button that means "try again" is a different message from
     // a red button that means "this will never work".
-    val tint: Color = if (deviceFailure != null) AppTheme.colors.error else AppTheme.colors.textPrimary
+    //
+    // A working control is blue: hearing a word is an action, and blue is what this app
+    // calls one.
+    val tint: Color = if (deviceFailure != null) AppTheme.colors.error else AppTheme.colors.primaryAction
     val icon = if (deviceFailure != null) Icons.Default.ErrorOutline else Icons.Default.VolumeUp
 
     val caption = when {

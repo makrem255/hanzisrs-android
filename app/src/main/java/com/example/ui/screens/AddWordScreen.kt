@@ -102,13 +102,13 @@ fun AddWordScreen(
     var manualMode by remember { mutableStateOf(false) }
 
     val customTextFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = AppTheme.colors.button,
+        focusedBorderColor = AppTheme.colors.primaryAction,
         unfocusedBorderColor = AppTheme.colors.border,
         focusedTextColor = AppTheme.colors.textPrimary,
         unfocusedTextColor = AppTheme.colors.textPrimary,
-        focusedLabelColor = AppTheme.colors.button,
+        focusedLabelColor = AppTheme.colors.primaryAction,
         unfocusedLabelColor = AppTheme.colors.textSecondary,
-        cursorColor = AppTheme.colors.button,
+        cursorColor = AppTheme.colors.primaryAction,
         focusedContainerColor = AppTheme.colors.surfaceAlt,
         unfocusedContainerColor = AppTheme.colors.surfaceAlt
     )
@@ -161,7 +161,7 @@ fun AddWordScreen(
                             } else {
                                 "Back"
                             },
-                            tint = AppTheme.colors.button
+                            tint = AppTheme.colors.textPrimary
                         )
                     }
                 },
@@ -196,7 +196,7 @@ fun AddWordScreen(
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.button)
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.learningFocus)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "AI Chinese Word Enrichment",
@@ -269,20 +269,20 @@ fun AddWordScreen(
                                     .height(48.dp)
                                     .testTag("generate_word_button"),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = AppTheme.colors.button,
-                                    contentColor = AppTheme.colors.onButton
+                                    containerColor = AppTheme.colors.primaryAction,
+                                    contentColor = AppTheme.colors.onPrimaryAction
                                 ),
                                 shape = RoundedCornerShape(24.dp),
                                 enabled = searchInput.isNotBlank() && state !is AiGenerationState.Loading
                             ) {
                                 if (state is AiGenerationState.Loading) {
                                     CircularProgressIndicator(
-                                        color = AppTheme.colors.onButton,
+                                        color = AppTheme.colors.onPrimaryAction,
                                         modifier = Modifier.size(20.dp),
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Generating SRS Learning Data...", color = AppTheme.colors.onButton)
+                                    Text("Generating SRS Learning Data...", color = AppTheme.colors.onPrimaryAction)
                                 } else {
                                     Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -388,7 +388,7 @@ fun AddWordScreen(
             },
             dismissButton = {
                 TextButton(onClick = { confirmDiscard = false }) {
-                    Text("Keep editing", color = AppTheme.colors.button)
+                    Text("Keep editing", color = AppTheme.colors.primaryAction)
                 }
             },
             containerColor = AppTheme.colors.card,
@@ -463,7 +463,7 @@ fun WordReviewAndApprovalView(
                 modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTheme.colors.button)
+                Icon(Icons.Default.Edit, contentDescription = null, tint = AppTheme.colors.vocabulary)
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = when {
@@ -680,10 +680,13 @@ fun WordReviewAndApprovalView(
                         val selected = hskLevel == level
                         Surface(
                             shape = RoundedCornerShape(20.dp),
-                            color = if (selected) AppTheme.colors.button else AppTheme.colors.surfaceAlt,
+                            // A selected level is the learner's choice, and a choice
+                            // is a primary action: the blue fill is the same one the
+                            // library's filter chips and the app's buttons use.
+                            color = if (selected) AppTheme.colors.primaryAction else AppTheme.colors.surfaceAlt,
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (selected) AppTheme.colors.button else AppTheme.colors.border
+                                if (selected) AppTheme.colors.primaryAction else AppTheme.colors.border
                             ),
                             modifier = Modifier
                                 .minimumTouchTarget()
@@ -698,7 +701,7 @@ fun WordReviewAndApprovalView(
                                 text = "HSK $level",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = if (selected) AppTheme.colors.onButton else AppTheme.colors.textSecondary,
+                                color = if (selected) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                             )
                         }
@@ -857,15 +860,15 @@ fun WordReviewAndApprovalView(
                         .height(50.dp)
                         .testTag("approve_word_button"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppTheme.colors.button,
-                        contentColor = AppTheme.colors.onButton
+                        containerColor = AppTheme.colors.primaryAction,
+                        contentColor = AppTheme.colors.onPrimaryAction
                     ),
                     shape = RoundedCornerShape(24.dp),
                     enabled = !isSaving
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(
-                            color = AppTheme.colors.onButton,
+                            color = AppTheme.colors.onPrimaryAction,
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp
                         )

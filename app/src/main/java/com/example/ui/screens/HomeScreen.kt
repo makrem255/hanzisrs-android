@@ -146,8 +146,8 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNavigateToAddWord,
-                containerColor = AppTheme.colors.button,
-                contentColor = AppTheme.colors.onButton,
+                containerColor = AppTheme.colors.primaryAction,
+                contentColor = AppTheme.colors.onPrimaryAction,
                 shape = CircleShape,
                 modifier = Modifier.testTag("add_word_fab")
             ) {
@@ -183,7 +183,7 @@ fun HomeScreen(
                                 Icon(
                                     Icons.Default.Notifications,
                                     contentDescription = "Preview the due review alert",
-                                    tint = AppTheme.colors.button
+                                    tint = AppTheme.colors.textPrimary
                                 )
                             }
                             ProfileAvatar(
@@ -286,7 +286,12 @@ fun HomeScreen(
                             icon = Icons.Default.PlayArrow,
                             title = "Review",
                             subtitle = "Due cards",
-                            accent = AppTheme.colors.button,
+                            // The four quick actions carry the four semantic hues, one
+                            // each: blue for the action you take, orange for adding
+                            // vocabulary, purple for the learning library, green for
+                            // progress. The same four mean the same thing everywhere
+                            // else in the app.
+                            accent = AppTheme.colors.primaryAction,
                             onClick = {
                                 viewModel.resetDeckSession()
                                 onStartReview()
@@ -297,7 +302,7 @@ fun HomeScreen(
                             icon = Icons.Default.AutoAwesome,
                             title = "Add word",
                             subtitle = "Hanzi or pinyin",
-                            accent = AppTheme.colors.textPrimary,
+                            accent = AppTheme.colors.vocabulary,
                             onClick = onNavigateToAddWord,
                             modifier = Modifier.weight(1f).testTag("home_add_word")
                         )
@@ -307,7 +312,7 @@ fun HomeScreen(
                             icon = Icons.Default.School,
                             title = "Learn",
                             subtitle = "Your library",
-                            accent = AppTheme.colors.textPrimary,
+                            accent = AppTheme.colors.learningFocus,
                             onClick = onNavigateToLibrary,
                             modifier = Modifier.weight(1f)
                         )
@@ -368,13 +373,13 @@ fun HomeScreen(
                     SectionHeader("What a review covers")
                     Spacer(Modifier.height(Dimens.sm))
                     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
-                        PillarItem("笔", "Writing", "Stroke order", Modifier.weight(1f))
-                        PillarItem("音", "Audio", "Mandarin", Modifier.weight(1f))
+                        PillarItem("笔", "Writing", "Stroke order", Modifier.weight(1f), accent = AppTheme.colors.vocabulary)
+                        PillarItem("音", "Audio", "Mandarin", Modifier.weight(1f), accent = AppTheme.colors.learningFocus)
                     }
                     Spacer(Modifier.height(Dimens.sm))
                     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.sm)) {
-                        PillarItem("义", "Meaning", "In context", Modifier.weight(1f))
-                        PillarItem("忆", "Recall", "SM-2 spaced", Modifier.weight(1f))
+                        PillarItem("义", "Meaning", "In context", Modifier.weight(1f), accent = AppTheme.colors.primaryAction)
+                        PillarItem("忆", "Recall", "SM-2 spaced", Modifier.weight(1f), accent = AppTheme.colors.success)
                     }
                 }
             }
@@ -391,7 +396,7 @@ private fun ProfileAvatar(
         modifier = Modifier
             .size(48.dp)
             .clip(CircleShape)
-            .background(AppTheme.colors.elevated)
+            .background(AppTheme.colors.primaryAction)
             .clickable(onClick = onClick)
             .semantics { contentDescription = "Open profile" },
         contentAlignment = Alignment.Center
@@ -399,7 +404,7 @@ private fun ProfileAvatar(
         Text(
             text = initial.toString(),
             style = MaterialTheme.typography.titleMedium,
-            color = AppTheme.colors.button
+            color = AppTheme.colors.onPrimaryAction
         )
     }
 }
@@ -444,14 +449,17 @@ private fun PillarItem(
     icon: String,
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    accent: androidx.compose.ui.graphics.Color = AppTheme.colors.textPrimary
 ) {
     AppCard(modifier = modifier.semantics { contentDescription = "$title: $subtitle" }, contentPadding = PaddingValues(Dimens.md)) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = icon, style = HanziMedium, color = AppTheme.colors.textPrimary)
+            // The glyph wears the pillar's own hue, so the four ways a review can
+            // be practised are told apart by colour as well as by name.
+            Text(text = icon, style = HanziMedium, color = accent)
             Spacer(Modifier.height(Dimens.xs))
             Text(
                 text = title,
@@ -484,7 +492,9 @@ private fun RecentWordCard(
             Text(
                 text = "HSK ${wordWithSrs.word.hskLevel}",
                 style = MaterialTheme.typography.labelSmall,
-                color = AppTheme.colors.button
+                // Purple for the classification, as in the library row: the level
+                // classifies the word, it does not act on it.
+                color = AppTheme.colors.learningFocus
             )
             PronunciationButton(
                 service = pronunciationService,
@@ -511,7 +521,8 @@ private fun RecentWordCard(
         Text(
             text = wordWithSrs.word.pinyin,
             style = PinyinText,
-            color = AppTheme.colors.textPrimary
+            // Orange for the reading, as everywhere else in the app.
+            color = AppTheme.colors.vocabulary
         )
         Text(
             text = wordWithSrs.word.meaning,

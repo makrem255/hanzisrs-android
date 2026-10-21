@@ -158,7 +158,7 @@ internal fun LevelBar(
                 .fillMaxWidth(animated)
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(AppTheme.colors.button)
+                .background(AppTheme.colors.primaryAction)
         )
     }
 }
@@ -389,17 +389,20 @@ private fun RatingBreakdown(summary: SessionSummary) {
             // Inlined rather than extracted to a sub-composable because `weight` is a `RowScope`
             // member: a helper taking a plain `Modifier` has no row to be a fraction of, and a
             // segment silently sized to nothing is a bar that lies about its own proportions.
+            // The same four hues the review screen's rating buttons use, in the same
+            // order: a breakdown that coloured "Hard" grey while the button that
+            // records it is orange would be teaching two colour languages at once.
             RatingShare(summary.again, total, AppTheme.colors.error)
-            RatingShare(summary.hard, total, AppTheme.colors.hard)
+            RatingShare(summary.hard, total, AppTheme.colors.vocabulary)
             RatingShare(summary.good, total, AppTheme.colors.success)
-            RatingShare(summary.easy, total, AppTheme.colors.easy)
+            RatingShare(summary.easy, total, AppTheme.colors.primaryAction)
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             RatingLegend("Again", summary.again, AppTheme.colors.error)
-            RatingLegend("Hard", summary.hard, AppTheme.colors.hard)
+            RatingLegend("Hard", summary.hard, AppTheme.colors.vocabulary)
             RatingLegend("Good", summary.good, AppTheme.colors.success)
-            RatingLegend("Easy", summary.easy, AppTheme.colors.easy)
+            RatingLegend("Easy", summary.easy, AppTheme.colors.primaryAction)
         }
     }
 }

@@ -105,7 +105,7 @@ fun ProgressRing(
     content: @Composable () -> Unit
 ) {
     val colors = AppTheme.colors
-    val ink = accent ?: colors.button
+    val ink = accent ?: colors.primaryAction
     // Starts at zero and travels to the value, including on first composition: without the
     // indirection the initial value equals the target and there is nothing to animate.
     var shown by remember { mutableFloatStateOf(0f) }
@@ -148,7 +148,7 @@ fun GoalBar(
     height: Dp = 10.dp
 ) {
     val colors = AppTheme.colors
-    val ink = accent ?: colors.button
+    val ink = accent ?: colors.primaryAction
     val track = trackColor ?: colors.highest
     var shown by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(progress) { shown = progress.coerceIn(0f, 1f) }

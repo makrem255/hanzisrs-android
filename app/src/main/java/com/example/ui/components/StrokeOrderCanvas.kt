@@ -255,13 +255,13 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .testTag("stroke_mode_guide"),
-                selectedFill = AppTheme.colors.button
+                selectedFill = AppTheme.colors.primaryAction
             ) {
                 Text(
                     text = "Stroke guide",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected == 0) AppTheme.colors.onButton else AppTheme.colors.textSecondary
+                    color = if (selected == 0) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary
                 )
             }
             SegmentedOption(
@@ -270,13 +270,13 @@ private fun SegmentedModeSwitch(selected: Int, onSelect: (Int) -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .testTag("stroke_mode_practice"),
-                selectedFill = AppTheme.colors.button
+                selectedFill = AppTheme.colors.primaryAction
             ) {
                 Text(
                     text = "Practise tracing",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    color = if (selected == 1) AppTheme.colors.onButton else AppTheme.colors.textSecondary
+                    color = if (selected == 1) AppTheme.colors.onPrimaryAction else AppTheme.colors.textSecondary
                 )
             }
         }
@@ -435,7 +435,9 @@ fun AnimatedStrokeOrderPlayer(
                     colors = StrokeGeometryColors(
                         guide = palette.ghostText,
                         completed = palette.textPrimary,
-                        current = palette.button,
+                        // The stroke being drawn right now is the active thing on the
+                        // screen, and blue is what this app calls active.
+                        current = palette.primaryAction,
                     ),
                     modifier = Modifier.testTag("stroke_geometry_canvas"),
                 )
@@ -446,7 +448,7 @@ fun AnimatedStrokeOrderPlayer(
             // The current stroke's name, in the corner, where it cannot be mistaken for part
             // of the character.
             Surface(
-                color = AppTheme.colors.button,
+                color = AppTheme.colors.primaryAction,
                 shape = CircleShape,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -455,7 +457,7 @@ fun AnimatedStrokeOrderPlayer(
             ) {
                 Text(
                     text = "${currentStep + 1}/$totalSteps",
-                    color = AppTheme.colors.onButton,
+                    color = AppTheme.colors.onPrimaryAction,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -483,7 +485,10 @@ fun AnimatedStrokeOrderPlayer(
                 Text(
                     text = "Stroke ${currentStep + 1} of $totalSteps",
                     fontWeight = FontWeight.Bold,
-                    color = AppTheme.colors.button,
+                    // Purple for a label that says where you are, the same hue the
+                    // level chips wear. Blue would not clear 4.5:1 on this raised
+                    // surface, and a caption is not an action.
+                    color = AppTheme.colors.learningFocus,
                     fontSize = 13.sp
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -529,7 +534,7 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.Refresh,
                     contentDescription = "Restart demonstration",
-                    tint = AppTheme.colors.button
+                    tint = AppTheme.colors.primaryAction
                 )
             }
             IconTarget(
@@ -544,15 +549,15 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.FastRewind,
                     contentDescription = "Previous stroke",
-                    tint = AppTheme.colors.button
+                    tint = AppTheme.colors.primaryAction
                 )
             }
 
             Button(
                 onClick = { isPlaying = !isPlaying },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AppTheme.colors.button,
-                    contentColor = AppTheme.colors.onButton
+                    containerColor = AppTheme.colors.primaryAction,
+                    contentColor = AppTheme.colors.onPrimaryAction
                 ),
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
@@ -588,7 +593,7 @@ fun AnimatedStrokeOrderPlayer(
                 Icon(
                     Icons.Default.FastForward,
                     contentDescription = "Next stroke",
-                    tint = AppTheme.colors.button
+                    tint = AppTheme.colors.primaryAction
                 )
             }
         }
@@ -626,7 +631,7 @@ private fun StepDots(total: Int, current: Int, modifier: Modifier = Modifier) {
                     .background(
                         when {
                             index < current -> AppTheme.colors.textPrimary
-                            index == current -> AppTheme.colors.button
+                            index == current -> AppTheme.colors.primaryAction
                             else -> AppTheme.colors.border
                         }
                     )
@@ -742,8 +747,12 @@ fun UserTracingCanvas(
         ) {
             GridBackdrop(hanzi, showGlyph = ghostVisible)
 
+            // The stroke in progress is blue - the active thing on the screen. The
+            // finished ones stay in the neutral ink: they are what the learner
+            // drew, and green is this app's word for "correct", which the
+            // evaluation has not said yet.
             val finished = AppTheme.colors.textPrimary
-            val drawing = AppTheme.colors.button
+            val drawing = AppTheme.colors.primaryAction
             Canvas(modifier = Modifier.fillMaxSize()) {
                 strokes.forEach { userStroke ->
                     drawTracedStroke(userStroke.points, finished)
@@ -906,8 +915,8 @@ fun UserTracingCanvas(
                         .testTag("trace_check"),
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppTheme.colors.button,
-                        contentColor = AppTheme.colors.onButton
+                        containerColor = AppTheme.colors.primaryAction,
+                        contentColor = AppTheme.colors.onPrimaryAction
                     )
                 ) {
                     Text("Check", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)

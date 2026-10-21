@@ -51,7 +51,7 @@ fun LoadingState(
     ) {
         CircularProgressIndicator(
             modifier = Modifier.size(32.dp),
-            color = AppTheme.colors.textPrimary,
+            color = AppTheme.colors.primaryAction,
             trackColor = AppTheme.colors.highest,
             strokeWidth = 3.dp
         )

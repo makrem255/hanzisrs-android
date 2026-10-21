@@ -57,6 +57,22 @@ class MonoContrastTest {
         PairCheck("learning focus on its chip", { learningFocus }, { learningFocusContainer }),
         PairCheck("learning focus on raised", { learningFocus }, { elevated }),
         PairCheck("learning focus on the meaning panel", { learningFocus }, { surfaceAlt }),
+        // The learning-category hue also labels the "Reviewing" scheduling state, and
+        // that state's count is printed in it on the card.
+        PairCheck("learning focus on card", { learningFocus }, { card }),
+        // Blue is the navigation label's colour as well as the action colour, and the
+        // navigation bar sits on the background rather than on a card.
+        PairCheck("primary action on background", { primaryAction }, { background }),
+        // A filled accent button needs two values, and the ink is only legible on the
+        // fill it was chosen for. These are the four solid fills in the app: the
+        // review screen's rating buttons.
+        PairCheck("success label on the success fill", { onSuccess }, { success }),
+        PairCheck("error label on the error fill", { onError }, { error }),
+        PairCheck("vocabulary label on the vocabulary fill", { onVocabulary }, { vocabulary }),
+        // A tinted badge is a pale wash, so its ink is a deeper version of the same
+        // hue rather than the accent itself: the review card's scheduling badge.
+        PairCheck("success container label on the success container", { onSuccessContainer }, { successContainer }),
+        PairCheck("error container label on the error container", { onErrorContainer }, { errorContainer }),
     )
 
     @Test

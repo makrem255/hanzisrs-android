@@ -61,33 +61,18 @@ fun WelcomeScreen(
     ) {
         Spacer(modifier = Modifier.height(Dimens.xl))
 
-        // The mark, at the size the launcher draws it: the app's own artwork - the
-        // seal over the launcher's background - so the first thing on the screen is
-        // the same thing the learner tapped to get here.
-        //
-        // The two layers are loaded separately rather than as the adaptive icon
-        // itself, because an adaptive icon is neither a vector nor a bitmap and
-        // cannot be painted as one.
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .clip(RoundedCornerShape(24.dp))
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_launcher_background),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-            Image(
-                painter = painterResource(R.drawable.ic_hanzi_icon),
-                contentDescription = stringResource(R.string.welcome_logo_description),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(14.dp)
-            )
-        }
+        // The mark, at the size the launcher draws it: the app's own artwork, the
+        // same navy squircle with the cream brushstroke, the character, the sun,
+        // the mountains and the pavilion that the learner tapped to get here. It
+        // is the launcher icon's own artwork, shown whole so nothing in it is
+        // cropped, and it is a single local asset so it costs no network and
+        // works offline.
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_art),
+            contentDescription = stringResource(R.string.welcome_logo_description),
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(96.dp)
+        )
 
         Spacer(modifier = Modifier.height(Dimens.lg))
 

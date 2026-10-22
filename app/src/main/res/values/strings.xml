@@ -25,10 +25,10 @@
     <!-- The launcher icon, described for a screen reader that cannot see it. -->
     <string name="welcome_logo_description">HanziSRS app icon</string>
     <!--
-        The illustration is decorative, but a screen reader user is still told what
-        the screen is showing, so the description names it rather than staying silent.
+        The artwork is a picture, so it is described rather than left silent: a
+        screen reader user is told what the screen is showing.
     -->
-    <string name="welcome_illustration_description">Illustration of layered mountains and the Great Wall</string>
+    <string name="welcome_illustration_description">The Great Wall of China winding through misty mountains at sunrise, framed by cherry blossoms</string>
 
     <!--
         Contact.

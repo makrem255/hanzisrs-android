@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
@@ -353,42 +352,22 @@ internal fun accuracyLabel(today: DayActivity?): String {
  */
 internal const val NO_ACCURACY_GLYPH = "—"
 
-/** The streak, and whether it is alive. */
+/**
+ * The streak's state, not its size.
+ *
+ * The count and the flame live in one place - the compact indicator at the top of
+ * the home screen - so that the streak is read from a single number rather than
+ * from two of them in two different type sizes. What is left here is the
+ * information that number cannot carry: whether the streak is still alive today,
+ * how long the learner's best run was, and how many days they have shown up.
+ */
 @Composable
 internal fun StreakCard(snapshot: DashboardSnapshot) {
     val p = snapshot.progress
     AppCard(modifier = Modifier.testTag("dashboard_streak")) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(
-                icon = Icons.Default.LocalFireDepartment,
-                // Green for a streak that is alive: a streak is a positive learning
-                // state, and green is what this app calls that. A dead streak is
-                // grey, so the badge never claims a streak the learner does not
-                // have.
-                tint = if (p.currentStreakDays > 0) AppTheme.colors.success else AppTheme.colors.textSecondary,
-                background = (if (p.currentStreakDays > 0) AppTheme.colors.success else AppTheme.colors.textSecondary).copy(alpha = 0.14f),
-                size = 36.dp
-            )
-            Spacer(Modifier.width(Dimens.sm))
-            SectionHeader("Learning streak")
-        }
+        SectionHeader("Learning streak")
         VSpace(Dimens.md)
 
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = "${p.currentStreakDays}",
-                style = MaterialTheme.typography.displaySmall,
-                color = if (p.currentStreakDays > 0) AppTheme.colors.success else AppTheme.colors.textSecondary
-            )
-            Spacer(Modifier.width(Dimens.xs))
-            Text(
-                text = if (p.currentStreakDays == 1) "day" else "days",
-                style = MaterialTheme.typography.bodyMedium,
-                color = AppTheme.colors.textSecondary,
-                modifier = Modifier.padding(bottom = Dimens.sm)
-            )
-        }
-        VSpace(Dimens.xs)
         Text(
             text = when {
                 p.enrolled == 0 -> "No words yet"

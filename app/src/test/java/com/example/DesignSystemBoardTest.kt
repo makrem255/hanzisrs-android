@@ -43,6 +43,8 @@ import com.example.ui.components.SecondaryButton
 import com.example.ui.components.SegmentedSelector
 import com.example.ui.components.StatusDot
 import com.example.ui.components.StatusPill
+import com.example.ui.screens.HomeStatusRow
+import com.example.ui.screens.WelcomeScreen
 import com.example.ui.theme.AppTheme
 import com.example.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
@@ -92,6 +94,28 @@ class DesignSystemBoardTest {
         }
         composeTestRule.onRoot()
             .captureRoboImage(filePath = "src/test/screenshots/design-board-dark.png")
+    }
+
+    @Test
+    fun light_welcome_screen() {
+        composeTestRule.setContent {
+            MyApplicationTheme(themeMode = StorageValues.ThemeMode.LIGHT) {
+                WelcomeScreen(onGetStarted = {}, onLogIn = {})
+            }
+        }
+        composeTestRule.onRoot()
+            .captureRoboImage(filePath = "src/test/screenshots/welcome-screen-light.png")
+    }
+
+    @Test
+    fun dark_welcome_screen() {
+        composeTestRule.setContent {
+            MyApplicationTheme(themeMode = StorageValues.ThemeMode.DARK) {
+                WelcomeScreen(onGetStarted = {}, onLogIn = {})
+            }
+        }
+        composeTestRule.onRoot()
+            .captureRoboImage(filePath = "src/test/screenshots/welcome-screen-dark.png")
     }
 }
 
@@ -188,6 +212,9 @@ private fun Board() {
                 modifier = Modifier.fillMaxWidth()
             )
         }
+
+        Text("The compact home indicators", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
+        HomeStatusRow(totalXp = 1240, level = 3, streakDays = 5)
 
         Text("Navigation", style = MaterialTheme.typography.labelLarge, color = colors.textSecondary)
         NavigationBar(containerColor = colors.background, tonalElevation = 0.dp) {

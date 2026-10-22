@@ -22,7 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.School
@@ -48,10 +50,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.R
 import com.example.audio.PronunciationButton
 import com.example.audio.PronunciationRequest
 import com.example.data.model.WordWithSrs
@@ -67,6 +72,7 @@ import com.example.ui.theme.PinyinText
 import com.example.ui.viewmodel.DashboardUiState
 import com.example.ui.viewmodel.MainViewModel
 import com.example.ui.viewmodel.ProgressUiState
+import java.util.Locale
 
 /**
  * The Home destination: what to study today.
@@ -193,6 +199,22 @@ fun HomeScreen(
                         }
                     }
                 )
+            }
+
+            // The two things a learner glances at before anything else: what they have
+            // earned, and whether they are still coming back tomorrow. Both are read from
+            // state the screen is already collecting - the progress state and the
+            // dashboard snapshot - and neither is recomputed here.
+            val progressReady = progressState as? ProgressUiState.Ready
+            val dashboardReady = dashboardState as? DashboardUiState.Ready
+            if (progressReady != null || dashboardReady != null) {
+                item(key = "status_row") {
+                    HomeStatusRow(
+                        totalXp = progressReady?.progress?.level?.totalXp,
+                        level = progressReady?.progress?.level?.level,
+                        streakDays = dashboardReady?.snapshot?.progress?.currentStreakDays
+                    )
+                }
             }
 
             // The dashboard: the four questions - what to study, how much is due, how am I
@@ -386,6 +408,97 @@ fun HomeScreen(
         }
     }
 }
+
+/**
+ * The top information row: experience at the far left, streak at the far right.
+ *
+ * Both numbers are read from state the screen is already collecting and neither is
+ * computed here - the experience total and level come from the progress state, the
+ * streak from the dashboard snapshot. A side that has not arrived yet is left out
+ * rather than drawn as a zero: "0 XP" would be a claim about a learner who has
+ * earned some, and "0 days" would look like a broken streak rather than an
+ * unanswered one.
+ *
+ * The streak is a flame and the day count, not a card. It is a glance, not a
+ * destination, and the dashboard below already carries the streak's detail.
+ */
+@Composable
+internal fun HomeStatusRow(
+    totalXp: Int?,
+    level: Int?,
+    streakDays: Int?,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (totalXp != null) {
+            val formatted = formatExperience(totalXp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(
+                    icon = Icons.Default.Bolt,
+                    // The badge carries the spoken form, so the visible text beside
+                    // it is not read a second time.
+                    contentDescription = stringResource(
+                        R.string.home_xp_description,
+                        formatted,
+                        level ?: 1
+                    ),
+                    tint = AppTheme.colors.learningFocus,
+                    background = AppTheme.colors.learningFocus.copy(alpha = 0.14f),
+                    size = 30.dp,
+                    cornerRadius = 10.dp
+                )
+                Spacer(modifier = Modifier.width(Dimens.sm))
+                Text(
+                    text = stringResource(R.string.home_xp_label, formatted),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AppTheme.colors.textPrimary,
+                    modifier = Modifier.clearAndSetSemantics { }
+                )
+            }
+        }
+
+        if (streakDays != null) {
+            // One label, used twice: the number the learner reads and the phrase a
+            // screen reader says. Two spellings of the same thing is how "1 days"
+            // happens.
+            val label = if (streakDays == 1) {
+                stringResource(R.string.home_streak_label_one, streakDays)
+            } else {
+                stringResource(R.string.home_streak_label_many, streakDays)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.LocalFireDepartment,
+                    contentDescription = stringResource(R.string.home_streak_description, label),
+                    // Green for a streak, as the dashboard's streak card uses: a streak
+                    // is a positive learning state, and green is what this app calls
+                    // that.
+                    tint = AppTheme.colors.success,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(Dimens.xs))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = AppTheme.colors.textPrimary,
+                    modifier = Modifier.clearAndSetSemantics { }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * An experience total, grouped for reading.
+ *
+ * A six-figure total is unreadable without separators, and the row is small.
+ */
+internal fun formatExperience(totalXp: Int): String =
+    String.format(Locale.getDefault(), "%,d", totalXp.coerceAtLeast(0))
 
 @Composable
 private fun ProfileAvatar(

@@ -73,12 +73,36 @@ import com.example.R
 import com.example.ui.theme.AppTheme
 import com.example.ui.viewmodel.MainViewModel
 
+/**
+ * Which of the two existing forms the auth screen opens on.
+ *
+ * The screen has always had both, behind a toggle. The welcome screen in front of
+ * it chooses one before the form is ever shown, so the form opens on the tab the
+ * learner asked for instead of on the other one.
+ */
+enum class AuthMode { LOGIN, REGISTER }
+
+/**
+ * The mode a route argument names.
+ *
+ * The argument is a string because that is what a navigation route can carry; this
+ * is the one place that decides what a string means. Anything unrecognised is a
+ * login, which is the safer of the two defaults: an account that already exists
+ * cannot be signed into by a form that asks for a new one.
+ */
+fun authModeFromRoute(value: String?): AuthMode =
+    if (value.equals("register", ignoreCase = true)) AuthMode.REGISTER else AuthMode.LOGIN
+
 @Composable
 fun AuthScreen(
     viewModel: MainViewModel,
-    onAuthSuccess: () -> Unit
+    onAuthSuccess: () -> Unit,
+    initialMode: AuthMode = AuthMode.LOGIN
 ) {
-    var isRegisterMode by remember { mutableStateOf(false) }
+    // The mode the learner was sent to. `remember`, not `rememberSaveable`: the
+    // screen is created afresh for each attempt, and the toggle below is the
+    // learner's to move.
+    var isRegisterMode by remember { mutableStateOf(initialMode == AuthMode.REGISTER) }
     var inputMode by remember { mutableIntStateOf(0) } // 0 = Email, 1 = Phone Number
 
     // The keyboard's Next key has to be able to move between these fields. Declaring an

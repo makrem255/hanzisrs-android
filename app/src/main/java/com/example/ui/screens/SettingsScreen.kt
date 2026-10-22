@@ -1,6 +1,13 @@
 package com.example.ui.screens
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Notifications
@@ -37,9 +46,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -48,6 +61,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,11 +71,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.R
 import com.example.ui.components.MinTouchTarget
 import com.example.data.model.StorageValues
 import com.example.data.repository.UserRepository
@@ -71,6 +88,7 @@ import com.example.ui.components.SwitchRow
 import com.example.ui.components.rememberNotificationRequest
 import com.example.ui.theme.AppTheme
 import com.example.ui.viewmodel.MainViewModel
+import com.example.util.ContactEmail
 import com.example.util.plural
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,6 +118,54 @@ fun SettingsScreen(
     // and a `var` written in a lambda is local to that lambda — so the `AlertDialog` below
     // the column, which is what actually reads and writes it, could not see it.
     var confirmSignOut by rememberSaveable { mutableStateOf(false) }
+
+    // The contact section's feedback, and the snackbar it is shown in. One message at
+    // a time, through the same snackbar every other screen in the app uses.
+    var contactMessage by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val contactAddress = stringResource(R.string.contact_email)
+
+    LaunchedEffect(contactMessage) {
+        contactMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            contactMessage = null
+        }
+    }
+
+    // Open the learner's own mail app with the address already filled in.
+    //
+    // Nothing is sent. The intent opens a draft in whatever mail app the device
+    // has, and the learner writes and sends it themselves - an app that quietly
+    // sent mail on their behalf would be a different thing from this button.
+    val openEmailApp = {
+        val intent = ContactEmail.intentFor(contactAddress)
+        if (context !is Activity) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (noMailApp: ActivityNotFoundException) {
+            // A device with no mail app is a real device, not a failure of the app.
+            // Say so, and repeat the address so the learner can still reach it.
+            contactMessage = context.getString(R.string.contact_no_email_app, contactAddress)
+        }
+    }
+
+    // Copy the address, for a learner who would rather paste it into whatever they
+    // use. The system shows its own confirmation on Android 13 and above; the
+    // snackbar is the one for the versions that show nothing.
+    val copyEmailAddress = {
+        val clipboard = context.getSystemService(ClipboardManager::class.java)
+        if (clipboard != null) {
+            clipboard.setPrimaryClip(
+                ClipData.newPlainText("HanziSRS contact email", contactAddress)
+            )
+            contactMessage = context.getString(R.string.contact_copied)
+        } else {
+            contactMessage = context.getString(R.string.contact_copy_failed, contactAddress)
+        }
+    }
 
     // The permission check and the request live in `rememberNotificationRequest`, shared with
     // the home screen's bell. This screen had its own correct copy inline; the home screen had
@@ -134,6 +200,7 @@ fun SettingsScreen(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = AppTheme.colors.background)
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = AppTheme.colors.background
     ) { padding ->
         Column(
@@ -141,9 +208,16 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                // A little more room at the foot than at the head: the last control
+                // on the page is the one a thumb reaches for on the way out, and the
+                // navigation bar sits below it.
+                .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)
                 .testTag("profile_screen"),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            // A tighter rhythm than the 16dp the cards use inside themselves. The
+            // space between two cards is not the space between two things in a card,
+            // and using one number for both made the page read as a list of equal
+            // blocks rather than as groups.
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Group headers keep six full-width cards scannable: account, the daily
             // workload being learned, and the experience controls each read as one group.
@@ -224,7 +298,11 @@ fun SettingsScreen(
             Text(
                 text = "Learning",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppTheme.colors.textSecondary
+                color = AppTheme.colors.textSecondary,
+                // A group starts here, and the space above it says so. Without it
+                // a heading sits the same distance from the card above it as from
+                // the card below it, and the page reads as one long list.
+                modifier = Modifier.padding(top = 10.dp)
             )
             // Daily workload --------------------------------------------------------------------------------
             //
@@ -245,7 +323,7 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Tune, contentDescription = null, tint = AppTheme.colors.vocabulary)
                         Spacer(modifier = Modifier.width(10.dp))
@@ -263,7 +341,8 @@ fun SettingsScreen(
                         text = "How much the app offers you each day. Reviews come first; new " +
                             "words fill whatever room is left.",
                         fontSize = 12.sp,
-                        color = AppTheme.colors.textSecondary
+                        color = AppTheme.colors.textSecondary,
+                        lineHeight = 17.sp
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -296,7 +375,7 @@ fun SettingsScreen(
                             modifier = Modifier.testTag("daily_new_word_limit")
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         DailyLimitStepper(
                             label = "Reviews per day",
@@ -327,8 +406,6 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-
             // Daily Reminder Routine Notification Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -337,7 +414,7 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = AppTheme.colors.primaryAction)
                         Spacer(modifier = Modifier.width(10.dp))
@@ -354,10 +431,11 @@ fun SettingsScreen(
                     Text(
                         text = "Preview the alert shown when you choose to review. Scheduled daily reminders are not configured in this local-only version.",
                         fontSize = 12.sp,
-                        color = AppTheme.colors.textSecondary
+                        color = AppTheme.colors.textSecondary,
+                        lineHeight = 17.sp
                     )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // The whole row is the switch, not just the switch.
                     //
@@ -436,14 +514,14 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.RecordVoiceOver, contentDescription = null, tint = AppTheme.colors.learningFocus)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Mandarin Speech Synthesis (TTS)", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = AppTheme.colors.textPrimary)
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // The whole row is the switch. See the row above for why.
                     SwitchRow(
@@ -476,7 +554,8 @@ fun SettingsScreen(
             Text(
                 text = "Experience",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppTheme.colors.textSecondary
+                color = AppTheme.colors.textSecondary,
+                modifier = Modifier.padding(top = 10.dp)
             )
             // Interface sounds. Held apart from the synthesis card above because it is a
             // different control over a different thing: that one decides how words are spoken,
@@ -488,7 +567,7 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = AppTheme.colors.success)
                         Spacer(modifier = Modifier.width(10.dp))
@@ -503,10 +582,10 @@ fun SettingsScreen(
                             "your pronunciation audio.",
                         fontSize = 12.sp,
                         color = AppTheme.colors.textSecondary,
-                        lineHeight = 16.sp
+                        lineHeight = 17.sp
                     )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     // The whole row is the switch, as everywhere else in this screen.
                     SwitchRow(
@@ -546,7 +625,7 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Contrast,
@@ -569,10 +648,10 @@ fun SettingsScreen(
                             "Applies everywhere immediately and is remembered.",
                         fontSize = 12.sp,
                         color = AppTheme.colors.textSecondary,
-                        lineHeight = 16.sp
+                        lineHeight = 17.sp
                     )
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     SegmentedSelector(
                         options = StorageValues.ThemeMode.entries,
@@ -593,7 +672,8 @@ fun SettingsScreen(
             Text(
                 text = "AI",
                 style = MaterialTheme.typography.titleSmall,
-                color = AppTheme.colors.textSecondary
+                color = AppTheme.colors.textSecondary,
+                modifier = Modifier.padding(top = 10.dp)
             )
             // AI Model Configuration
             Card(
@@ -603,7 +683,7 @@ fun SettingsScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
-                Column(modifier = Modifier.padding(18.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = AppTheme.colors.vocabulary)
                         Spacer(modifier = Modifier.width(10.dp))
@@ -616,8 +696,98 @@ fun SettingsScreen(
                         text = "Generates editable word details when a Gemini key is configured; otherwise, the app uses its built-in starter dictionary and character fallback.",
                         fontSize = 12.sp,
                         color = AppTheme.colors.textSecondary,
-                        lineHeight = 16.sp
+                        lineHeight = 17.sp
                     )
+                }
+            }
+
+            // Contact.
+            //
+            // Where to write to the people who made this app. The address is a real
+            // thing a learner can act on - it opens their own mail app, or copies
+            // for pasting somewhere else - rather than a line of text that only says
+            // where to write.
+            Text(
+                text = "Contact",
+                style = MaterialTheme.typography.titleSmall,
+                color = AppTheme.colors.textSecondary,
+                modifier = Modifier.padding(top = 10.dp)
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = AppTheme.colors.card),
+                border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Email,
+                            contentDescription = null,
+                            tint = AppTheme.colors.primaryAction
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = stringResource(R.string.contact_title),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppTheme.colors.textPrimary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = stringResource(R.string.contact_supporting),
+                        fontSize = 12.sp,
+                        color = AppTheme.colors.textSecondary,
+                        lineHeight = 17.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // The whole row is the email action, and the copy control is
+                    // inside it rather than beside it: the two are about the same
+                    // address, and a learner looking for one of them is looking at
+                    // the address.
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AppTheme.colors.surfaceAlt)
+                            .clickable(onClick = openEmailApp)
+                            .padding(start = 12.dp, end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = contactAddress,
+                                fontSize = 14.sp,
+                                color = AppTheme.colors.textPrimary
+                            )
+                            Text(
+                                text = stringResource(R.string.contact_send_email_hint),
+                                fontSize = 11.sp,
+                                color = AppTheme.colors.textSecondary
+                            )
+                        }
+                        IconButton(
+                            onClick = copyEmailAddress,
+                            modifier = Modifier.testTag("copy_contact_email")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = stringResource(R.string.contact_copy_email),
+                                tint = AppTheme.colors.primaryAction,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
 

@@ -45,10 +45,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.screens.AddWordScreen
 import com.example.ui.screens.AuthScreen
@@ -58,6 +60,8 @@ import com.example.ui.screens.ProgressScreen
 import com.example.ui.screens.RandomReviewScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SwipeDeckReviewScreen
+import com.example.ui.screens.WelcomeScreen
+import com.example.ui.screens.authModeFromRoute
 import com.example.ui.theme.AppTheme
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
@@ -109,6 +113,15 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
     object Deck : Screen("deck", "Review", {})
 
     /**
+     * The front door.
+     *
+     * Shown to a learner with no session, and only to them: it is the one screen
+     * that exists to be looked at before there is anything to look at. It chooses
+     * which of the two existing auth forms to open and does nothing else.
+     */
+    object Welcome : Screen("welcome", "Welcome", {})
+
+    /**
      * Open practice, deliberately not in the bottom bar.
      *
      * It is an alternative to a graded sitting rather than a fourth place to be, and adding it to
@@ -117,8 +130,36 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
      * the same reason the rail has no entry for it.
      */
     object RandomReview : Screen("random_review", "Practice", {})
-    object Auth : Screen("auth", "Auth", {})
+
+    /**
+     * The sign-in and sign-up form.
+     *
+     * The route carries an optional `mode`, because the welcome screen in front of
+     * it chooses which of the two forms to open. The argument has a default, so the
+     * bare route still resolves - to a sign-in form, which is the safe default for
+     * an account that already exists.
+     */
+    object Auth : Screen("auth", "Auth", {}) {
+        /** The destination's full pattern, with the optional mode argument. */
+        const val PATTERN: String = "auth?mode={mode}"
+
+        /** A concrete destination in that pattern, for [mode]. */
+        fun routeFor(mode: String): String = "auth?mode=$mode"
+    }
 }
+
+/**
+ * Whether the welcome screen is what the learner should be looking at.
+ *
+ * One rule, in one place, so the two places that ask it - the redirect and the
+ * guard that keeps the home screen from flashing before the redirect - cannot
+ * disagree. A signed-in learner never sees it, and a learner whose session has
+ * not been read yet is not sent to it either: showing the front door while the
+ * app is still finding out whether there is a session would flash the wrong
+ * screen at every launch.
+ */
+internal fun shouldShowWelcome(sessionRestored: Boolean, signedIn: Boolean): Boolean =
+    sessionRestored && !signedIn
 
 /**
  * The easing every screen change in the app shares.
@@ -148,8 +189,14 @@ fun MainAppContainer(
     // a learner who is still signed in, and what stops the `popUpTo(0)` below from destroying
     // the back stack before restoration has had a chance to answer.
     LaunchedEffect(sessionRestored, currentUser) {
-        if (sessionRestored && currentUser == null) {
-            navController.navigate(Screen.Auth.route) {
+        if (shouldShowWelcome(sessionRestored, currentUser != null) &&
+            currentRoute != Screen.Welcome.route
+        ) {
+            // The front door, for a learner with no session. The whole stack is
+            // cleared first: there is nothing behind the welcome screen worth
+            // going back to, and a half-built stack is what makes a back press
+            // land somewhere meaningless.
+            navController.navigate(Screen.Welcome.route) {
                 popUpTo(0) { inclusive = true }
             }
         }
@@ -258,7 +305,13 @@ fun MainAppContainer(
         // learner who is not signed in, and for a learner who is, it would show the loading
         // states of queries that are about to succeed. A blank surface for the few milliseconds
         // a local SQLite lookup takes is the honest one.
-        if (!sessionRestored) {
+        //
+        // The same blank covers the moment after the answer, while the redirect to the
+        // welcome screen is still in flight. The home screen is the graph's start
+        // destination, so without this the learner without a session would see the
+        // dashboard for a frame before the front door replaced it.
+        val signedOut = currentUser == null
+        if (!sessionRestored || (signedOut && currentRoute == Screen.Home.route)) {
             Box(Modifier.fillMaxSize().background(AppTheme.colors.background))
             return@Scaffold
         }
@@ -292,12 +345,38 @@ fun MainAppContainer(
                     slideOutHorizontally(tween(260, easing = NavEase)) { it / 6 }
             }
         ) {
-            composable(Screen.Auth.route) {
+            composable(Screen.Welcome.route) {
+                WelcomeScreen(
+                    // Both buttons open the existing form, on the tab the learner
+                    // asked for. No account is created and no credential is asked
+                    // for here: the screen only chooses which form to open.
+                    onGetStarted = {
+                        navController.navigate(Screen.Auth.routeFor("register"))
+                    },
+                    onLogIn = {
+                        navController.navigate(Screen.Auth.routeFor("login"))
+                    }
+                )
+            }
+
+            composable(
+                route = Screen.Auth.PATTERN,
+                arguments = listOf(
+                    navArgument("mode") {
+                        type = NavType.StringType
+                        defaultValue = "login"
+                    }
+                )
+            ) { entry ->
                 AuthScreen(
                     viewModel = viewModel,
+                    initialMode = authModeFromRoute(entry.arguments?.getString("mode")),
                     onAuthSuccess = {
+                        // Everything up to and including the welcome screen goes:
+                        // a signed-in learner must not be able to press back into
+                        // the front door.
                         navController.navigate(Screen.Home.route) {
-                            popUpTo(Screen.Auth.route) { inclusive = true }
+                            popUpTo(Screen.Welcome.route) { inclusive = true }
                         }
                     }
                 )

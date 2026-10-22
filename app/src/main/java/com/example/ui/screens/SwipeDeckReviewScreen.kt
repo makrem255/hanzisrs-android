@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -331,6 +332,14 @@ fun SwipeDeckReviewScreen(
             ) {
                 val shortViewport = maxHeight < 520.dp
                 val glyphSize = if (shortViewport) 36.sp else 56.sp
+
+                // The rating row used to sit on the very bottom of the screen, hard
+                // against the navigation bar, with the card squeezed above it. That
+                // is the furthest reach on the phone and the least comfortable place
+                // for the one gesture a sitting is made of, so the row is lifted into
+                // the lower quarter of the screen and the space it vacates goes back
+                // to the card.
+                val ratingLift = ratingLiftFor(maxHeight, shortViewport)
 
                 Column(
                     modifier = Modifier
@@ -940,12 +949,37 @@ fun SwipeDeckReviewScreen(
                         onClick = { viewModel.submitRating(currentWordWithSrs, SrsRating.EASY) }
                     )
                 }   // the four-button Row
+
+                // The gap that lifts the row out of the bottom edge. It comes after
+                // the buttons, so the space is taken from the card above rather than
+                // from the bottom of the screen: the card is scrollable, the row is
+                // not, and the row is the part a finger has to reach.
+                Spacer(modifier = Modifier.height(ratingLift))
             }       // `if (isFlipped)`: no rating buttons before the answer is revealed
         }           // the deck Column
     }               // BoxWithConstraints
 }                   // `else` branch of the three-state guard
 }                   // the Scaffold content lambda
 }                   // SwipeDeckReviewScreen
+
+/**
+ * How far the rating row is lifted out of the bottom edge.
+ *
+ * A fraction of the height actually available rather than a fixed number of dp, so
+ * it cannot push the buttons off a small screen or flatten the card in landscape.
+ * On a short viewport - landscape, or a small phone - there is no room to give
+ * away and the row stays where it was.
+ *
+ * The cap matters on a tablet and in landscape on a large phone: a lift of a
+ * fifth of a very tall screen would leave a band of empty space under the buttons
+ * that read as a mistake rather than as breathing room.
+ */
+internal fun ratingLiftFor(maxHeight: Dp, shortViewport: Boolean): Dp =
+    if (shortViewport) {
+        0.dp
+    } else {
+        (maxHeight * 0.15f).coerceAtMost(110.dp)
+    }
 
 @Composable
 private fun SrsRatingButton(

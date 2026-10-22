@@ -11,5 +11,54 @@
 
     <!-- The name shown inside the app, alongside the learner's name. -->
     <string name="app_title">HanziSRS</string>
+
+    <!--
+        The welcome screen.
+
+        The screen a learner meets before they have an account. It exists so the first
+        thing they see is the product rather than a form: the name, the promise, and
+        two ways in.
+    -->
+    <string name="welcome_tagline">Master Chinese, one step at a time.</string>
+    <string name="welcome_get_started">Get Started</string>
+    <string name="welcome_log_in">Log In</string>
+    <!-- The launcher icon, described for a screen reader that cannot see it. -->
+    <string name="welcome_logo_description">HanziSRS app icon</string>
+    <!--
+        The illustration is decorative, but a screen reader user is still told what
+        the screen is showing, so the description names it rather than staying silent.
+    -->
+    <string name="welcome_illustration_description">Illustration of layered mountains and the Great Wall</string>
+
+    <!--
+        Contact.
+
+        One address, in one place, so "where do I write to you" has an answer on the
+        screen instead of only in the store listing.
+    -->
+    <string name="contact_email">makrembensalem2008@gmail.com</string>
+    <string name="contact_title">Contact</string>
+    <string name="contact_supporting">Questions, feedback, or something not working? Write to us.</string>
+    <string name="contact_send_email_hint">Tap to open your mail app</string>
+    <string name="contact_copy_email">Copy address</string>
+    <string name="contact_copied">Email address copied</string>
+    <string name="contact_copy_failed">Could not copy the address. It is %1$s</string>
+    <!--
+        Shown when the device has no app that can send mail. The address is repeated
+        in the message so the learner can still reach it by hand.
+    -->
+    <string name="contact_no_email_app">No email app on this device. The address is %1$s</string>
+
+    <!--
+        The home screen's compact indicators.
+
+        The visible label and the spoken one are separate strings: a screen reader
+        should hear "Experience: 1,240 points, level 3", not "1,240 XP".
+    -->
+    <string name="home_xp_label">%1$s XP</string>
+    <string name="home_xp_description">Experience: %1$s points, level %2$d</string>
+    <string name="home_streak_label_one">%1$d day</string>
+    <string name="home_streak_label_many">%1$d days</string>
+    <string name="home_streak_description">Streak: %1$s</string>
 </resources>
 

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The adaptive icon's background layer: the navy of the reference artwork.
+
+    Sampled from the reference itself (its top and bottom edges), so the
+    artwork's own background and this layer are the same colour and the
+    foreground's edge does not show as a seam. It is a separate resource from
+    ic_launcher_background because the welcome screen draws that one behind the
+    app's mark, and the two must not change each other.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <!--
+                The gradient runs between 21 and 87 - exactly where the 66dp
+                foreground sits in the 108dp canvas - and clamps outside it, so
+                the artwork's own top and bottom colours continue to the edges
+                of the canvas. The foreground's gradient and this one therefore
+                describe the same ramp over the same area, and the edge of the
+                artwork does not show as a seam.
+            -->
+            <gradient
+                android:endX="108"
+                android:endY="87"
+                android:startX="0"
+                android:startY="21"
+                android:type="linear">
+                <item
+                    android:color="#0B3060"
+                    android:offset="0.0" />
+                <item
+                    android:color="#001330"
+                    android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

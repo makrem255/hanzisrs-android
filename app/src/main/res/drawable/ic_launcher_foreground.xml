@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The adaptive icon's foreground layer: the reference artwork.
+
+    66dp of the 108dp canvas, centred, which is Android's safe area: the sun,
+    the mountains, the pavilion and its lantern all sit inside it, so no
+    launcher mask - circular, squircle or rounded square - cuts them off.
+-->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/ic_hanzi_icon"
+        android:drawable="@drawable/ic_launcher_art"
         android:gravity="center" />
 </layer-list>
-

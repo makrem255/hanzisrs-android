@@ -18,6 +18,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -59,7 +61,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.audio.PronunciationButton
@@ -785,6 +789,18 @@ private fun WordCard(
             vertical = Dimens.xl,
         ),
     ) {
+        // Accent stripe: ties the card to the primary action / success state.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                .background(
+                    if (revealed) AppTheme.colors.success else AppTheme.colors.primaryAction
+                ),
+        )
+        Spacer(Modifier.height(Dimens.md))
+
         // Header row: state pill on the left, level badge on the right.
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -834,12 +850,23 @@ private fun WordCard(
                 .padding(vertical = Dimens.md),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = word.hanzi,
-                style = HanziHero,
-                color = hanziColor,
-                textAlign = TextAlign.Center,
-            )
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(
+                        (if (revealed) AppTheme.colors.success else AppTheme.colors.primaryAction)
+                            .copy(alpha = 0.08f)
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = word.hanzi,
+                    style = HanziHero,
+                    color = hanziColor,
+                    textAlign = TextAlign.Center,
+                )
+            }
         }
 
         Spacer(Modifier.height(Dimens.lg))

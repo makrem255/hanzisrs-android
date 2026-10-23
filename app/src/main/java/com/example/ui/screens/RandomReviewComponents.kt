@@ -133,8 +133,24 @@ fun AnimatedMicButton(
         label = "micScale"
     )
 
+    // Gentle idle pulse to invite the first tap. The transition always runs (Compose
+    // requires unconditional hook calls) but the value is only applied when idle.
+    val idleTransition = rememberInfiniteTransition(label = "micIdlePulse")
+    val idlePulseRaw by idleTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = androidx.compose.animation.core.LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "micIdlePulseAlpha",
+    )
+    val idlePulse = if (listening || !enabled) 1f else idlePulseRaw
+
     Box(
-        modifier = modifier.size(MIC_ORB_SIZE),
+        modifier = modifier
+            .size(MIC_ORB_SIZE)
+            .scale(idlePulse),
         contentAlignment = Alignment.Center
     ) {
         if (listening && enabled) {

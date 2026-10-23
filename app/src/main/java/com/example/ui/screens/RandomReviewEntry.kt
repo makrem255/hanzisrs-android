@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.HelpOutline
@@ -92,7 +94,7 @@ fun RandomReviewEntry(
     ) {
         Text(
             text = "Random Review",
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineLarge,
             color = AppTheme.colors.textPrimary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
@@ -104,6 +106,14 @@ fun RandomReviewEntry(
             color = AppTheme.colors.textSecondary,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(Dimens.xs))
+        Box(
+            modifier = Modifier
+                .width(64.dp)
+                .height(4.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp))
+                .background(AppTheme.colors.primaryAction),
         )
 
         Spacer(Modifier.height(Dimens.xl))
@@ -380,6 +390,15 @@ fun SelectionAnimation(
             .padding(Dimens.lg),
         contentAlignment = Alignment.Center,
     ) {
+        val framePulse by rememberInfiniteTransition(label = "framePulse").animateFloat(
+            initialValue = 0.25f,
+            targetValue = 0.55f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1600, easing = LinearEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "framePulseAlpha",
+        )
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.72f)
@@ -388,7 +407,7 @@ fun SelectionAnimation(
                 .background(AppTheme.colors.textPrimary.copy(alpha = 0.06f))
                 .border(
                     width = 2.dp,
-                    color = AppTheme.colors.textPrimary.copy(alpha = 0.35f),
+                    color = AppTheme.colors.textPrimary.copy(alpha = framePulse),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                 ),
             contentAlignment = Alignment.Center,

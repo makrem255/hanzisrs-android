@@ -222,7 +222,14 @@ fun MainAppContainer(
     // Direct access to Random Review from the bar, while keeping the bar hidden
     // during the immersive practice itself (random_review is NOT in
     // bottomNavScreens, so showBottomNav is false on that route).
-    val navBarItems = bottomNavScreens + Screen.RandomReview
+    // Practice sits in the centre of the five items.
+    val navBarItems = listOf(
+        Screen.Home,
+        Screen.Learn,
+        Screen.RandomReview,
+        Screen.Progress,
+        Screen.Profile,
+    )
 
     val showBottomNav = currentRoute in bottomNavScreens.map { it.route }
 
@@ -404,7 +411,6 @@ fun MainAppContainer(
                     onNavigateToLibrary = { navController.navigate(Screen.Learn.route) },
                     onNavigateToProgress = { navController.navigate(Screen.Progress.route) },
                     onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
-                    onNavigateToRandomReview = { navController.navigate(Screen.RandomReview.route) }
                 )
             }
 

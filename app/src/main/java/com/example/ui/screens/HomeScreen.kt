@@ -89,8 +89,7 @@ fun HomeScreen(
     onNavigateToAddWord: () -> Unit,
     onNavigateToLibrary: () -> Unit,
     onNavigateToProgress: () -> Unit,
-    onNavigateToProfile: () -> Unit,
-    onNavigateToRandomReview: () -> Unit
+    onNavigateToProfile: () -> Unit
 ) {
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
     val allWords by viewModel.userWords.collectAsStateWithLifecycle()
@@ -261,44 +260,6 @@ fun HomeScreen(
                 }
             }
 
-            // Practice sits directly under the day's work and above the navigation grid:
-            // after "what do I owe today" comes "what else can I do", and only then the
-            // four destinations - which duplicate the bottom bar and therefore rank lower.
-            item(key = "random_review") {
-                AppCard(
-                    onClick = onNavigateToRandomReview,
-                    contentPadding = PaddingValues(Dimens.md),
-                    modifier = Modifier.testTag("random_review_entry")
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconBadge(
-                            icon = Icons.Default.Shuffle,
-                            tint = AppTheme.colors.textPrimary,
-                            background = AppTheme.colors.textPrimary.copy(alpha = 0.14f),
-                            size = 34.dp,
-                            cornerRadius = 11.dp
-                        )
-                        Spacer(Modifier.width(Dimens.md))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                text = "Random Review",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = AppTheme.colors.textPrimary
-                            )
-                            Text(
-                                text = "Open practice · nothing gets rescheduled",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = AppTheme.colors.textSecondary
-                            )
-                        }
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = AppTheme.colors.textSecondary
-                        )
-                    }
-                }
-            }
 
             item(key = "quick_actions") {
                 Column(verticalArrangement = Arrangement.spacedBy(Dimens.md)) {

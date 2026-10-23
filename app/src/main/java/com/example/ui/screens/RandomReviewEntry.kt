@@ -385,10 +385,10 @@ fun SelectionAnimation(
                 .fillMaxWidth(0.72f)
                 .height(160.dp)
                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
-                .background(Color.White.copy(alpha = 0.06f))
+                .background(AppTheme.colors.textPrimary.copy(alpha = 0.06f))
                 .border(
                     width = 2.dp,
-                    color = Color.White.copy(alpha = 0.35f),
+                    color = AppTheme.colors.textPrimary.copy(alpha = 0.35f),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                 ),
             contentAlignment = Alignment.Center,

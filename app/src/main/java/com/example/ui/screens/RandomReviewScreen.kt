@@ -782,7 +782,7 @@ private fun WordCard(
         else AppTheme.colors.primaryAction.copy(alpha = 0.25f),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             horizontal = Dimens.xl,
-            vertical = Dimens.xxl,
+            vertical = Dimens.xl,
         ),
     ) {
         // Header row: state pill on the left, level badge on the right.
@@ -824,7 +824,7 @@ private fun WordCard(
             }
         }
 
-        Spacer(Modifier.height(Dimens.xl))
+        Spacer(Modifier.height(Dimens.lg))
 
         // The character is the focal point: centred, generous vertical room, and a
         // subtle accent halo behind it so it reads as the thing to look at.

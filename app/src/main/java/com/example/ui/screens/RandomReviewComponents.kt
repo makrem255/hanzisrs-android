@@ -284,7 +284,7 @@ fun MetaChip(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(AppTheme.colors.card)
+            .background(AppTheme.colors.elevated)
             .padding(horizontal = Dimens.md, vertical = Dimens.xs),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -18,6 +18,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +41,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -776,41 +778,69 @@ private fun WordCard(
     AppCard(
         modifier = Modifier.fillMaxWidth().testTag("random_review_card"),
         containerColor = AppTheme.colors.card,
-        borderColor = AppTheme.colors.border,
+        borderColor = if (revealed) AppTheme.colors.success.copy(alpha = 0.45f)
+        else AppTheme.colors.primaryAction.copy(alpha = 0.25f),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(
             horizontal = Dimens.xl,
             vertical = Dimens.xxl,
         ),
     ) {
+        // Header row: state pill on the left, level badge on the right.
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = if (revealed) "ANSWER" else "SAY IT OUT LOUD",
-                style = MaterialTheme.typography.labelSmall,
-                color = if (revealed) AppTheme.colors.success else AppTheme.colors.textPrimary,
-            )
+            Surface(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                color = if (revealed) AppTheme.colors.success.copy(alpha = 0.14f)
+                else AppTheme.colors.primaryAction.copy(alpha = 0.12f),
+            ) {
+                Text(
+                    text = if (revealed) "ANSWER" else "SAY IT OUT LOUD",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (revealed) AppTheme.colors.success else AppTheme.colors.primaryAction,
+                    modifier = Modifier.padding(horizontal = Dimens.sm, vertical = Dimens.xxs),
+                )
+            }
             Spacer(Modifier.weight(1f))
-            Text(
-                text = if (word.hskLevel > 0) "HSK ${word.hskLevel}" else word.radical,
-                style = MaterialTheme.typography.labelSmall,
-                // Purple for the level, as on the library row and the review card.
-                color = AppTheme.colors.learningFocus,
-            )
+            if (word.hskLevel > 0) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(50),
+                    color = AppTheme.colors.learningFocus.copy(alpha = 0.14f),
+                ) {
+                    Text(
+                        text = "HSK ${word.hskLevel}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AppTheme.colors.learningFocus,
+                        modifier = Modifier.padding(horizontal = Dimens.sm, vertical = Dimens.xxs),
+                    )
+                }
+            } else if (word.radical.isNotBlank()) {
+                Text(
+                    text = word.radical,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppTheme.colors.textSecondary,
+                )
+            }
         }
 
         Spacer(Modifier.height(Dimens.xl))
 
-        Text(
-            text = word.hanzi,
-            style = HanziHero,
-            color = hanziColor,
-            textAlign = TextAlign.Center,
+        // The character is the focal point: centred, generous vertical room, and a
+        // subtle accent halo behind it so it reads as the thing to look at.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = Dimens.sm),
-        )
+                .padding(vertical = Dimens.md),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = word.hanzi,
+                style = HanziHero,
+                color = hanziColor,
+                textAlign = TextAlign.Center,
+            )
+        }
 
         Spacer(Modifier.height(Dimens.lg))
 

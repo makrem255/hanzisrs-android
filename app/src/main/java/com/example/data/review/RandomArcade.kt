@@ -115,20 +115,20 @@ value class WheelColor(val argb: Int)
 /** The fifteen wheel backgrounds: charcoal greys in ascending steps. */
 val SELECTION_PALETTE: List<WheelColor> = listOf(
     WheelColor(0xFF101010.toInt()),
-    WheelColor(0xFF161616.toInt()),
+    WheelColor(0xFF1A2332.toInt()),
     WheelColor(0xFF1C1C1C.toInt()),
-    WheelColor(0xFF212121.toInt()),
+    WheelColor(0xFF221A12.toInt()),
     WheelColor(0xFF262626.toInt()),
+    WheelColor(0xFF1E1A2E.toInt()),
     WheelColor(0xFF2B2B2B.toInt()),
+    WheelColor(0xFF15201A.toInt()),
     WheelColor(0xFF303030.toInt()),
+    WheelColor(0xFF23233A.toInt()),
     WheelColor(0xFF343434.toInt()),
+    WheelColor(0xFF2A1F15.toInt()),
     WheelColor(0xFF383838.toInt()),
+    WheelColor(0xFF1F2A2A.toInt()),
     WheelColor(0xFF3C3C3C.toInt()),
-    WheelColor(0xFF404040.toInt()),
-    WheelColor(0xFF444444.toInt()),
-    WheelColor(0xFF484848.toInt()),
-    WheelColor(0xFF4B4B4B.toInt()),
-    WheelColor(0xFF4E4E4E.toInt()),
 ).also {
     check(it.size == 15) { "the wheel palette must hold exactly 15 entries, found ${it.size}" }
 }

@@ -102,8 +102,8 @@ fun RevealItem(
     ) { content() }
 }
 
-private val MIC_ORB_SIZE = 132.dp
-private val MIC_CORE_SIZE = 84.dp
+private val MIC_ORB_SIZE = 148.dp
+private val MIC_CORE_SIZE = 96.dp
 
 /**
  * The microphone, and the ripple it makes while listening.
@@ -142,8 +142,9 @@ fun AnimatedMicButton(
         }
         Surface(
             shape = CircleShape,
-            color = if (listening) tint else AppTheme.colors.elevated,
-            border = BorderStroke(1.dp, if (listening) tint else AppTheme.colors.borderSubtle),
+            color = if (listening) tint else AppTheme.colors.primaryActionContainer,
+            border = BorderStroke(2.dp, if (listening) tint else AppTheme.colors.primaryAction.copy(alpha = 0.55f)),
+            shadowElevation = if (listening) 0.dp else 6.dp,
             modifier = Modifier
                 .size(MIC_CORE_SIZE)
                 .scale(scale)
@@ -154,8 +155,8 @@ fun AnimatedMicButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = contentDescription,
-                    tint = if (listening) AppTheme.colors.onPrimaryAction else tint,
-                    modifier = Modifier.size(30.dp)
+                    tint = if (listening) AppTheme.colors.onPrimaryAction else AppTheme.colors.primaryAction,
+                    modifier = Modifier.size(36.dp)
                 )
             }
         }
@@ -224,9 +225,9 @@ fun RecognisedBadge(modifier: Modifier = Modifier) {
             icon = Icons.Default.CheckCircle,
             contentDescription = "Recognised",
             tint = AppTheme.colors.success,
-            background = AppTheme.colors.success.copy(alpha = 0.16f),
-            size = 48.dp,
-            cornerRadius = 24.dp
+            background = AppTheme.colors.success.copy(alpha = 0.18f),
+            size = 56.dp,
+            cornerRadius = 28.dp
         )
     }
 }

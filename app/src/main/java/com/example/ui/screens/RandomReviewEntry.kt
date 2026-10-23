@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -121,7 +123,7 @@ fun RandomReviewEntry(
             enabled = wordsLoaded,
             leadingIcon = Icons.Default.PlayArrow,
             modifier = Modifier
-                .fillMaxWidth(0.72f)
+                .fillMaxWidth()
                 .testTag("random_review_start"),
         )
 
@@ -378,6 +380,19 @@ fun SelectionAnimation(
             .padding(Dimens.lg),
         contentAlignment = Alignment.Center,
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.72f)
+                .height(160.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
+                .background(Color.White.copy(alpha = 0.06f))
+                .border(
+                    width = 2.dp,
+                    color = Color.White.copy(alpha = 0.35f),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
         AnimatedContent(
             targetState = stepIndex,
             transitionSpec = { fadeIn(tween(110)) togetherWith fadeOut(tween(110)) },
@@ -390,6 +405,7 @@ fun SelectionAnimation(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
         }
     }
 }

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.School
+import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -129,7 +130,7 @@ sealed class Screen(val route: String, val title: String, val icon: @Composable 
      * what "Review" already does. Reached from Home, like "Review" is, and left off the rail for
      * the same reason the rail has no entry for it.
      */
-    object RandomReview : Screen("random_review", "Practice", {})
+    object RandomReview : Screen("random_review", "Practice", { Icon(Icons.Default.SportsEsports, contentDescription = "Practice") })
 
     /**
      * The sign-in and sign-up form.
@@ -218,6 +219,11 @@ fun MainAppContainer(
         Screen.Profile
     )
 
+    // Direct access to Random Review from the bar, while keeping the bar hidden
+    // during the immersive practice itself (random_review is NOT in
+    // bottomNavScreens, so showBottomNav is false on that route).
+    val navBarItems = bottomNavScreens + Screen.RandomReview
+
     val showBottomNav = currentRoute in bottomNavScreens.map { it.route }
 
     Scaffold(
@@ -238,7 +244,7 @@ fun MainAppContainer(
                         contentColor = AppTheme.colors.textPrimary,
                         tonalElevation = 0.dp
                     ) {
-                        bottomNavScreens.forEach { screen ->
+                        navBarItems.forEach { screen ->
                             val isSelected = currentRoute == screen.route
                             NavigationBarItem(
                                 selected = isSelected,

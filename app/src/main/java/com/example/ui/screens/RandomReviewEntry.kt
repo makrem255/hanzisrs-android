@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -31,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -161,7 +165,7 @@ fun RandomReviewEntry(
             )
 
             words.size < RANDOM_REVIEW_MIN_VOCABULARY -> AppCard(
-                containerColor = AppTheme.colors.card,
+                containerColor = AppTheme.colors.elevated,
                 borderColor = AppTheme.colors.border,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -248,6 +252,21 @@ private fun VocabStrip(
                 )
             }
         }
+        // Edge fade: text fades out at both edges instead of clipping abruptly.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colorStops = arrayOf(
+                            0f to AppTheme.colors.background,
+                            0.1f to Color.Transparent,
+                            0.9f to Color.Transparent,
+                            1f to AppTheme.colors.background,
+                        ),
+                    )
+                )
+        )
     }
 }
 
@@ -386,11 +405,29 @@ fun SelectionAnimation(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(background)
+            .background(AppTheme.colors.background)
             .padding(Dimens.lg),
         contentAlignment = Alignment.Center,
     ) {
-        val framePulse by rememberInfiniteTransition(label = "framePulse").animateFloat(
+        // Wheel card: large, visually distinctive container. The app background
+        // remains visible around it.
+        Surface(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            color = AppTheme.colors.card,
+            border = androidx.compose.foundation.BorderStroke(1.dp, AppTheme.colors.border),
+            shadowElevation = if (AppTheme.colors.background == Color.Black) 0.dp else 4.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .heightIn(min = 200.dp, max = 280.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(Dimens.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                val framePulse by rememberInfiniteTransition(label = "framePulse").animateFloat(
             initialValue = 0.25f,
             targetValue = 0.55f,
             animationSpec = infiniteRepeatable(
@@ -404,7 +441,7 @@ fun SelectionAnimation(
                 .fillMaxWidth(0.72f)
                 .height(160.dp)
                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
-                .background(AppTheme.colors.textPrimary.copy(alpha = 0.06f))
+                .background(background)
                 .border(
                     width = 2.dp,
                     color = AppTheme.colors.textPrimary.copy(alpha = framePulse),
@@ -425,6 +462,8 @@ fun SelectionAnimation(
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+        }
+            }
         }
     }
 }

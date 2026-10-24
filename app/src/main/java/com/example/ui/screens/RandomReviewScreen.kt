@@ -692,9 +692,14 @@ private fun DuelControls(
         onClick = onListen,
         modifier = Modifier.testTag("random_review_listen"),
         listening = listening,
+        processing = processing,
         enabled = micEnabled,
         icon = Icons.Default.Mic,
-        contentDescription = "Say the word out loud",
+        contentDescription = when {
+            processing -> "Processing speech"
+            listening -> "Listening"
+            else -> "Say the word out loud"
+        },
     )
     Spacer(Modifier.height(Dimens.md))
     Text(

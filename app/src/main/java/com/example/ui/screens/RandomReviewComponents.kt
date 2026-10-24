@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -50,6 +51,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -122,6 +126,7 @@ fun AnimatedMicButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     listening: Boolean = false,
+    processing: Boolean = false,
     enabled: Boolean = true,
     icon: ImageVector,
     contentDescription: String,
@@ -145,8 +150,9 @@ fun AnimatedMicButton(
         ),
         label = "micIdlePulseAlpha",
     )
-    val idlePulse = if (listening || !enabled) 1f else idlePulseRaw
+    val idlePulse = if (listening || processing || !enabled) 1f else idlePulseRaw
 
+    val micContentDescription = contentDescription
     Box(
         modifier = modifier
             .size(MIC_ORB_SIZE)
@@ -158,22 +164,33 @@ fun AnimatedMicButton(
         }
         Surface(
             shape = CircleShape,
-            color = if (listening) tint else AppTheme.colors.primaryActionContainer,
-            border = BorderStroke(2.dp, if (listening) tint else AppTheme.colors.primaryAction.copy(alpha = 0.55f)),
-            shadowElevation = if (listening) 0.dp else 6.dp,
+            color = if (listening) tint else if (processing) AppTheme.colors.elevated else AppTheme.colors.primaryActionContainer,
+            border = BorderStroke(2.dp, if (listening) tint else if (processing) AppTheme.colors.textSecondary else AppTheme.colors.primaryAction.copy(alpha = 0.55f)),
+            shadowElevation = if (listening || processing) 0.dp else 6.dp,
             modifier = Modifier
                 .size(MIC_CORE_SIZE)
                 .scale(scale)
                 .clip(CircleShape)
+                .semantics { this.contentDescription = micContentDescription }
                 .clickable(enabled = enabled, onClick = onClick)
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = contentDescription,
-                    tint = if (listening) AppTheme.colors.onPrimaryAction else AppTheme.colors.primaryAction,
-                    modifier = Modifier.size(36.dp)
-                )
+                if (processing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clearAndSetSemantics { },
+                        color = AppTheme.colors.primaryAction,
+                        strokeWidth = 3.dp,
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (listening) AppTheme.colors.onPrimaryAction else AppTheme.colors.primaryAction,
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
             }
         }
     }

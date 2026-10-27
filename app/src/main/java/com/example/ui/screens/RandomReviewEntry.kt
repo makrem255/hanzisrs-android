@@ -125,7 +125,7 @@ fun RandomReviewEntry(
                 .background(AppTheme.colors.primaryAction),
         )
 
-        Spacer(Modifier.height(Dimens.xl))
+        Spacer(Modifier.height(Dimens.md))
 
         // The learner's own words rolling past - a preview of what the wheel can land on, and
         // proof before a single tap that this mode only ever asks about their library.
@@ -134,7 +134,7 @@ fun RandomReviewEntry(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(Dimens.xxl))
+        Spacer(Modifier.height(Dimens.lg))
 
         PrimaryButton(
             text = "START",
@@ -145,6 +145,8 @@ fun RandomReviewEntry(
                 .fillMaxWidth()
                 .testTag("random_review_start"),
         )
+
+        Spacer(Modifier.height(Dimens.xs))
 
         IconButton(
             onClick = { showHelp = true },
@@ -159,8 +161,6 @@ fun RandomReviewEntry(
                 modifier = Modifier.size(26.dp),
             )
         }
-
-        Spacer(Modifier.height(Dimens.md))
 
         when {
             !wordsLoaded -> Text(

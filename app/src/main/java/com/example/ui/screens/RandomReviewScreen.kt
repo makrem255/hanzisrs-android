@@ -596,7 +596,7 @@ private fun WordPhase(
         )
     }
 
-    Spacer(Modifier.height(Dimens.xl))
+    Spacer(Modifier.height(Dimens.md))
 
     if (!helpOpen) {
         DuelControls(

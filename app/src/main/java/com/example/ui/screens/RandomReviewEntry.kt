@@ -99,7 +99,7 @@ fun RandomReviewEntry(
             .fillMaxWidth()
             .fillMaxHeight(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(Dimens.lg),
     ) {
         Text(
             text = "Random Review",

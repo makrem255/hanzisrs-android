@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.AlertDialog
@@ -421,7 +422,7 @@ fun SelectionAnimation(
             shadowElevation = if (AppTheme.colors.background == Color.Black) 0.dp else 4.dp,
             modifier = Modifier
                 .fillMaxWidth(0.85f)
-                .heightIn(min = 200.dp, max = 280.dp),
+                .heightIn(min = 240.dp, max = 280.dp),
         ) {
             Column(
                 modifier = Modifier
@@ -439,10 +440,24 @@ fun SelectionAnimation(
             ),
             label = "framePulseAlpha",
         )
+        // The pointer: a fixed marker showing where the word will land. It sits
+        // above the wheel and never moves - only the wheel's content changes
+        // beneath it - so the eye has one still thing to hold on to while the
+        // words blur past. Blue on the card surface reads in both themes.
+        Icon(
+            imageVector = Icons.Default.ArrowDropDown,
+            contentDescription = "Selecting a word",
+            tint = AppTheme.colors.primaryAction,
+            modifier = Modifier
+                .size(28.dp)
+                .testTag("random_review_pointer"),
+        )
+        Spacer(Modifier.height(Dimens.md))
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.72f)
                 .height(160.dp)
+                .testTag("random_review_wheel")
                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
                 .background(background)
                 .border(

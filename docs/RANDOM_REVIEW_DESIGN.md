@@ -2,7 +2,7 @@
 
 **Status:** D1 — Design specification (documentation only, no code changes)
 **Applies to:** Random Review feature (Practice) in the HanziSRS Android app
-**Date:** 2026-10-23
+**Date:** 2026-10-23 (D2.15 refresh: 2026-11-10 — stale issue entries updated to match the implemented code)
 **Baseline commit:** `904162460c670e51ea2b8e7013f3fcd30694d4df`
 
 This document defines the shared visual contract for all future Random Review UI tasks (D2–D6). Every implementation task must reference this specification. Deviations require explicit approval.
@@ -116,7 +116,7 @@ All typography is defined in `Type.kt`. Random Review uses these existing styles
 | TopAppBar title | `titleLarge` | 19sp | SemiBold | `textPrimary` | "Random Review". |
 | TopAppBar subtitle | `labelSmall` | 11sp | Medium | `textSecondary` | "Word N · practice only, nothing scheduled". |
 | Exit dialog title | `titleLarge` | 19sp | SemiBold | `textPrimary` | "Exit Random Review?" |
-| Mic button icon | 36dp (icon size) | — | — | `primaryAction` / `onPrimaryAction` | Inside 96dp circle. |
+| Mic button icon | 36dp (icon size) | — | — | `primaryAction` / `onPrimaryAction` | Inside 96dp circle. Replaced by a 36dp `CircularProgressIndicator` while processing. |
 | Recognised badge | 56dp (IconBadge size) | — | — | `success` on `success.copy(alpha = 0.18f)` | CheckCircle icon. |
 
 ### Chinese character prominence rules
@@ -169,6 +169,7 @@ All typography is defined in `Type.kt`. Random Review uses these existing styles
 | Hanzi backdrop circle | 120dp | `Modifier.size(120.dp)` | May clip at 200% font scale; needs `sizeIn(max = 120.dp)` |
 | RecognisedBadge | 56dp | `size = 56.dp` | IconBadge with CircleShape |
 | Icon in mic button | 36dp | `Modifier.size(36.dp)` | Inside 96dp core |
+| Spinner in mic button (processing) | 36dp | `Modifier.size(36.dp)` | Replaces the icon while processing |
 | TopAppBar height | Default (64dp) | Material default | Standard |
 
 ### Spacing principles
@@ -314,6 +315,7 @@ DuelControls
 ├── Status text (bodyMedium, duelStatusColor)
 ├── Spacer (lg)
 ├── AnimatedMicButton (148dp container, 96dp core, CircleShape)
+│   └── while processing: 36dp CircularProgressIndicator replaces the mic icon
 ├── Spacer (md)
 └── Attempt counter (labelSmall, textSecondary)
 ```
@@ -321,7 +323,7 @@ DuelControls
 **Visual dominance:** Mic button is the primary action (large, centered, elevated). Status text is secondary (above). Attempt counter is tertiary (below).
 
 **Issues:**
-- The mic button has no visual distinction for "processing" state (looks same as idle).
+- ✅ RESOLVED: The mic button now has visual distinction for processing state via AnimatedMicButton.
 - The listening ripple rings could be more prominent.
 - The status text above the mic could be closer to the button.
 
@@ -373,7 +375,7 @@ WordCard (revealed = true)
 | Selection wheel deceleration | Communicate the random draw | 3.2s (full) / 1.5s (short) | Linear ramp (schedule-based) | `RandomReviewEntry:SelectionAnimation` | — |
 | Wheel frame pulse | Draw attention to the selection slot | 1.6s (infinite, reverse) | LinearEasing | `RandomReviewEntry:SelectionAnimation` | During idle/entry |
 | Wheel word transition | Show each candidate word | 110ms fade | tween(110) | `SelectionAnimation:AnimatedContent` | — |
-| Mic idle pulse | Invite the first tap | 1.4s (infinite, reverse) | LinearEasing | `AnimatedMicButton` | When listening or disabled |
+| Mic idle pulse | Invite the first tap | 1.4s (infinite, reverse) | LinearEasing | `AnimatedMicButton` | When listening, processing, or disabled |
 | Mic listening ripple | Show that the mic is active | 1.8s (infinite) | LinearEasing | `RippleRings` | When not listening |
 | Mic scale on listen | Tactile feedback on tap | Spring (damping 0.6, stiffness 220) | Spring | `AnimatedMicButton` | — |
 | Hanzi color on attempt | Show correct/wrong verdict | 180ms | tween(180) | `WordPhase:hanziColor` | — |
@@ -411,6 +413,7 @@ WordCard (revealed = true)
 | HSK badge | `learningFocus` text on `learningFocus.copy(0.14f)` bg | Same tokens, dark values | Pill-shaped |
 | Mic button (idle) | `primaryActionContainer` (`#DCEBFF`) bg, `primaryAction` (`#1D6FD8`) icon | `primaryActionContainer` (`#1E3A5F`) bg, `primaryAction` (`#60A5FA`) icon | Elevated (6dp shadow in light, 0 in dark) |
 | Mic button (listening) | `primaryAction` fill, `onPrimaryAction` icon | Same | No shadow |
+| Mic button (processing) | `elevated` bg, `textSecondary` border, `primaryAction` spinner | Same tokens, dark values | No shadow. The mic icon is replaced by a 36dp `CircularProgressIndicator` |
 | RecognisedBadge | `success` icon on `success.copy(0.18f)` bg | Same tokens, dark values | 56dp |
 | Status text (correct) | `success` | `success` | Green |
 | Status text (different/failed) | `textPrimary` | `textPrimary` | High contrast |
@@ -478,7 +481,7 @@ WordCard (revealed = true)
 6. **Buttons:** `PrimaryButton` and `SecondaryButton` use fixed heights (`Dimens.buttonHeight = 54dp`). At 200% font scale, text may overflow the button. **Mitigation:** Use `Modifier.heightIn(min = 54.dp)` instead of fixed height, or add `contentPadding` to accommodate larger text.
 
 ### Screen-reader and accessibility requirements
-1. **Mic button:** Must announce its current state (idle/listening/processing) via `contentDescription` or `semantics`. Currently always says "Say the word out loud." **Proposal:** Change to "Say the word out loud" (idle), "Listening" (listening), "Processing" (processing).
+1. **Mic button:** Must announce its current state (idle/listening/processing) via `contentDescription` or `semantics`. ✅ RESOLVED: The mic button now provides state-aware contentDescription (e.g., "Processing speech", "Listening", "Say the word out loud").
 2. **Wheel frame:** Should announce "Selecting a word" when spinning. Currently no semantics.
 3. **Word card:** The hanzi should have `contentDescription = "Chinese character: $hanzi"`. Currently `contentDescription = null` (decorative, since the text is visible). For screen readers, the visible text is automatically read, so this is OK.
 4. **Recognised badge:** Has `contentDescription = "Recognised"`. OK.
@@ -488,7 +491,7 @@ WordCard (revealed = true)
 
 ### Reduced-motion proposal (not implemented)
 The app has no global reduced-motion setting. **Proposal:** Add `UiPreferencesStore.reducedMotion: Boolean` (default: follow system `Settings.Global.ANIMATOR_DURATION_SCALE`). If enabled:
-- Disable infinite animations: mic idle pulse, wheel frame pulse, VocabStrip marquee, wheel ripple rings.
+- Disable infinite animations: mic idle pulse, mic progress spinner, wheel frame pulse, VocabStrip marquee, wheel ripple rings.
 - Reduce transition durations to 0ms: word card entrance, answer reveal, hanzi color change.
 - Keep the wheel spin (it's the core interaction) but reduce to 1 step (instant selection).
 
@@ -560,7 +563,7 @@ This requires:
 | `AnswerLine` (Example) | `WordCard` | Tertiary | `textSecondary` | Follows theme |
 | `CardRule` | `WordCard` | Divider | `borderSubtle` | Follows theme |
 | `MetaChip` | `WordCard` (not currently used) | Tertiary | `elevated`, `textSecondary` | Follows theme |
-| `AnimatedMicButton` | `DuelControls` | **Primary action** | `primaryActionContainer`, `primaryAction`, `onPrimaryAction` | Follows theme |
+| `AnimatedMicButton` | `DuelControls` | **Primary action** | `primaryActionContainer`, `primaryAction`, `onPrimaryAction`, `elevated` (processing) | Follows theme |
 | `RippleRings` | `AnimatedMicButton` | Visual feedback | `tint` (primaryAction) | Follows theme |
 | `RecognisedBadge` | `DuelControls` | Feedback | `success` | Follows theme |
 | Status text | `DuelControls` | Secondary | `success`/`textPrimary`/`textSecondary` | Follows theme |
@@ -578,7 +581,7 @@ This requires:
 
 ### Reduced-motion proposal (for D10)
 If `UiPreferencesStore.reducedMotion` is enabled:
-- Disable: mic idle pulse, wheel frame pulse, VocabStrip marquee, wheel ripple rings
+- Disable: mic idle pulse, mic progress spinner, wheel frame pulse, VocabStrip marquee, wheel ripple rings
 - Reduce to 0ms: word card entrance, answer reveal, hanzi color change, mic scale
 - Keep: wheel spin (core interaction) but reduce to minimum steps (1 step = instant)
 - Keep: correct-answer hold (500ms) — this is functional, not decorative

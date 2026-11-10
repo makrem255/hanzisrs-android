@@ -20,6 +20,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -64,6 +66,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isFinite
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.audio.PronunciationButton
@@ -369,100 +372,118 @@ fun RandomReviewScreen(
         },
         containerColor = AppTheme.colors.background,
     ) { padding ->
-        Column(
+        // The viewport height is only knowable here, before the scroll modifier hands the
+        // content an unbounded height constraint. Inside the scroll, `maxHeight` is Infinity,
+        // so the Entry content has to be given its minimum height from out here.
+        BoxWithConstraints(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .testTag("random_review_screen")
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.screenH, vertical = Dimens.lg),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxSize(),
         ) {
-            when {
-                libraryError != null -> {
-                    ErrorState(message = libraryError ?: "")
-                    Spacer(Modifier.height(Dimens.lg))
-                    SecondaryButton(text = "Go back", onClick = onNavigateBack)
-                }
+            // The scroll container's own vertical padding (Dimens.lg above and below) is
+            // subtracted here, once, so the Entry content can fill exactly what the learner
+            // can actually see without the padding counting twice.
+            val availableContentHeight = if (maxHeight.isFinite) {
+                (maxHeight - Dimens.lg * 2).coerceAtLeast(0.dp)
+            } else {
+                0.dp
+            }
 
-                phase == ReviewPhase.Entry -> RandomReviewEntry(
-                    words = words,
-                    wordsLoaded = wordsLoaded,
-                    onStart = {
-                        // Rechecked at press time, never trusted from composition: the library
-                        // may have changed while this screen sat open.
-                        if (!meetsReviewMinimum(words)) {
-                            haptics.lightTick()
-                            return@RandomReviewEntry
-                        }
-                        phase = ReviewPhase.Selecting
-                        selectionFull = true
-                        viewModel.requestSelection()
-                        viewModel.playSound(UiSound.Start)
-                    },
-                    onAddWords = onNavigateToAddWord,
-                )
-
-                phase == ReviewPhase.Selecting -> {
-                    val draw = pending
-                    if (draw == null) {
-                        LoadingState(label = "Choosing…")
-                    } else {
-                        // Frozen the moment the draw lands: deletions mid-spin cannot move the
-                        // target or empty the preview under the animation.
-                        val wheelPool = remember(draw) {
-                            selectionPool(words).map { it.word.hanzi }.ifEmpty {
-                                listOf(draw.word.word.hanzi)
-                            }
-                        }
-                        val (totalMs, steps) = if (selectionFull) {
-                            SELECTION_FULL_MS to SELECTION_FULL_STEPS
-                        } else {
-                            SELECTION_SHORT_MS to SELECTION_SHORT_STEPS
-                        }
-                        SelectionAnimation(
-                            poolHanzis = wheelPool,
-                            totalMs = totalMs,
-                            steps = steps,
-                            onTick = { viewModel.playSound(UiSound.Tick) },
-                            onFinish = {
-                                viewModel.confirmSelection()
-                                viewModel.playSound(UiSound.NewWord)
-                                phase = ReviewPhase.Word
-                            },
-                        )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("random_review_screen")
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = Dimens.screenH, vertical = Dimens.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                when {
+                    libraryError != null -> {
+                        ErrorState(message = libraryError ?: "")
+                        Spacer(Modifier.height(Dimens.lg))
+                        SecondaryButton(text = "Go back", onClick = onNavigateBack)
                     }
-                }
 
-                else -> {
-                    val current = showing
-                    if (current == null) {
-                        // The session went away under us (signed out elsewhere, process
-                        // restored): the doorway is the only honest place to be.
-                        phase = ReviewPhase.Entry
-                    } else {
-                        WordPhase(
-                            showing = current,
-                            helpOpen = helpOpen,
-                            feedback = feedback,
-                            recognition = recognition,
-                            permissionNotice = permissionNotice,
-                            showMicRationale = showMicRationale,
-                            viewModel = viewModel,
-                            onListen = ::tryListening,
-                            onConfirmRationale = {
-                                showMicRationale = false
-                                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            },
-                            onDismissRationale = { showMicRationale = false },
-                            onNext = {
+                    phase == ReviewPhase.Entry -> RandomReviewEntry(
+                        words = words,
+                        wordsLoaded = wordsLoaded,
+                        modifier = Modifier.heightIn(min = availableContentHeight),
+                        onStart = {
+                            // Rechecked at press time, never trusted from composition: the library
+                            // may have changed while this screen sat open.
+                            if (!meetsReviewMinimum(words)) {
                                 haptics.lightTick()
-                                feedback = AttemptFeedback.None
-                                phase = ReviewPhase.Selecting
-                                selectionFull = false
-                                viewModel.requestSelection()
-                            },
-                        )
+                                return@RandomReviewEntry
+                            }
+                            phase = ReviewPhase.Selecting
+                            selectionFull = true
+                            viewModel.requestSelection()
+                            viewModel.playSound(UiSound.Start)
+                        },
+                        onAddWords = onNavigateToAddWord,
+                    )
+
+                    phase == ReviewPhase.Selecting -> {
+                        val draw = pending
+                        if (draw == null) {
+                            LoadingState(label = "Choosing…")
+                        } else {
+                            // Frozen the moment the draw lands: deletions mid-spin cannot move the
+                            // target or empty the preview under the animation.
+                            val wheelPool = remember(draw) {
+                                selectionPool(words).map { it.word.hanzi }.ifEmpty {
+                                    listOf(draw.word.word.hanzi)
+                                }
+                            }
+                            val (totalMs, steps) = if (selectionFull) {
+                                SELECTION_FULL_MS to SELECTION_FULL_STEPS
+                            } else {
+                                SELECTION_SHORT_MS to SELECTION_SHORT_STEPS
+                            }
+                            SelectionAnimation(
+                                poolHanzis = wheelPool,
+                                totalMs = totalMs,
+                                steps = steps,
+                                onTick = { viewModel.playSound(UiSound.Tick) },
+                                onFinish = {
+                                    viewModel.confirmSelection()
+                                    viewModel.playSound(UiSound.NewWord)
+                                    phase = ReviewPhase.Word
+                                },
+                            )
+                        }
+                    }
+
+                    else -> {
+                        val current = showing
+                        if (current == null) {
+                            // The session went away under us (signed out elsewhere, process
+                            // restored): the doorway is the only honest place to be.
+                            phase = ReviewPhase.Entry
+                        } else {
+                            WordPhase(
+                                showing = current,
+                                helpOpen = helpOpen,
+                                feedback = feedback,
+                                recognition = recognition,
+                                permissionNotice = permissionNotice,
+                                showMicRationale = showMicRationale,
+                                viewModel = viewModel,
+                                onListen = ::tryListening,
+                                onConfirmRationale = {
+                                    showMicRationale = false
+                                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                },
+                                onDismissRationale = { showMicRationale = false },
+                                onNext = {
+                                    haptics.lightTick()
+                                    feedback = AttemptFeedback.None
+                                    phase = ReviewPhase.Selecting
+                                    selectionFull = false
+                                    viewModel.requestSelection()
+                                },
+                            )
+                        }
                     }
                 }
             }

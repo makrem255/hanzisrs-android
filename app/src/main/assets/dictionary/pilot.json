@@ -4059,6 +4059,406 @@
       "pn": "ji1 dan4",
       "m": "(chicken) egg; hen's egg; CL:個|个[ge4],打[da2]",
       "l": 1
+    },
+    {
+      "h": "帮助",
+      "t": "幫助",
+      "p": "bāngzhù",
+      "pn": "bang1 zhu4",
+      "m": "assistance; aid; to help; to assist",
+      "l": 2
+    },
+    {
+      "h": "参加",
+      "t": "參加",
+      "p": "cānjiā",
+      "pn": "can1 jia1",
+      "m": "to participate; to take part; to join",
+      "l": 2
+    },
+    {
+      "h": "参观",
+      "t": "參觀",
+      "p": "cānguān",
+      "pn": "can1 guan1",
+      "m": "to visit (a place, e.g. museum or factory); to tour; to l...",
+      "l": 2
+    },
+    {
+      "h": "出现",
+      "t": "出現",
+      "p": "chūxiàn",
+      "pn": "chu1 xian4",
+      "m": "to appear; to arise; to emerge; to show up",
+      "l": 2
+    },
+    {
+      "h": "出发",
+      "t": "出發",
+      "p": "chūfā",
+      "pn": "chu1 fa1",
+      "m": "to set off; to start (on a journey); (fig.) to proceed from (a particular standpoint or basis)",
+      "l": 2
+    },
+    {
+      "h": "出生",
+      "t": "出生",
+      "p": "chūshēng",
+      "pn": "chu1 sheng1",
+      "m": "to be born",
+      "l": 2
+    },
+    {
+      "h": "成为",
+      "t": "成為",
+      "p": "chéngwéi",
+      "pn": "cheng2 wei2",
+      "m": "to become; to turn into",
+      "l": 2
+    },
+    {
+      "h": "变成",
+      "t": "變成",
+      "p": "biànchéng",
+      "pn": "bian4 cheng2",
+      "m": "to change into; to turn into; to become",
+      "l": 2
+    },
+    {
+      "h": "超过",
+      "t": "超過",
+      "p": "chāoguò",
+      "pn": "chao1 guo4",
+      "m": "to surpass; to exceed; to outstrip",
+      "l": 2
+    },
+    {
+      "h": "重复",
+      "t": "重複",
+      "p": "chóngfù",
+      "pn": "chong2 fu4",
+      "m": "to repeat; to duplicate; CL:個|个[ge4]",
+      "l": 2
+    },
+    {
+      "h": "重新",
+      "t": "重新",
+      "p": "chóngxīn",
+      "pn": "chong2 xin1",
+      "m": "again; once more; re-",
+      "l": 2
+    },
+    {
+      "h": "出租",
+      "t": "出租",
+      "p": "chūzū",
+      "pn": "chu1 zu1",
+      "m": "to rent",
+      "l": 2
+    },
+    {
+      "h": "打算",
+      "t": "打算",
+      "p": "dǎsuàn",
+      "pn": "da3 suan4",
+      "m": "to plan; to intend; to calculate; plan",
+      "l": 2
+    },
+    {
+      "h": "等于",
+      "t": "等於",
+      "p": "děngyú",
+      "pn": "deng3 yu2",
+      "m": "to equal; to be tantamount to",
+      "l": 2
+    },
+    {
+      "h": "懂",
+      "t": "懂",
+      "p": "dǒng",
+      "pn": "dong3",
+      "m": "to understand; to comprehend",
+      "l": 2
+    },
+    {
+      "h": "练",
+      "t": "練",
+      "p": "liàn",
+      "pn": "lian4",
+      "m": "to practice; to train; to drill; to perfect (one's skill)",
+      "l": 2
+    },
+    {
+      "h": "爱情",
+      "t": "愛情",
+      "p": "àiqíng",
+      "pn": "ai4 qing2",
+      "m": "romance; love (romantic); CL:份[fen4]",
+      "l": 2
+    },
+    {
+      "h": "办公室",
+      "t": "辦公室",
+      "p": "bàngōngshì",
+      "pn": "ban4 gong1 shi4",
+      "m": "office; business premises",
+      "l": 2
+    },
+    {
+      "h": "办法",
+      "t": "辦法",
+      "p": "bànfǎ",
+      "pn": "ban4 fa3",
+      "m": "way of handling sth; means; measure; (practical) solution...; CL:條|条[tiao2]",
+      "l": 2
+    },
+    {
+      "h": "报纸",
+      "t": "報紙",
+      "p": "bàozhǐ",
+      "pn": "bao4 zhi3",
+      "m": "newspaper; newsprint; CL:份[fen4],期[qi1],張|张[zhang1]",
+      "l": 2
+    },
+    {
+      "h": "北方",
+      "t": "北方",
+      "p": "běifāng",
+      "pn": "bei3 fang1",
+      "m": "north; the northern part a country; China north of the Yellow River",
+      "l": 2
+    },
+    {
+      "h": "笔记本",
+      "t": "筆記本",
+      "p": "bǐjìběn",
+      "pn": "bi3 ji4 ben3",
+      "m": "notebook (stationery) (CL:本[ben3]); (computing) laptop; notebook (abbr. for 筆記本電腦|笔记本电脑[bi3 j...",
+      "l": 2
+    },
+    {
+      "h": "部分",
+      "t": "部分",
+      "p": "bùfen",
+      "pn": "bu4 fen5",
+      "m": "part; portion; piece; Taiwan pr. [bu4fen4]",
+      "l": 2
+    },
+    {
+      "h": "菜单",
+      "t": "菜單",
+      "p": "càidān",
+      "pn": "cai4 dan1",
+      "m": "menu; CL:份[fen4],張|张[zhang1]",
+      "l": 2
+    },
+    {
+      "h": "草地",
+      "t": "草地",
+      "p": "cǎodì",
+      "pn": "cao3 di4",
+      "m": "lawn; meadow; sod; turf",
+      "l": 2
+    },
+    {
+      "h": "成绩",
+      "t": "成績",
+      "p": "chéngjì",
+      "pn": "cheng2 ji4",
+      "m": "achievement; performance records; grades; CL:項|项[xiang4],個|个[ge4]",
+      "l": 2
+    },
+    {
+      "h": "超市",
+      "t": "超市",
+      "p": "chāoshì",
+      "pn": "chao1 shi4",
+      "m": "supermarket (abbr. for 超級市場|超级市场[chao1 ji2 shi4 chang3]); CL:家[jia1]",
+      "l": 2
+    },
+    {
+      "h": "车辆",
+      "t": "車輛",
+      "p": "chēliàng",
+      "pn": "che1 liang4",
+      "m": "vehicle",
+      "l": 2
+    },
+    {
+      "h": "春天",
+      "t": "春天",
+      "p": "chūntiān",
+      "pn": "chun1 tian1",
+      "m": "spring (season); CL:個|个[ge4]",
+      "l": 2
+    },
+    {
+      "h": "同事",
+      "t": "同事",
+      "p": "tóngshì",
+      "pn": "tong2 shi4",
+      "m": "colleague; co-worker",
+      "l": 2
+    },
+    {
+      "h": "灯",
+      "t": "燈",
+      "p": "dēng",
+      "pn": "deng1",
+      "m": "lamp; light; lantern; CL:盞|盏[zhan3]",
+      "l": 2
+    },
+    {
+      "h": "瓶",
+      "t": "瓶",
+      "p": "píng",
+      "pn": "ping2",
+      "m": "bottle; vase; pitcher; CL:個|个[ge4]",
+      "l": 2
+    },
+    {
+      "h": "鞋",
+      "t": "鞋",
+      "p": "xié",
+      "pn": "xie2",
+      "m": "shoe; CL:雙|双[shuang1],隻|只[zhi1]",
+      "l": 2
+    },
+    {
+      "h": "纸",
+      "t": "紙",
+      "p": "zhǐ",
+      "pn": "zhi3",
+      "m": "paper (CL:張|张[zhang1],沓[da2]); classifier for documents, letters etc",
+      "l": 2
+    },
+    {
+      "h": "安静",
+      "t": "安靜",
+      "p": "ānjìng",
+      "pn": "an1 jing4",
+      "m": "quiet; peaceful; calm",
+      "l": 2
+    },
+    {
+      "h": "安全",
+      "t": "安全",
+      "p": "ānquán",
+      "pn": "an1 quan2",
+      "m": "safe; secure; safety; security",
+      "l": 2
+    },
+    {
+      "h": "必须",
+      "t": "必須",
+      "p": "bìxū",
+      "pn": "bi4 xu1",
+      "m": "must; to have to",
+      "l": 2
+    },
+    {
+      "h": "不错",
+      "t": "不錯",
+      "p": "bùcuò",
+      "pn": "bu4 cuo4",
+      "m": "correct; right; not bad; pretty good",
+      "l": 2
+    },
+    {
+      "h": "不但",
+      "t": "不但",
+      "p": "bùdàn",
+      "pn": "bu4 dan4",
+      "m": "not only (... but also ...)",
+      "l": 2
+    },
+    {
+      "h": "不够",
+      "t": "不夠",
+      "p": "bùgòu",
+      "pn": "bu4 gou4",
+      "m": "not enough; insufficient; inadequate",
+      "l": 2
+    },
+    {
+      "h": "不过",
+      "t": "不過",
+      "p": "bùguò",
+      "pn": "bu4 guo4",
+      "m": "only; merely; no more than; but",
+      "l": 2
+    },
+    {
+      "h": "不要",
+      "t": "不要",
+      "p": "bùyào",
+      "pn": "bu4 yao4",
+      "m": "don't!; must not",
+      "l": 2
+    },
+    {
+      "h": "不好意思",
+      "t": "不好意思",
+      "p": "bùhǎoyìsi",
+      "pn": "bu4 hao3 yi4 si5",
+      "m": "to feel embarrassed; to find it embarrassing; to be sorry (for inconveniencing sb)",
+      "l": 2
+    },
+    {
+      "h": "不久",
+      "t": "不久",
+      "p": "bùjiǔ",
+      "pn": "bu4 jiu3",
+      "m": "not long (after); before too long; soon; soon after",
+      "l": 2
+    },
+    {
+      "h": "不同",
+      "t": "不同",
+      "p": "bùtóng",
+      "pn": "bu4 tong2",
+      "m": "different; distinct; not the same; not alike",
+      "l": 2
+    },
+    {
+      "h": "普通",
+      "t": "普通",
+      "p": "pǔtōng",
+      "pn": "pu3 tong1",
+      "m": "common; ordinary; general; average",
+      "l": 2
+    },
+    {
+      "h": "特别",
+      "t": "特別",
+      "p": "tèbié",
+      "pn": "te4 bie2",
+      "m": "unusual; special; very; especially; particularly; expressly; for a specific purpose; (often followed by 是[shi4]) in particular",
+      "l": 2
+    },
+    {
+      "h": "可能",
+      "t": "可能",
+      "p": "kěnéng",
+      "pn": "ke3 neng2",
+      "m": "might (happen); possible; probable; possibility",
+      "l": 2
+    },
+    {
+      "h": "直接",
+      "t": "直接",
+      "p": "zhíjiē",
+      "pn": "zhi2 jie1",
+      "m": "directly; direct",
+      "l": 2
+    },
+    {
+      "h": "虽然",
+      "t": "雖然",
+      "p": "suīrán",
+      "pn": "sui1 ran2",
+      "m": "although; even though (often used correlatively with 可是[k...",
+      "l": 2
     }
   ]
 }

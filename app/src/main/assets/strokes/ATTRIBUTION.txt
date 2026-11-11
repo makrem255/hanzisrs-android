@@ -1,0 +1,14 @@
+Stroke geometry
+===============
+Source: MakeMeAHanzi (https://github.com/skishore/makemeahanzi)
+
+The stroke path data and the stroke medians in this directory are taken from
+MakeMeAHanzi's graphics.txt. Each file is named for the character's Unicode
+codepoint and holds the strokes and medians for that one character, in
+writing order.
+
+MakeMeAHanzi's graphics are themselves derived from the Arphic PL KaitiM GB
+and Arphic PL UKai fonts. The Arphic Public License governing those graphics
+is included in this directory as ARPHICPL.TXT.
+
+Coverage: 21 characters.

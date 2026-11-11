@@ -11,16 +11,17 @@ HSK 3.0 vocabulary is derived from the PRC Ministry of Education HSK 3.0 word li
 This dictionary data is included as a bundled asset. It is distributed under
 CC BY-SA 4.0. The application code is licensed separately.
 
-Dictionary: 507 HSK 1 words from CC-CEDICT, cross-referenced with HSK 3.0
-word list (ivankra/hsk30, MIT license) for HSK level tagging.
+Dictionary: 557 words from CC-CEDICT, cross-referenced with HSK 3.0
+word list (ivankra/hsk30, MIT license) for HSK level tagging:
+507 HSK 1 words and 50 HSK 2 words.
 
 Transformations applied:
-- Filtered to HSK 1 words (507 entries, 506 matched with CC-CEDICT definitions)
+- Filtered to HSK 1 and HSK 2 words (557 entries, 557 matched with CC-CEDICT definitions)
 - Numbered pinyin (e.g., "ma1 ma5") converted to tone-marked pinyin (e.g., "mama")
 - Spaces removed between syllables to match app display convention
 - Uppercase initials normalized to lowercase
 - Definitions: "/" separators replaced with "; ", truncated to 60 chars per definition
-- HSK level taken from HSK 3.0 word list (level 1)
+- HSK level taken from HSK 3.0 word list (level 1 or 2)
 - No radical, stroke, example, or verification data added (left empty/unknown)
 
 Source version: 2026-10-19 05:01:26 GMT (125,301 entries)

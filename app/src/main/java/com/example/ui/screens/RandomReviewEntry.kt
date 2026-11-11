@@ -432,8 +432,8 @@ fun SelectionAnimation(
                 verticalArrangement = Arrangement.Center,
             ) {
                 val framePulse by rememberInfiniteTransition(label = "framePulse").animateFloat(
-            initialValue = 0.25f,
-            targetValue = 0.55f,
+            initialValue = 0.30f,
+            targetValue = 0.70f,
             animationSpec = infiniteRepeatable(
                 animation = tween(1600, easing = LinearEasing),
                 repeatMode = RepeatMode.Reverse,
@@ -461,8 +461,10 @@ fun SelectionAnimation(
                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
                 .background(background)
                 .border(
+                    // Blue, not textPrimary: the wheel interior is dark in BOTH
+                    // themes, so a near-black border vanished against it in light.
                     width = 2.dp,
-                    color = AppTheme.colors.textPrimary.copy(alpha = framePulse),
+                    color = AppTheme.colors.primaryAction.copy(alpha = framePulse),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                 ),
             contentAlignment = Alignment.Center,

@@ -24,5 +24,9 @@ Transformations applied:
 - HSK level taken from HSK 3.0 word list (level 1 or 2)
 - No radical, stroke, example, or verification data added (left empty/unknown)
 
-Source version: 2026-10-19 05:01:26 GMT (125,301 entries)
-Entries verified: 2026-10-19 via automated import from CC-CEDICT + HSK 3.0
+Source version (HSK 1 batch, 507 entries): 2026-10-19 05:01:26 GMT (125,301 entries)
+Source version (HSK 2 batch, 50 entries): 2026-11-11, from the same CC-CEDICT and
+HSK 3.0 sources. The CC-CEDICT snapshot version used for this batch was not recorded.
+The "version" field in pilot.json records 2026-10-19, the HSK 1 import date.
+Entries verified: each batch by automated import from CC-CEDICT + HSK 3.0, on
+2026-10-19 (HSK 1 batch) and 2026-11-11 (HSK 2 batch).

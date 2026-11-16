@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege. This workflow only ever reads the repository: it never needs write
+# access, and it never needs a secret of any kind.
+permissions:
+  contents: read
+
+# One run per ref. A superseded pull-request run is cancelled so a stale push does not
+# keep burning minutes. A push to main is never cancelled, so the record of what main
+# actually built is kept.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  android:
+    name: Android unit tests and debug assemble
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # The local build runs on Android Studio's JBR, which is OpenJDK 25. Pinning the
+          # same major version here keeps CI on the toolchain the project is actually
+          # developed against, rather than a different JDK nobody has tested it with.
+          # `compileOptions` targets Java 11 bytecode, well below this.
+          java-version: '25'
+          cache: gradle
+          cache-dependency-path: |
+            **/*.gradle.kts
+            gradle/libs.versions.toml
+            gradle/wrapper/gradle-wrapper.properties
+
+      - name: Make the Gradle wrapper executable
+        # gradlew is tracked with mode 100644, so after a fresh checkout it is not
+        # executable and `./gradlew` would fail with "Permission denied".
+        run: chmod +x gradlew
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept the Android SDK licenses
+        # Without accepted licenses the SDK manager cannot install anything, and the
+        # Android Gradle plugin cannot download the platform it needs.
+        run: yes | sdkmanager --licenses > /dev/null || true
+
+      - name: Install the Android SDK packages the build needs
+        # `compileSdk` is `release(36) { minorApiLevel = 1 }`, which resolves to the
+        # `platforms;android-36.1` platform. The exact package id for a minor-version
+        # platform is not something to guess at, so this step is tolerant: if it cannot
+        # find the platform, the Android Gradle plugin downloads precisely what it needs
+        # during the build instead.
+        run: |
+          sdkmanager "build-tools;36.0.0" "platform-tools" || true
+          sdkmanager "platforms;android-36.1" || true
+
+      - name: Assert the build does not depend on app/google-services.json
+        # The config file is gitignored, so CI has no copy and never will. If it ever
+        # appears here, the build is no longer the build this workflow is meant to prove.
+        run: |
+          set -euo pipefail
+          if [ -e app/google-services.json ]; then
+            echo "::error::app/google-services.json must not exist in CI. The build has to work without it."
+            exit 1
+          fi
+          echo "app/google-services.json is absent, as intended."
+
+      - name: Run the unit tests and the debug assemble
+        env:
+          # The build redirects its output directory outside the repository. Pinning it
+          # here is what makes the report paths below knowable in advance.
+          HZB_BUILD_DIR: ${{ runner.temp }}/hanzisrs-build
+        # --no-daemon is deliberate: a single-use daemon avoids the daemon startup and
+        # registry path that stalled a local run for forty minutes, and CI is
+        # single-use anyway. --max-workers=2 keeps the forked test workers within the
+        # runner's memory, which the 4g heap in gradle.properties expects.
+        run: ./gradlew :app:testDebugUnitTest :app:assembleDebug --no-daemon --max-workers=2
+
+      - name: Assert the debug APK was produced without the config file
+        env:
+          HZB_BUILD_DIR: ${{ runner.temp }}/hanzisrs-build
+        run: |
+          set -euo pipefail
+          test -f "$HZB_BUILD_DIR/app/outputs/apk/debug/app-debug.apk"
+          if [ -d "$HZB_BUILD_DIR/app/generated/res/processDebugGoogleServices" ]; then
+            echo "::error::the google-services plugin ran, so the build is not independent of the config file."
+            exit 1
+          fi
+          echo "The debug APK was built without app/google-services.json, and the plugin never ran."
+
+      - name: Upload the test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-reports
+          path: |
+            ${{ runner.temp }}/hanzisrs-build/app/test-results/testDebugUnitTest/
+            ${{ runner.temp }}/hanzisrs-build/app/reports/tests/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 7
+
+  backend:
+    name: Backend proxy tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # package.json requires node >=20; this pins the version the backend is
+          # actually developed and tested against locally.
+          node-version: '24'
+
+      - name: Assert no credential is present
+        # The backend tests supply their own TEST_KEY fixture and stub the HTTP layer,
+        # so nothing here may need a real Gemini key.
+        run: |
+          if [ -n "${GEMINI_API_KEY:-}" ]; then
+            echo "::error::GEMINI_API_KEY must not be set in CI. The backend tests use their own fixture."
+            exit 1
+          fi
+          echo "No GEMINI_API_KEY in the environment."
+
+      - name: Run the backend tests
+        run: npm test

@@ -1,6 +1,7 @@
 // `java` alone resolves to the Gradle Java extension rather than the package, so the import is
 // what makes `Properties` nameable here.
 import java.util.Properties
+import org.gradle.api.tasks.testing.Test
 
 plugins {
   alias(libs.plugins.android.application)
@@ -261,6 +262,28 @@ dependencies {
 ksp {
   arg("room.schemaLocation", roomSchemaDir)
   arg("room.incremental", "true")
+}
+
+// ---------------------------------------------------------------------------
+// Test task inputs: the backend directory
+// ---------------------------------------------------------------------------
+// `BuildConfigSecretsTest` scans `backend/` for a Google API key literal. That directory is
+// outside every source set, so Gradle had no idea the test depends on it: both the up-to-date
+// check and the build cache treated the test as current when only `backend/` changed, and the
+// guard silently never ran. A key committed to the proxy would have gone unnoticed, in a
+// repository that is public.
+//
+// Declaring the directory as a task input fixes that: a change under `backend/` now invalidates
+// the test task and its cache entry, so the guard actually executes. `configureEach` is lazy, so
+// this costs nothing at configuration time and stays compatible with the configuration cache.
+//
+// The input covers the whole directory, including the gitignored local `backend/.env`. That is
+// deliberate and conservative: the scan ignores `.env`, so a change to it cannot alter the
+// result, but including it means this declaration can never be the reason a real change is
+// missed. The only cost is an occasional unnecessary re-run.
+
+tasks.withType<Test>().configureEach {
+  inputs.dir(rootDir.resolve("backend"))
 }
 
 // ---------------------------------------------------------------------------

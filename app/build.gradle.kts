@@ -9,6 +9,20 @@ plugins {
   alias(libs.plugins.roborazzi)
 }
 
+// Firebase config is optional. app/google-services.json is gitignored (it carries
+// project IDs and a client API key), so a fresh clone has no copy, and applying the
+// google-services plugin unconditionally would break that clone's build. Nothing here
+// uses Firebase at runtime: no Firebase SDK is declared, no source file calls a
+// Firebase API, and the manifest declares no Firebase component. App Distribution is a
+// Play Console service rather than an on-device API, so it needs no SDK, and Analytics
+// is not active because no analytics dependency exists. The plugin only generates
+// string resources, so it runs solely when the config file is present. It stays on the
+// classpath via the root build script's `apply false` declaration.
+val hasGoogleServicesConfig = file("google-services.json").exists()
+if (hasGoogleServicesConfig) {
+  apply(plugin = "com.google.gms.google-services")
+}
+
 // Room writes each schema version to app/schemas as JSON. MigrationTestHelper replays those
 // files to build a real pre-migration database, so this is what makes "the migration preserves
 // the data" a testable claim rather than an assertion in a comment. The location is passed to
@@ -69,7 +83,7 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.hanzisrs.learn"
+    applicationId = "com.hanzisrs.app"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -152,7 +166,7 @@ android {
   // The source set is `debug`, not `test`, and that is not a stylistic choice. A Robolectric
   // unit test has no assets of its own: AGP writes the paths Robolectric uses into
   // intermediates/unit_test_config_directory/.../test_config.properties, and
-  // `android_merged_assets` there points at the *main variant's* mergeDebugAssets. Adding the
+ // `android_merged_assets` there points at the *main variant's* mergeDebugAssets. Adding the
   // directory to the `test` source set therefore has no effect at all — the JSON never reaches
   // the directory Robolectric reads, and the migration test fails with FileNotFoundException
   // before it asserts anything. `debug` is a build type, and build-type assets are merged into
@@ -182,15 +196,26 @@ android {
 // by grepping app/src for each library's package, not by reading the file and assuming.
 //
 // Deliberately absent, having been verified unused: Retrofit, Moshi (+ its KSP processor),
-// OkHttp's logging interceptor, the whole Firebase BOM / AI / App Check stack, Espresso, and
-// compose tooling (there is no `@Preview` in the project). The Gemini call is now a hand-built
-// OkHttp request parsed with `org.json`, sent to our own proxy rather than to Google.
+// OkHttp's logging interceptor, Espresso, and compose tooling (there is no `@Preview` in the
+// project). The Gemini call is now a hand-built OkHttp request parsed with `org.json`, sent to
+// our own proxy rather than to Google.
 //
-// App Check is the notable omission, and it is a real gap rather than an oversight: verifying
-// that a caller is this app is what would stop someone spending the proxy's Gemini quota through
-// a modified client. `backend/README.md` sets that out in full.
+// Firebase is the one exception to "every coordinate below is one something in app/src actually
+// imports". `firebase-bom` is declared, but only as a platform constraint: no `firebase-*`
+// module is requested, so it resolves to zero artifacts. No Firebase SDK is declared, no source
+// file calls a Firebase API, and the manifest declares no Firebase component — so Analytics is
+// not active, and App Distribution (a Play Console upload service) needs no SDK either. The
+// `google-services` plugin is applied only when `app/google-services.json` is present; that file
+// is gitignored, so a fresh clone has no copy and still builds. `firebase-ai`,
+// `firebase-appcheck-recaptcha`, `firebase-auth` and `firebase-firestore` remain absent.
+//
+// App Check is still the notable omission, and it is a real gap rather than an oversight:
+// verifying that a caller is this app is what would stop someone spending the proxy's Gemini
+// quota through a modified client. Declaring the BoM does not close that gap; closing it means
+// adding a Firebase artifact, which is a dedicated task. `backend/README.md` sets it out in full.
 dependencies {
   implementation(platform(libs.androidx.compose.bom))
+  implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
   implementation(libs.androidx.activity.compose)
   // `icons.extended` is required, not incidental: ErrorOutline, VolumeUp, LocalLibrary,
   // FastRewind, FastForward, Undo, Visibility, VisibilityOff, AutoAwesome, Speed, Flip,

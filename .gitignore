@@ -31,6 +31,12 @@ google-services.json
 *.keystore
 keystore.properties
 
+# Release build artifacts staged for distribution (never commit binaries).
+/app/release/
+*.apk
+*.aab
+output-metadata.json
+
 # --- Added: IDE noise ---
 .idea/
 app/.idea/

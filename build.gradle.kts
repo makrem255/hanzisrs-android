@@ -4,7 +4,7 @@ plugins {
   alias(libs.plugins.kotlin.compose) apply false
   alias(libs.plugins.google.devtools.ksp) apply false
   alias(libs.plugins.roborazzi) apply false
-  alias(libs.plugins.google.services) apply false
+  id("com.google.gms.google-services") version "4.6.0" apply false
 }
 
 // This project is stored inside a OneDrive-synced folder. The OneDrive client

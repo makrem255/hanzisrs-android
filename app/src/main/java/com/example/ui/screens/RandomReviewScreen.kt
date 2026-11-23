@@ -798,7 +798,7 @@ private fun HelpControls(
  * pinyin lands, then the meaning, then the example, rather than all four arriving at once.
  */
 @Composable
-private fun WordCard(
+internal fun WordCard(
     entry: com.example.data.review.RandomWordChoice,
     revealed: Boolean,
     hanziColor: Color,
@@ -870,6 +870,13 @@ private fun WordCard(
 
         // The character is the focal point: centred, generous vertical room, and a
         // subtle accent halo behind it so it reads as the thing to look at.
+        //
+        // The halo is a SIBLING of the text, not its parent. A parent sized with
+        // Modifier.size() hands its children tight constraints, so the word used to be
+        // measured inside a fixed 120dp box: one glyph at HanziHero (88sp) fits, but any
+        // longer word wrapped to a second line and the halo's circle clip then cut that
+        // line away - leaving only the first character on screen. As a sibling the halo
+        // keeps its exact 120dp circle while the word lays out at its own width.
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -878,21 +885,24 @@ private fun WordCard(
         ) {
             Box(
                 modifier = Modifier
+                    // Top-aligned so the halo stays exactly where it sat when it was the
+                    // text's parent. The row is now as tall as the word's line box rather
+                    // than as tall as the halo, so centring would drop the circle 14px and
+                    // move it relative to the glyph.
+                    .align(Alignment.TopCenter)
                     .size(120.dp)
                     .clip(androidx.compose.foundation.shape.CircleShape)
                     .background(
                         (if (revealed) AppTheme.colors.success else AppTheme.colors.primaryAction)
                             .copy(alpha = 0.08f)
                     ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = word.hanzi,
-                    style = HanziHero,
-                    color = hanziColor,
-                    textAlign = TextAlign.Center,
-                )
-            }
+            )
+            Text(
+                text = word.hanzi,
+                style = HanziHero,
+                color = hanziColor,
+                textAlign = TextAlign.Center,
+            )
         }
 
         Spacer(Modifier.height(Dimens.lg))
